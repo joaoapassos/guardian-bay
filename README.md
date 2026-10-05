@@ -16,7 +16,7 @@ Acesse http://localhost:3000. O App Router está em `src/app/`.
 
 ## Variáveis de ambiente
 
-Nenhuma variável é obrigatória nesta fase. `.env.example` contém `DATABASE_URL` vazia como preparação para a próxima Task de banco; ela ainda não é consumida nem obrigatória. Não é necessário copiar o template para iniciar o projeto.
+`DATABASE_URL` é obrigatória para operações de banco e comandos Drizzle Kit. O template `.env.example` mantém seu valor vazio. Configure o valor real no ambiente ou em `.env.local` ignorado; rotas sem acesso ao banco continuam funcionando sem ele.
 
 Quando houver configuração real, mantenha `.env.local` e demais arquivos privados na raiz, fora do Git. Somente `.env.example` é permitido para versionamento, sempre sem credenciais reais. Secrets ficam no servidor; nunca use `NEXT_PUBLIC_*` para valores privados nem os envie em props/DTOs ao cliente.
 
@@ -49,6 +49,6 @@ Next.js 16.3.8, React 19.2.8, Tailwind CSS 4 e React Compiler habilitado. TypeSc
 
 Biome 2.4.2 é o único linter/formatter, integrado ao `.gitignore`, com regras recomendadas de React/Next e organização de imports. Enforcement completo de boundaries permanece para trabalho posterior.
 
-Nenhuma dependência de banco, autenticação, formulário, estado client ou dinheiro é necessária nesta fase. As dependências futuras só serão adicionadas com uso concreto.
+PostgreSQL usa Drizzle ORM com Postgres.js; Drizzle Kit e `@next/env` preparam a CLI. Não há tabelas de domínio ou migrations ainda. Consulte o [fluxo de banco e migrations](docs/architecture/README.md#postgresql-e-drizzle-ecmsg-16) antes de executar `npm run db:generate`, `npm run db:migrate` ou `npm run db:studio`. As demais dependências futuras só serão adicionadas com uso concreto.
 
 Consulte [AGENTS.md](AGENTS.md) para invariantes e [a arquitetura aprovada](docs/architecture/README.md) para responsabilidades, colocation e fronteira Server × Client. Antes de alterar APIs/configuração Next.js, consulte `node_modules/next/dist/docs/` da versão instalada.

@@ -14,7 +14,7 @@ O projeto contém o scaffold de Next.js 16.3.8 com React 19.2.8, App Router em `
 
 Antes desta Task, `docs/`, `.codex/` e `.agents/skills/` estavam vazios. Havia somente o `AGENTS.md` raiz, com o bloco gerenciado pelo Next.js; `CLAUDE.md` já apontava para ele. As pastas `components`, `features`, `db`, `lib` e `hooks` já existiam vazias e foram preservadas, sem placeholders. Não havia comportamento de domínio ou conflito no código a migrar.
 
-PostgreSQL, Drizzle, Radix UI, Zod, Zustand e React Hook Form fazem parte das decisões para uso futuro descritas aqui; não estão instalados nesta execução. Estes exemplos não autorizam instalação nem implementação antecipada.
+Na Task 1, PostgreSQL, Drizzle, Radix UI, Zod, Zustand e React Hook Form eram decisões para uso futuro. A ECMSG-16 instala Drizzle ORM/Kit e Postgres.js, sem tabelas de domínio; as demais dependências continuam futuras. Os exemplos não autorizam implementação antecipada.
 
 ## Camadas e responsabilidades
 
@@ -270,7 +270,7 @@ O inventário de configuração da aplicação é o `.env.example` na raiz. Toda
 
 | Variável | Classificação | Consumidor e obrigatoriedade |
 | --- | --- | --- |
-| `DATABASE_URL` | Exclusivamente server-side, potencialmente contém credenciais | Reservada para a próxima Task de PostgreSQL/Drizzle; ainda sem consumidor e não obrigatória |
+| `DATABASE_URL` | Exclusivamente server-side, potencialmente contém credenciais | Obrigatória antes de obter a instância DB e para a CLI Drizzle Kit; não exigida por rotas sem DB |
 
 Não há variáveis públicas necessárias, nem variáveis de autenticação/sessão justificadas atualmente. Não antecipe `AUTH_SECRET`, `SESSION_SECRET` ou infraestrutura client de configuração. Os nomes aqui são exemplos de categorias privadas, não requisitos atuais.
 
@@ -288,9 +288,9 @@ Não use `next.config.ts` → `env` para secrets: essa opção incorpora os valo
 
 ### Acesso e validação quando houver consumidor
 
-Hoje não há leituras de `process.env` na aplicação nem configuração obrigatória. Portanto, não se cria um módulo sem consumidor, dependência ou validação que impeça o scaffold de funcionar sem banco. Zod não está instalado e não será adicionado apenas para configuração; validação mais sofisticada poderá usá-lo quando entrar por necessidade real.
+A ECMSG-16 introduz o consumidor DB e o módulo `src/lib/env/server.ts`. Seu `getDatabaseUrl()` valida a configuração antes da criação da instância. A função pura em `database-url.ts` recebe somente o valor a validar e é compartilhada com a CLI; não lê nem exporta ambiente. Zod não está instalado e não será adicionado apenas para configuração.
 
-Ao introduzir o primeiro consumidor privado, crie um módulo pequeno e explícito como `src/lib/env/server.ts`, protegido com `import "server-only";`. Ele lê somente as variáveis declaradas necessárias e exporta acessores ou configuração tipada específica, nunca o objeto inteiro de `process.env`. Features/componentes não fazem leituras arbitrárias: a infraestrutura responsável usa esse ponto de acesso. Para `DATABASE_URL`, a futura infraestrutura `db` obtém o valor validado antes de abrir a conexão; UI não importa configuração privada.
+O módulo `src/lib/env/server.ts` é protegido com `import "server-only";`. Ele lê somente as variáveis declaradas necessárias e exporta um acessor específico, nunca o objeto inteiro de `process.env`. Features/componentes não fazem leituras arbitrárias: a infraestrutura responsável usa esse ponto de acesso. Para `DATABASE_URL`, a infraestrutura `db` obtém o valor validado antes de abrir a conexão; UI não importa configuração privada.
 
 A documentação instalada de Server/Client Components confirma que Next.js trata `server-only` internamente, inclusive produzindo erro de build em import client; instalar o pacote é opcional. Não adicione a dependência por padrão. A convenção de proteção da Task 3 permanece válida: diretório/sufixo não protege o módulo e `"use server"` não substitui esse guard.
 
@@ -305,6 +305,24 @@ Se houver consumidor público no futuro, mantenha o módulo público separado do
 A regra existente `.env*` com exceção `!.env.example` já ignora arquivos locais, inclusive variantes de produção/desenvolvimento/teste. Mantenha somente o template seguro versionado; a recomendação genérica do Next.js de versionar `.env.test` não se aplica à política deste projeto. Não crie arquivos com valores reais nesta Task.
 
 Revise novas variáveis no template, consumidores e caminhos de exposição. Use `git ls-files -- '.env*' '**/.env*'`, `git check-ignore --no-index .env .env.local .env.production .env.development.local .env.test` e busca por `NEXT_PUBLIC_`/`process.env` no código para confirmar a política. Ignore de Git não é proteção contra vazamentos em runtime nem remove um secret já rastreado.
+
+## PostgreSQL e Drizzle (ECMSG-16)
+
+`src/db/index.ts` exporta `getDb()`, a fonte canônica da instância Drizzle. O fluxo permanece `feature/server → db → PostgreSQL`; páginas não acessam DB diretamente, e Client não importa DB nem `lib/env/server`. Ambos os módulos privilegiados têm `import "server-only";`, com suporte interno do Next.js, sem pacote adicional. Use runtime Node nos consumidores de banco, não Edge; nenhuma rota atual teve seu runtime alterado.
+
+O driver único é `postgres` (Postgres.js), oficialmente suportado pelo adapter `drizzle-orm/postgres-js`, com tipos próprios e pool integrado. A criação é lazy: `getDb()` valida antes de construir a instância, e o driver só abre conexões ao executar queries. Em desenvolvimento, o cache em `globalThis` reutiliza a instância nos reloads; em produção, o cache do módulo mantém uma instância por processo. Não encerre o pool após cada request. Mudanças de configuração exigem reiniciar o servidor. Limites, SSL, prepared statements e requisitos de proxies/poolers devem ser avaliados conforme o deployment real; esta Task não impõe limites arbitrários nem desabilita verificação TLS.
+
+A validação compartilhada aceita `postgres:` ou `postgresql:`, com hostname, database path e porta válida quando informada. Ausência/vazio/espaços e URL incompatível falham com mensagem que informa apenas `DATABASE_URL`, sem valor, causa original ou connection string. Nenhuma conexão é feita na validação. Erros de query/conexão do driver podem conter detalhes internos: as futuras boundaries devem convertê-los em erros seguros, nunca retornar ou registrar o objeto bruto. Não há endpoint de diagnóstico ou tratamento HTTP de DB nesta Task.
+
+`drizzle.config.ts` fica na raiz, usa dialect `postgresql`, schemas em `src/db/schema/**/*.ts` e migrations em `drizzle/`. A CLI usa `@next/env` como dependência direta de desenvolvimento para carregar os mesmos arquivos do Next.js; `NODE_ENV=development` seleciona variantes de desenvolvimento, caso necessárias. Ela importa somente a validação pura, não módulos com guard reservado ao runtime Next.js.
+
+O fluxo padrão é schema TypeScript real → `npm run db:generate` → revisão e commit dos arquivos SQL/metadados em `drizzle/` → `npm run db:migrate` no banco correto. `npm run db:studio` abre a ferramenta local para inspeção e requer banco disponível; não exponha Studio publicamente. Não há script `db:push`. Revise migrations antes de aplicá-las, especialmente mudanças destrutivas. Não rode migrations automaticamente durante render, startup de página ou build.
+
+Ainda não existem tabelas ou migrations. Portanto, `schema/` e `drizzle/` só surgirão com a primeira tabela real; não execute generate para fabricar migration vazia. As definições físicas futuras ficam em `db/schema`, e tipos inferidos permanecem internos: feature/server projeta DTO mínimo. Queries comuns usam APIs parametrizadas do Drizzle; não concatene SQL com dados externos.
+
+Para verificar o carregamento da configuração sem banco nem migrations, use uma URL fictícia formalmente válida em ambiente temporário e `npx drizzle-kit check`. Esse comando verifica histórico de migrations, não conectividade ou integridade de um banco; com histórico ausente, não comprova migrations reais. Não execute migrate/studio com placeholders. Uma conexão real requer PostgreSQL e `DATABASE_URL` utilizável e deve ser validada localmente, sem endpoint público.
+
+Referências oficiais consultadas: [PostgreSQL](https://orm.drizzle.team/docs/get-started-postgresql), [config](https://orm.drizzle.team/docs/drizzle-config-file), [generate](https://orm.drizzle.team/docs/drizzle-kit-generate), [migrate](https://orm.drizzle.team/docs/drizzle-kit-migrate), [check](https://orm.drizzle.team/docs/drizzle-kit-check) e [lifecycle Postgres.js](https://github.com/porsager/postgres#the-connection-pool). A documentação foi consultada no repositório oficial quando o site estava bloqueado; as opções foram confirmadas na CLI instalada.
 
 ## Quality gate e escopo
 
