@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Guardian Bay
 
-## Getting Started
+Base de um e-commerce seguro, com regras de domínio e segurança executadas no servidor. Esta etapa prepara a infraestrutura; funcionalidades comerciais serão implementadas nas próximas Tasks.
 
-First, run the development server:
+## Pré-requisitos e instalação
+
+- Node.js 20.9 ou superior, conforme o requisito do Next.js instalado.
+- npm; use o `package-lock.json` versionado. Não use outro package manager neste projeto.
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Acesse http://localhost:3000. O App Router está em `src/app/`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Variáveis de ambiente
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Nenhuma variável é obrigatória nesta fase. `.env.example` documenta esse estado e contém apenas comentários seguros; não é necessário copiá-lo para iniciar o projeto.
 
-## Learn More
+Quando houver configuração real, mantenha `.env.local` e demais arquivos privados na raiz, fora do Git. Somente `.env.example` é permitido para versionamento, sempre sem credenciais reais. Secrets ficam no servidor; nunca use `NEXT_PUBLIC_*` para valores privados nem os envie em props/DTOs ao cliente.
 
-To learn more about Next.js, take a look at the following resources:
+## Comandos e quality gates
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Comando | Finalidade |
+| --- | --- |
+| `npm run dev` | Servidor de desenvolvimento |
+| `npm run lint` | Biome: valida formatter, lint e organização de imports, sem modificar arquivos |
+| `npm run format` | Biome: aplica formatação e modifica arquivos; não é quality gate de CI |
+| `npm run typecheck` | Gera tipos de rotas com `next typegen` pelo hook `pretypecheck`, depois executa `tsc --noEmit` |
+| `npm run check` | Executa lint e typecheck, sem autofix |
+| `npm run build` | Build de produção, incluindo verificação TypeScript do Next.js |
+| `npm run start` | Executa o build de produção existente |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Para validar a base:
 
-## Deploy on Vercel
+```bash
+npm run check
+npm run build
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+O build atual usa Geist via `next/font/google` e precisa de acesso ao Google Fonts durante a compilação. `next typegen` e build geram arquivos em `.next/` e `next-env.d.ts`, ignorados pelo Git.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Configuração da base
+
+Next.js 16.3.8, React 19.2.8, Tailwind CSS 4 e React Compiler habilitado. TypeScript mantém `strict`, `noEmit`, resolução `bundler` e alias `@/* → ./src/*`. `allowJs: false` limita o programa TypeScript aos arquivos TS/TSX; o PostCSS continua usando seu arquivo de configuração `.mjs` independente.
+
+Biome 2.4.2 é o único linter/formatter, integrado ao `.gitignore`, com regras recomendadas de React/Next e organização de imports. Enforcement completo de boundaries permanece para trabalho posterior.
+
+Nenhuma dependência de banco, autenticação, formulário, estado client ou dinheiro é necessária nesta fase. As dependências futuras só serão adicionadas com uso concreto.
+
+Consulte [AGENTS.md](AGENTS.md) para invariantes e [a arquitetura aprovada](docs/architecture/README.md) para responsabilidades, colocation e fronteira Server × Client. Antes de alterar APIs/configuração Next.js, consulte `node_modules/next/dist/docs/` da versão instalada.
