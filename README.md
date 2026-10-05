@@ -16,9 +16,11 @@ Acesse http://localhost:3000. O App Router está em `src/app/`.
 
 ## Variáveis de ambiente
 
-Nenhuma variável é obrigatória nesta fase. `.env.example` documenta esse estado e contém apenas comentários seguros; não é necessário copiá-lo para iniciar o projeto.
+Nenhuma variável é obrigatória nesta fase. `.env.example` contém `DATABASE_URL` vazia como preparação para a próxima Task de banco; ela ainda não é consumida nem obrigatória. Não é necessário copiar o template para iniciar o projeto.
 
 Quando houver configuração real, mantenha `.env.local` e demais arquivos privados na raiz, fora do Git. Somente `.env.example` é permitido para versionamento, sempre sem credenciais reais. Secrets ficam no servidor; nunca use `NEXT_PUBLIC_*` para valores privados nem os envie em props/DTOs ao cliente.
+
+A estratégia de carregamento, validação e acesso está na [arquitetura: variáveis de ambiente](docs/architecture/README.md#variáveis-de-ambiente-ecmsg-15).
 
 ## Comandos e quality gates
 
