@@ -162,3 +162,7 @@ Superfície atual: `/admin`, `/admin/catalog`, `/admin/orders` e detalhe adminis
 | Repúdio / operação — R | Parcialmente mitigada | Eventos allowlisted best effort; sem auditoria durável. Token bearer, e-mail não verificado, HTTPS/deployment, limpeza de sessões e proteção volumétrica permanecem limitações |
 
 Evidências: PostgreSQL real, Actions HTTP diretas e Chromium de login → dashboard → catálogo/estoque → pedidos/detalhe, confirmação/cancelamento acessível e negação ao customer. Seis mutantes temporários foram detectados e restaurados. Nenhuma migration nova; regras e persistência comerciais anteriores permanecem. Gestão completa de usuários, refund, logística, analytics e RBAC granular continuam fora do escopo. Preservam-se os quatro advisories moderados de tooling e a necessidade de PostgreSQL 18 para todos os gates; em PostgreSQL 17, RESTRICT funciona mas a assertion herdada recebe SQLSTATE diferente.
+
+## Auditoria e abuso: plano da Epic 9 (ECMSG-105)
+
+Controles ainda planejados, não evidência existente: auditoria durável selecionada, writer server-only fechado e consulta admin read-only; mutations críticas e audit na mesma transaction. Budgets autenticados atômicos por usuário/operação devem conter automação sem interferir no retry idempotente. Repúdio, tampering de eventos, flood de auditoria, abuso concorrente e disclosure serão revisados nas Tasks correspondentes. Logs best effort, proteção volumétrica/deployment e demais riscos herdados continuam limitações reais.
