@@ -10,10 +10,12 @@
     "format": "biome format --write",
     "pretypecheck": "next typegen",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint && npm run typecheck",
+    "check": "npm run lint && npm run typecheck && npm test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio --host=127.0.0.1"
+    "db:studio": "drizzle-kit studio --host=127.0.0.1",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "drizzle-orm": "0.45.3",
@@ -32,6 +34,7 @@
     "babel-plugin-react-compiler": "1.0.0",
     "drizzle-kit": "0.31.11",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "4.1.11"
   }
 }

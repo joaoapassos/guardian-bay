@@ -4,7 +4,7 @@ Base de um e-commerce seguro, com regras de domínio e segurança executadas no 
 
 ## Pré-requisitos e instalação
 
-- Node.js 20.9 ou superior, conforme o requisito do Next.js instalado.
+- Runtime Next.js: Node.js 20.9 ou superior. Para desenvolvimento e quality gates com Vitest 4.1.11, use Node.js 20.19+ da linha 20, 22.12+ da linha 22 ou 24+; ambiente validado com Node 24.19.0.
 - npm; use o `package-lock.json` versionado. Não use outro package manager neste projeto.
 
 ```bash
@@ -30,7 +30,9 @@ A estratégia de carregamento, validação e acesso está na [arquitetura: vari�
 | `npm run lint` | Biome: valida formatter, lint e organização de imports, sem modificar arquivos |
 | `npm run format` | Biome: aplica formatação e modifica arquivos; não é quality gate de CI |
 | `npm run typecheck` | Gera tipos de rotas com `next typegen` pelo hook `pretypecheck`, depois executa `tsc --noEmit` |
-| `npm run check` | Executa lint e typecheck, sem autofix |
+| `npm run check` | Executa lint, typecheck e testes unitários, sem autofix |
+| `npm test` | Vitest em modo não interativo; adequado para CI |
+| `npm run test:watch` | Vitest em modo watch para desenvolvimento |
 | `npm run build` | Build de produção, incluindo verificação TypeScript do Next.js |
 | `npm run start` | Executa o build de produção existente |
 
@@ -42,6 +44,8 @@ npm run build
 ```
 
 O build atual usa Geist via `next/font/google` e precisa de acesso ao Google Fonts durante a compilação. `next typegen` e build geram arquivos em `.next/` e `next-env.d.ts`, ignorados pelo Git.
+
+A [estratégia de testes](docs/architecture/README.md#testes-ecmsg-19) define colocation, separação de integração/E2E e casos de segurança. Os testes atuais são unitários, sem PostgreSQL, rede ou configuração real.
 
 ## Configuração da base
 

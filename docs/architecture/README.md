@@ -455,10 +455,35 @@ Na validação da ECMSG-18, `npm run check`, build de produção e `git diff --c
 
 Referências: guias instalados `headers`, `poweredByHeader`, `content-security-policy`, Server/Client Components, Route Handlers e deploying sob `node_modules/next/dist/docs/`; MDN [CSP/frame-ancestors](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/frame-ancestors), [nosniff](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Content-Type-Options), [Referrer-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy), [Permissions-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy) e [HSTS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Strict-Transport-Security), consultados no conteúdo oficial atual.
 
+## Testes (ECMSG-19)
+
+Vitest 4.1.11 é o runner único: executa TypeScript/ES modules rapidamente em Node e pode evoluir para testes de componentes sem outro runner. `vitest.config.mts` mantém ambiente `node`, imports explícitos de APIs de teste e o alias existente `@/ → src/`. Não altera `strict`/`noEmit` do TypeScript nem configura DOM, cobertura ou snapshots. Para executar testes e `check`, use Node 20.19+ da linha 20, 22.12+ da linha 22 ou 24+ (validado em 24.19.0); o mínimo do runtime Next.js permanece 20.9. Dependências e lockfile fixam a versão utilizada.
+
+| Tipo | Onde / quando | Garantia e dependências |
+| --- | --- | --- |
+| Unitário | `*.test.ts` / `*.test.tsx` junto do módulo/feature | Regras puras, validação, cálculos/dinheiro e projeção de DTO; sem rede, DB, credenciais ou estado externo |
+| Integração | `*.integration.test.ts` junto da operação quando existir | PostgreSQL real compatível para Drizzle, constraints, transactions e concorrência; não simular SQL para afirmar integridade |
+| Componente | `*.test.tsx` junto do primeiro Client Component relevante | Comportamento observável: interação, formulário, estados, feedback e acessibilidade; adicionar Testing Library/ambiente DOM somente com consumidor |
+| E2E | `*.e2e.test.ts` junto do fluxo quando existir | Playwright pode validar fluxos críticos completos e segurança; instalar runner/browsers/configuração somente com fluxo real |
+
+Não misture `.spec` e `.test`, não crie diretórios vazios ou helpers/factories globais preventivos. Testes da feature seguem seu dono; promover helpers exige reutilização concreta. Testes de async Server Components e integrações reais do framework devem usar o ambiente adequado (integração/E2E), sem assumir que Vitest em Node reproduz o runtime Next.js ou verifica `server-only`.
+
+`npm test` executa `vitest run` sem interação, e `npm run test:watch` acompanha alterações. `npm run check` inclui lint, typecheck e unitários rápidos/determinísticos. A configuração exclui explicitamente `*.integration.test.*` e `*.e2e.test.*`; esses testes terão comandos/configurações próprios quando introduzidos, sem tornar `check` dependente de PostgreSQL. Não aceite execução com zero testes como validação; não há opção para ignorar ausência de testes.
+
+O primeiro arquivo é `src/lib/env/database-url.test.ts`: testa ausência/vazio/espaços, formato/protocolo/host/database/porta inválidos, URLs válidas e erros sem credenciais, host ou causa original. Usa somente fixtures fictícias passadas à função pura, sem ler ambiente nem importar DB. Casos de rejeição falham se a validação correspondente for removida; o teste de information disclosure falha se o valor bruto entrar no erro.
+
+Mocks são permitidos em boundaries de integrações externas quando necessários, sem mockar a regra sob teste. Unitários puros não precisam de mocks. Não mocke Drizzle inteiro para afirmar que query/constraint/autorização funciona. Integração deve garantir banco de teste diferente de desenvolvimento e produção, isolamento/limpeza previsíveis, migrations revisadas e proibição de executar operações destrutivas fora dele. Ainda não há tabela/operação, portanto não se cria banco de testes, Docker/Testcontainers ou `DATABASE_URL_TEST` nesta Task.
+
+Segurança entra nos testes normais junto da surface real: validação server-side; usuário A sem acesso/modificação ao recurso de B (IDOR/BOLA); preço/estoque/totais determinados pelo servidor; sessão ausente/inválida; estratégia CSRF; erros externos sem SQL, stack, secrets/connection string ou detalhes internos. Operações críticas devem testar concorrência quando houver risco, como duas compras do último item. Headers HTTP serão testados com aplicação iniciada em integração/E2E ou CI, sem duplicar strings da configuração em um teste artificial.
+
+Não use secrets, tokens/sessões, PII ou produção nos testes. Preserve `.env*` ignorado com única exceção `.env.example`; ambiente de integração futuro deve ser explícito e seguro, sem reutilizar implicitamente configuração local. Evite rede, relógio real, ordem de execução e estado global em unitários; controle aleatoriedade/tempo somente quando necessário. Priorize casos relevantes, sem percentual arbitrário de cobertura ou dependências extras para números. React Testing Library, jsdom, Playwright, MSW, coverage e CI ficam para consumidores concretos.
+
+Referência: [guia oficial do Vitest](https://vitest.dev/guide/) e configuração `include`/`environment`, consultados na versão utilizada. A documentação da branch principal pode descrever requisitos futuros; os requisitos npm da versão instalada são a referência de compatibilidade.
+
 ## Quality gate e escopo
 
-Biome é formatter, linter principal e quality gate. É o mecanismo preferido para enforcement automatizado de boundaries quando possível, futuramente com restricted imports e overrides para limites como `Client × feature/server`, `Client × db`, `components × db`, `lib × features` e `db × features`, respeitando referências remotas de Actions. A configuração atual não impõe o mapa arquitetural: por enquanto, ele é verificado em revisão. Esta Task não adiciona configuração extensa, ESLint ou dependências.
+Biome é formatter, linter principal e quality gate. É o mecanismo preferido para enforcement automatizado de boundaries quando possível, futuramente com restricted imports e overrides para limites como `Client × feature/server`, `Client × db`, `components × db`, `lib × features` e `db × features`, respeitando referências remotas de Actions. A configuração atual não impõe o mapa arquitetural: por enquanto, ele é verificado em revisão. O enforcement de imports não adiciona configuração extensa ou ESLint nesta fase.
 
 Para futuras mudanças, execute checks disponíveis e pertinentes sem corrigir problemas alheios silenciosamente. Analise primeiro o código existente, preserve padrões e informe conflitos antes de ampliar escopo.
 
-Esta Task apenas registra decisões e prepara instruções: não implementa funcionalidades, banco, tabelas, componentes, Server Actions ou testes. A fronteira Server × Client fica registrada nesta revisão, sem avançar para outra Task.
+As Tasks de fundação registram decisões e acrescentam infraestrutura somente com responsabilidade concreta. A ECMSG-19 adiciona testes da validação existente, sem tabelas, funcionalidades de negócio ou avanço para outra Task.
