@@ -87,3 +87,7 @@ Candidatos para próximas Tasks, vinculados às ameaças acima:
 - Operação segura: revisar acesso a configuração/dependências, transporte HTTPS/TLS e privilégios do DB/CLI quando houver deployment; configurar coleta/retenção dos eventos mínimos já implementados e revisar os findings de tooling registrados na [revisão da Epic 4](README.md#revisão-da-epic-4-ecmsg-53).
 
 Essas pendências não atribuem IDs nem autorizam implementação antecipada. Reavalie o modelo ao alterar sessão, tabela, entrada pública ou integração externa, registrando sua boundary, autoridade, ameaça e evidência de mitigação. [Security-review](../../.agents/skills/security-review/SKILL.md) faz a revisão contextual; scanners são complementares.
+
+## Carrinho: modelo aprovado (ECMSG-54)
+
+Ativos planejados nesta Epic: ownership dos itens persistidos, quantidade limitada e preço/subtotal/total derivados do catálogo. Entradas públicas terão somente productId/quantity/intenção; sessão fornece dono. IDOR/BOLA, mass assignment monetário, replay, races de publicação e expiração durante locks exigem testes PostgreSQL e HTTP antes de declarar mitigação. Nesta Task são requisitos pendentes, não controles já implementados. Guest cart, estoque/reserva e snapshot comercial são não aplicáveis; pedido/checkout permanece futuro. Veja o [modelo canônico](README.md#modelo-do-carrinho-ecmsg-54).

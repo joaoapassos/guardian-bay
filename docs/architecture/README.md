@@ -6,6 +6,20 @@ Este documento registra as decisões aprovadas. O [AGENTS.md](../../AGENTS.md) e
 
 O [threat model](threat-model.md) identifica atores, ativos, entradas externas, trust boundaries e ameaças dos fluxos existentes.
 
+## Modelo do carrinho (ECMSG-54)
+
+Carrinho é o conjunto de `cart_items` de um usuário autenticado: uma única tabela ligada a `users` basta, sem registro `carts`, estados ou criação durante leitura. Conjunto vazio é carrinho vazio. Chave composta `(userId, productId)` garante um produto por dono; IDs de usuário/produto já são gerados server-side. Ownership deriva exclusivamente do cookie/sessão e toda query restringe o usuário resolvido no servidor. Nenhuma entrada aceita userId/cartId/ownerId ou autoridade monetária.
+
+Item guarda somente usuário, produto e quantidade inteira entre 1 e 99. Adicionar novamente incrementa atomicamente; atualizar define quantidade absoluta e zero é inválido; remover é explícito e idempotente. Máximo de 100 produtos distintos por usuário, serializado pelo lock da identidade: limita leitura/custo e dinheiro, não representa estoque. FK de usuário e produto é RESTRICT: não apagar carrinho silenciosamente ao remover identidade/produto operacionalmente; uma operação futura de exclusão precisará definir limpeza explícita. Catálogo não oferece hard delete.
+
+Produto deve existir e estar publicado para add/update. Se despublicado depois da adição, item permanece visível como indisponível; qualquer alteração de quantidade é negada, mas remoção continua permitida. Inexistente e privado têm rejeição equivalente na mutation. Leitura relê nome, imagem, preço inteiro/BRL e publicação atuais, sem revisão administrativa, sessão ou userId no DTO. Item indisponível mostra preço atual como referência, mas subtotal comercial é nulo e não participa do total elegível.
+
+Carrinho não congela preço: nunca persiste unitPrice/subtotal/total/desconto. Cálculos reutilizam Dinero em `lib/money`, exclusivamente no servidor. Limite monetário: 2.147.483.647 × 99 × 100 = 21.260.088.105.300 centavos, abaixo de Number.MAX_SAFE_INTEGER; subtotal/total não ficam limitados a PostgreSQL integer. Snapshot comercial pertence ao futuro pedido/checkout. Não há estoque, reserva, frete, desconto, guest cart, localStorage autoritativo ou merge de visitante.
+
+Concorrência: mutations transacionais serializam por identidade → sessão → produto/item, seguindo auth; add usa incremento UPSERT sem read-modify-write desprotegido. Produto precisa ser revalidado sob lock proporcional à linha, incluindo despublicação durante espera. Sessão é conferida pelo relógio atual após esperas relevantes e antes de concluir o efeito; revogação serializada precede ou sucede a mutation, nunca autoriza estado já revogado. Update concorrente usa last writer sob serialização; update após remove é conflito/no-op controlado, sem recriar item; remove repetido é sucesso. Replay de add incrementa de novo até limite (não é idempotente), update define o mesmo valor e remove é idempotente. Nada promete integridade de checkout/estoque ainda inexistentes.
+
+Dependência explícita permitida: cart/server reutiliza autoridade server-only de auth e schemas físicos de products; UI de app compõe botão de cart junto ao catálogo, sem import arbitrário entre internals de features. Leitura usa DTO de imagem público já aprovado, não modelo Drizzle como contrato.
+
 ## Modelo do catálogo (ECMSG-42)
 
 Catálogo define o que é vendido e apresentado; não gerencia inventory, carrinho, pedidos, estoque ou total de compra. Produto tem UUID gerado pelo servidor/banco, nome plain text de 1–120 caracteres após trim, descrição plain text de até 2.000 caracteres, categoria obrigatória, preço inteiro em centavos e moeda explícita BRL. URLs usam UUID, sem slug ou compatibilidade de renomeação de slug. Nomes de produto não precisam ser únicos.
