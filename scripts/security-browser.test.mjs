@@ -165,17 +165,9 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
           let nextId = 0;
           const pending = new Map();
           const exceptions = [];
-          let acceptCatalogDialog = true;
-          let catalogDialogs = 0;
           const consoleErrors = [];
           socket.addEventListener("message", ({ data }) => {
             const message = JSON.parse(data);
-            if (message.method === "Page.javascriptDialogOpening") {
-              catalogDialogs++;
-              void call("Page.handleJavaScriptDialog", {
-                accept: acceptCatalogDialog,
-              });
-            }
             if (message.method === "Runtime.exceptionThrown")
               exceptions.push(message.params);
             if (
@@ -860,24 +852,45 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 );
                 await client`UPDATE products SET amount=1200 WHERE id=${catalogProduct.id}`;
                 await navigate("/admin/catalog");
-                acceptCatalogDialog = false;
                 await adminSubmit(editLabel, { isPublished: false }, false);
+                await waitFor(
+                  "!!document.querySelector('[role=alertdialog]')",
+                  "Radix depublication dialog",
+                );
+                assert.equal(
+                  await evaluate("document.activeElement.textContent"),
+                  "Cancelar",
+                );
+                await evaluate(
+                  "document.querySelector('[role=alertdialog] button').click()",
+                );
+                await waitFor(
+                  "!document.querySelector('[role=alertdialog]')",
+                  "cancel closes dialog",
+                );
+                assert.equal(
+                  await evaluate("document.activeElement.textContent"),
+                  "Salvar produto",
+                );
+
                 assert.equal(
                   (
                     await client`SELECT is_published FROM products WHERE id=${catalogProduct.id}`
                   )[0].is_published,
                   true,
                 );
-                acceptCatalogDialog = true;
                 await adminSubmit(editLabel, { isPublished: false }, false);
+                await waitFor(
+                  "!!document.querySelector('[role=alertdialog]')",
+                  "second Radix depublication dialog",
+                );
+                await evaluate(
+                  "[...document.querySelectorAll('[role=alertdialog] button')].find(b=>b.textContent==='Confirmar despublicação').click()",
+                );
+
                 await waitFor(
                   `(() => { const form=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(editLabel)}); return form?.elements.namedItem('isPublished')?.defaultChecked===false && form.getAttribute('aria-busy')==='false'; })()`,
                   "depublication is rendered after confirmation",
-                );
-                assert.equal(
-                  catalogDialogs,
-                  2,
-                  "cancel and confirm use visual confirmation",
                 );
                 assert.equal(
                   (
