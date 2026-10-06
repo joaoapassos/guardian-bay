@@ -16,6 +16,14 @@ Limitação por origem deverá complementar os cinco logins por identificador/15
 
 Logout é idempotente e a leitura autorizada usa queries limitadas; não executam Argon2. Não recebem novos limitadores por request nesta etapa. Taxa/conexões do tráfego geral pertencem à entrada, enquanto autenticação, ownership e limites de custo permanecem na operação server-side. Os testes PostgreSQL verificam limites, concorrência, slots e spoof de headers sem simular um proxy existente.
 
+## Segurança do browser (ECMSG-28)
+
+A CSP restringe imagens, fontes e manifests à própria origem; bloqueia objetos, mídia, frames, workers e framing externo. O scaffold usa imagens locais e fontes servidas pelo Next.js. Scripts/styles continuam sem restrição CSP: o HTML estático contém scripts inline de RSC/hydration. Nonces por request exigiriam renderização dinâmica e infraestrutura de propagação; não alteramos esse modelo nem acrescentamos `unsafe-inline`, `unsafe-eval` ou origens amplas. Uma CSP rigorosa deve ser reavaliada quando houver conteúdo dinâmico não confiável. A política parcial não garante prevenção de XSS.
+
+Não há HTML de usuário, `dangerouslySetInnerHTML`, URLs dinâmicas ou scripts externos próprios. Trusted Types não foi habilitado: não há sink próprio consumidor, e enforcement no runtime do framework exigiria validação específica. Links externos são literais; novas entradas exigem validação pelo contexto.
+
+`nosniff`, referrer `strict-origin-when-cross-origin`, Permissions-Policy restritiva e `frame-ancestors 'none'` permanecem. Não adicionamos headers obsoletos ou HSTS sem deployment HTTPS definido. Cookies de produção permanecem `__Host-`, Secure, HttpOnly, SameSite=Lax, Path=/ e sem Domain; desenvolvimento HTTP usa outro nome e não usa Secure. Testes HTTP verificam headers e recursos do build real; integração verifica a política de cookie e logout.
+
 ## Precedência das instruções
 
 A ordem entre instruções do projeto é `AGENTS.md → arquitetura aprovada do Guardian Bay → regras de segurança → frontend-patterns e outras recomendações genéricas`. Exemplos genéricos não alteram as decisões específicas. A skill de frontend conserva seu repertório de composição, fetching e performance; aplique-o dentro dos limites abaixo. Essa precedência não dispensa os invariantes de segurança registrados no projeto.
