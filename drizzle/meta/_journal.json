@@ -71,6 +71,13 @@
       "when": 1791283881370,
       "tag": "0009_cart_items",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791295069851,
+      "tag": "0010_order_domain",
+      "breakpoints": true
     }
   ]
 }
