@@ -338,11 +338,14 @@ it("ECMSG-75: detalhes usam snapshot, ownership na query e DTO mínimo", async (
   });
 });
 
-async function waitForOrderLock(table: "products" | "users" | "inventory") {
+async function waitForOrderLock(
+  table: "products" | "users" | "inventory",
+  minimum = 1,
+) {
   for (let i = 0; i < 100; i++) {
     const [row] =
       await client`SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE ${`%"${table}"%`}`;
-    if (row.count > 0) return;
+    if (row.count >= minimum) return;
     await new Promise((done) => setTimeout(done, 20));
   }
   throw new Error("Checkout did not reach expected lock");
@@ -824,5 +827,56 @@ it("ECMSG-86: sessão expirada esperando inventory não cria pedido nem consome"
     ).toBe(99);
   } finally {
     await lock.release();
+  }
+});
+
+it.each([
+  "checkout",
+  "admin",
+] as const)("ECMSG-88: %s ganha lock, sem lost update admin × checkout", async (first) => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const { setInventoryQuantityAction } = await import(
+    "@/features/inventory/actions/set-inventory.action"
+  );
+  await client`UPDATE users SET role='admin' WHERE id=${otherId}`;
+  const customer = (await createSession(userId)).token;
+  const admin = (await createSession(otherId)).token;
+  await client`UPDATE inventory SET available_quantity=1,revision=1 WHERE product_id=${productId}`;
+  await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
+  const lock = await holdOrderLock(
+    (tx) =>
+      tx`SELECT product_id FROM inventory WHERE product_id=${productId} FOR UPDATE`,
+  );
+  const buy = () =>
+    requestContext.run({ token: customer }, () =>
+      checkoutAction({ checkoutKey: randomUUID() }),
+    );
+  const set = () =>
+    requestContext.run({ token: admin }, () =>
+      setInventoryQuantityAction({ productId, quantity: 0, revision: 1 }),
+    );
+  try {
+    const firstPending = first === "checkout" ? buy() : set();
+    await waitForOrderLock("inventory");
+    const secondPending = first === "checkout" ? set() : buy();
+    await waitForOrderLock("inventory", 2);
+    await lock.release();
+    const [a, b] = await Promise.all([firstPending, secondPending]);
+    expect(a).toMatchObject({ success: true });
+    expect(b).toEqual({
+      success: false,
+      code: first === "checkout" ? "CONFLICT" : "OUT_OF_STOCK",
+    });
+    expect(
+      (
+        await client`SELECT available_quantity,revision FROM inventory WHERE product_id=${productId}`
+      )[0],
+    ).toEqual({ available_quantity: 0, revision: 2 });
+    expect(
+      await client`SELECT id FROM orders WHERE user_id=${userId}`,
+    ).toHaveLength(first === "checkout" ? 1 : 0);
+  } finally {
+    await lock.release();
+    await client`UPDATE users SET role='customer' WHERE id=${otherId}`;
   }
 });
