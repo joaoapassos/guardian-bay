@@ -114,6 +114,7 @@ describe("listagem pública", () => {
 });
 afterAll(async () => {
   await client`DELETE FROM users WHERE id=${userId}`;
+  await client`DELETE FROM inventory WHERE product_id IN (SELECT id FROM products WHERE category_id=${categoryId})`;
   await client`DELETE FROM products WHERE category_id=${categoryId}`;
   await client`DELETE FROM categories WHERE id=${categoryId}`;
   await client.end();
@@ -219,6 +220,11 @@ describe("operações administrativas reais (ECMSG-49)", () => {
     expect(await manageCatalogAction(fields)).toEqual({ success: true });
     const [created] =
       await client`SELECT id,revision FROM products WHERE name='Admin fixture' AND category_id=${categoryId}`;
+    expect(
+      (
+        await client`SELECT available_quantity,revision FROM inventory WHERE product_id=${created.id}`
+      )[0],
+    ).toEqual({ available_quantity: 0, revision: 1 });
     const update = {
       ...fields,
       operation: "update-product",

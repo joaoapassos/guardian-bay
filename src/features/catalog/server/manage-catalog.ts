@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { categories } from "@/db/schema/categories";
+import { inventory } from "@/db/schema/inventory";
 import { products } from "@/db/schema/products";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
 import { manageCatalogSchema } from "../schemas/manage-catalog";
@@ -42,9 +43,13 @@ export async function manageCatalog(input: unknown) {
           isPublished: data.isPublished,
           imageKey: data.imageKey,
         };
-        if (data.operation === "create-product")
-          await tx.insert(products).values(fields);
-        else {
+        if (data.operation === "create-product") {
+          const [product] = await tx
+            .insert(products)
+            .values(fields)
+            .returning({ id: products.id });
+          await tx.insert(inventory).values({ productId: product.id });
+        } else {
           const rows = await tx
             .update(products)
             .set({ ...fields, revision: sql`${products.revision} + 1` })
