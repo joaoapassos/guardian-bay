@@ -49,6 +49,20 @@ describe("listagem pública", () => {
       description: "",
       price: { amount: 1099 },
     });
+    for (const query of ["' OR 1=1 --", "%", "_", "\\"]) {
+      const result = await listProducts({ query, category: categoryId });
+      expect(result.success && result.products).toEqual([]);
+    }
+    const found = await listProducts({
+      query: "prodUTO",
+      category: categoryId,
+      sort: "price-desc",
+    });
+    expect(
+      found.success && found.products.some((p) => p.id === productId),
+    ).toBe(true);
+    const missingCategory = await listProducts({ category: randomUUID() });
+    expect(missingCategory.success && missingCategory.products).toEqual([]);
     const visible = await listProducts({});
     expect(
       visible.success && visible.products.find((p) => p.id === productId),
