@@ -387,6 +387,10 @@ it("ECMSG-76: Origin/contrato, visitante e mass assignment antes de mutation", a
   });
   request.token = (await createSession(userId)).token;
   for (const key of [
+    "availableQuantity",
+    "inStock",
+    "inventoryRevision",
+    "revision",
     "userId",
     "items",
     "unitPrice",

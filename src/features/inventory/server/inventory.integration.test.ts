@@ -199,3 +199,46 @@ it("ECMSG-88: admin × admin mesma revisão tem um sucesso e um conflito", async
     )[0].revision,
   ).toBe(2);
 });
+it("ECMSG-89: role atual, DTO administrativo e revisão saturada falham fechado", async () => {
+  const { setInventoryQuantityAction } = await import(
+    "../actions/set-inventory.action"
+  );
+  const { readAdminCatalog } = await import(
+    "@/features/catalog/server/read-admin-catalog"
+  );
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  expect(
+    await setInventoryQuantityAction({
+      productId,
+      quantity: 2147483647,
+      revision: 1,
+    }),
+  ).toEqual({ success: true });
+  const dto = await readAdminCatalog({});
+  expect(dto?.products.find((p) => p.id === productId)).toMatchObject({
+    availableQuantity: 2147483647,
+    inventoryRevision: 2,
+  });
+  await client`UPDATE inventory SET revision=2147483647 WHERE product_id=${productId}`;
+  expect(
+    await setInventoryQuantityAction({
+      productId,
+      quantity: 0,
+      revision: 2147483647,
+    }),
+  ).toEqual({ success: false, code: "CONFLICT" });
+  await client`UPDATE users SET role='customer' WHERE id=${userId}`;
+  expect(await readAdminCatalog({})).toBeNull();
+  expect(
+    await setInventoryQuantityAction({
+      productId,
+      quantity: 0,
+      revision: 2147483647,
+    }),
+  ).toEqual({ success: false, code: "FORBIDDEN" });
+  expect(
+    (
+      await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`
+    )[0].available_quantity,
+  ).toBe(2147483647);
+});
