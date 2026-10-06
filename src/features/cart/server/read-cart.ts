@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
 import { cartItems } from "@/db/schema/cart-items";
+import { inventory } from "@/db/schema/inventory";
 import { products } from "@/db/schema/products";
 import { sessions } from "@/db/schema/sessions";
 import { sessionValidity, tokenHash } from "@/features/auth/server/session";
@@ -28,10 +29,12 @@ export async function readCart() {
         currency: products.currency,
         available: products.isPublished,
         imageKey: products.imageKey,
+        availableQuantity: inventory.availableQuantity,
       })
       .from(sessions)
       .leftJoin(cartItems, eq(cartItems.userId, sessions.userId))
       .leftJoin(products, eq(products.id, cartItems.productId))
+      .leftJoin(inventory, eq(inventory.productId, products.id))
       .where(and(eq(sessions.tokenHash, hash), sessionValidity()))
       .orderBy(cartItems.productId)
       .limit(101);
@@ -47,6 +50,8 @@ export async function readCart() {
           name: row.name,
           quantity: row.quantity,
           available: row.available,
+          availableQuantity: row.availableQuantity ?? 0,
+          stockSufficient: (row.availableQuantity ?? 0) >= row.quantity,
           price: priceDto({ amount: row.amount, currency: row.currency }),
           image: productImage(row.imageKey, row.name),
         },

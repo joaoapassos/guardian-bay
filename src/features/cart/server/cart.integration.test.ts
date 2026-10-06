@@ -69,11 +69,13 @@ beforeAll(async () => {
   const [product] =
     await client`INSERT INTO products(name,category_id,amount,is_published) VALUES ('Cart fixture',${categoryId},1099,true) RETURNING id`;
   productId = product.id;
+  await client`INSERT INTO inventory(product_id,available_quantity) VALUES (${productId},99)`;
 });
 
 beforeEach(async () => {
   await client`DELETE FROM cart_items WHERE user_id IN (${userId},${otherId})`;
   await client`UPDATE products SET name='Cart fixture',amount=1099,image_key=null,is_published=true,category_id=${categoryId} WHERE id=${productId}`;
+  await client`UPDATE inventory SET available_quantity=99 WHERE product_id=${productId}`;
   request.headers = new Headers({
     host: "localhost:3000",
     origin: "http://localhost:3000",
@@ -84,6 +86,7 @@ beforeEach(async () => {
 afterAll(async () => {
   await client`DELETE FROM cart_items WHERE user_id IN (${userId},${otherId})`;
   await client`DELETE FROM users WHERE id IN (${userId},${otherId})`;
+  await client`DELETE FROM inventory WHERE product_id IN (SELECT id FROM products WHERE category_id=${categoryId})`;
   await client`DELETE FROM products WHERE category_id=${categoryId}`;
   await client`DELETE FROM categories WHERE id=${categoryId}`;
   await client.end();
@@ -167,6 +170,8 @@ describe("ECMSG-56: leitura autorizada", () => {
         "name",
         "quantity",
         "available",
+        "availableQuantity",
+        "stockSufficient",
         "price",
         "image",
         "subtotal",
@@ -609,6 +614,8 @@ describe("ECMSG-64: matriz de segurança adicional", () => {
     const fixture =
       await client`INSERT INTO products(name,category_id,amount,is_published) SELECT 'Cart bound',${categoryId},1,true FROM generate_series(1,101) RETURNING id`;
     try {
+      for (const product of fixture)
+        await client`INSERT INTO inventory(product_id,available_quantity) VALUES (${product.id},99)`;
       for (const product of fixture.slice(0, 99))
         await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${product.id})`;
       const results = await Promise.all(
@@ -627,6 +634,7 @@ describe("ECMSG-64: matriz de segurança adicional", () => {
       ).toBe(100);
     } finally {
       await client`DELETE FROM cart_items WHERE user_id=${userId}`;
+      await client`DELETE FROM inventory WHERE product_id IN ${client(fixture.map((p) => p.id))}`;
       await client`DELETE FROM products WHERE id IN ${client(fixture.map((p) => p.id))}`;
     }
   });
@@ -691,4 +699,42 @@ it("ECMSG-64: visitante não atualiza/remove; replay e concorrência no limite",
     expect(await removeCartItemAction({ productId })).toEqual({
       success: true,
     });
+});
+
+it("ECMSG-83: estoque limita quantidade resultante e não reserva", async () => {
+  await client`UPDATE inventory SET available_quantity=5 WHERE product_id=${productId}`;
+  expect(await addToCartAction({ productId, quantity: 3 })).toEqual({
+    success: true,
+  });
+  expect(await addToCartAction({ productId, quantity: 3 })).toEqual({
+    success: false,
+    code: "OUT_OF_STOCK",
+  });
+  expect(await addToCartAction({ productId, quantity: 2 })).toEqual({
+    success: true,
+  });
+  expect(await updateCartItemAction({ productId, quantity: 6 })).toEqual({
+    success: false,
+    code: "OUT_OF_STOCK",
+  });
+  expect(
+    (
+      await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`
+    )[0].available_quantity,
+  ).toBe(5);
+  await client`UPDATE inventory SET available_quantity=2 WHERE product_id=${productId}`;
+  expect(await readCart()).toMatchObject({
+    success: true,
+    items: [
+      {
+        quantity: 5,
+        available: true,
+        stockSufficient: false,
+        availableQuantity: 2,
+        subtotal: null,
+      },
+    ],
+    total: { amount: 0 },
+  });
+  expect(await removeCartItemAction({ productId })).toEqual({ success: true });
 });

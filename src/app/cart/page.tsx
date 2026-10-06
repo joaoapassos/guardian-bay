@@ -41,7 +41,12 @@ export default async function CartPage() {
               {item.subtotal ? (
                 <p>Subtotal: {item.subtotal.formatted}</p>
               ) : (
-                <p>Produto indisponível. Não incluído no total.</p>
+                <p>
+                  {!item.available
+                    ? "Produto indisponível."
+                    : "Estoque insuficiente."}{" "}
+                  Não incluído no total.
+                </p>
               )}
               <CartItemControls
                 productId={item.productId}

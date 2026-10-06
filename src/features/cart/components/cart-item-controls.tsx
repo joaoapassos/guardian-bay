@@ -38,11 +38,13 @@ export function CartItemControls({
           setMessage(
             result.code === "UNAUTHENTICATED"
               ? "Sessão expirada. Entre novamente."
-              : result.code === "UNAVAILABLE"
-                ? "Produto indisponível. Você pode removê-lo."
-                : result.code === "CONFLICT"
-                  ? "O item mudou. Recarregue o carrinho."
-                  : "Quantidade inválida. Use um inteiro entre 1 e 99.",
+              : result.code === "OUT_OF_STOCK"
+                ? "Estoque insuficiente. O carrinho não reserva unidades."
+                : result.code === "UNAVAILABLE"
+                  ? "Produto indisponível. Você pode removê-lo."
+                  : result.code === "CONFLICT"
+                    ? "O item mudou. Recarregue o carrinho."
+                    : "Quantidade inválida. Use um inteiro entre 1 e 99.",
           );
       } catch {
         setMessage("Não foi possível concluir a operação. Tente novamente.");
