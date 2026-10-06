@@ -52,6 +52,11 @@ export default async function CartPage() {
           ))}
         </ul>
       )}
+      {result.items.length > 0 && (
+        <Link href="/checkout" className="mt-6 block underline">
+          Revisar checkout
+        </Link>
+      )}
       <p className="mt-8 text-xl font-semibold">
         Total dos itens disponíveis: {result.total.formatted}
       </p>
