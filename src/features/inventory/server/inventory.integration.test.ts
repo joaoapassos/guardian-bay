@@ -70,6 +70,7 @@ afterAll(async () => {
   await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (${userId},${otherId}))`;
   await client`DELETE FROM orders WHERE user_id IN (${userId},${otherId})`;
   await client`DELETE FROM cart_items WHERE user_id IN (${userId},${otherId})`;
+  await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE id IN (${userId},${otherId}))`;
   await client`DELETE FROM users WHERE id IN (${userId},${otherId})`;
   await client`DELETE FROM inventory WHERE product_id=${productId}`;
   await client`DELETE FROM products WHERE id=${productId}`;
