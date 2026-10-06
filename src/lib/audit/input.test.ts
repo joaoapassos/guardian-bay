@@ -44,3 +44,15 @@ it("ECMSG-107: contrato fechado rejeita dados sensíveis, extras e semântica in
       false,
     );
 });
+
+it("ECMSG-116: nomes plausíveis fora da allowlist também são rejeitados", () => {
+  for (const eventType of ["admin.product.free", "admin.inventory.free"])
+    expect(
+      auditInputSchema.safeParse({
+        ...valid,
+        eventType,
+        targetId: randomUUID(),
+        targetType: eventType.includes("product") ? "product" : "inventory",
+      }).success,
+    ).toBe(false);
+});

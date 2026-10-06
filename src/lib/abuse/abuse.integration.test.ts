@@ -91,3 +91,13 @@ it("ECMSG-115: budget administrativo é isolado e limitado sob concorrência", a
     )[0].attempts,
   ).toBe(1);
 });
+
+it("ECMSG-116: limpeza operacional remove só bucket expirado da fixture", async () => {
+  await client`UPDATE abuse_budgets SET started_at=clock_timestamp()-interval '2 minutes',expires_at=clock_timestamp()-interval '1 minute' WHERE user_id=${userId} AND operation='admin.inventory'`;
+  await client`DELETE FROM abuse_budgets WHERE (user_id,operation) IN (SELECT user_id,operation FROM abuse_budgets WHERE user_id=${userId} AND expires_at<=CURRENT_TIMESTAMP ORDER BY expires_at,user_id,operation LIMIT 1000)`;
+  expect(
+    (
+      await client`SELECT operation FROM abuse_budgets WHERE user_id=${userId} ORDER BY operation`
+    ).map((row) => row.operation),
+  ).toEqual(["admin.catalog", "checkout"]);
+});

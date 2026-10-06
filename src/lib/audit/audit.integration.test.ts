@@ -274,3 +274,16 @@ it("ECMSG-115: contrato inválido/consulta rejeitada não causa flood nem persis
     await client`SELECT column_name FROM information_schema.columns WHERE table_name='audit_events' AND table_schema='public'`;
   expect(cols.map((row) => row.column_name)).not.toContain("payload");
 });
+
+it("ECMSG-116: retenção manual limitada remove antigo e preserva recente", async () => {
+  const oldTarget = randomUUID();
+  const freshTarget = randomUUID();
+  await client`INSERT INTO audit_events(event_type,outcome,actor_user_id,target_type,target_id,correlation_id,occurred_at) VALUES ('order.completed','SUCCESS',${actor},'order',${oldTarget},${randomUUID()},clock_timestamp()-interval '91 days'),('order.completed','SUCCESS',${actor},'order',${freshTarget},${randomUUID()},clock_timestamp())`;
+  await client`DELETE FROM audit_events WHERE id IN (SELECT id FROM audit_events WHERE actor_user_id=${actor} AND occurred_at<CURRENT_TIMESTAMP-interval '90 days' ORDER BY occurred_at,id LIMIT 1000)`;
+  expect(
+    await client`SELECT id FROM audit_events WHERE target_id=${oldTarget}`,
+  ).toHaveLength(0);
+  expect(
+    await client`SELECT id FROM audit_events WHERE target_id=${freshTarget}`,
+  ).toHaveLength(1);
+});

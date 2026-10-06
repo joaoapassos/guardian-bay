@@ -33,6 +33,7 @@ test(
     const keys = [email, unknownEmail].map(
       (input) => `email:${createHash("sha256").update(input).digest("hex")}`,
     );
+    const auditStartedAt = new Date().toISOString();
     let server;
     let closed;
     let catalogCategoryId;
@@ -502,6 +503,21 @@ export default async function Probe() {
               )[0].available_quantity,
               0,
             );
+            await client`UPDATE abuse_budgets SET attempts=5 WHERE user_id=${user.id} AND operation='checkout'`;
+            assert.deepEqual(
+              result(await post(9, { checkoutKey: randomUUID() }, {}, cookie)),
+              { success: false, code: "RATE_LIMITED" },
+            );
+            assert.deepEqual(
+              result(await post(9, { checkoutKey }, {}, cookie)),
+              paid,
+            );
+            assert.equal(
+              (
+                await client`SELECT count(*)::int n FROM audit_events WHERE target_id=${paid.orderId} AND event_type='order.completed'`
+              )[0].n,
+              1,
+            );
             await client`DELETE FROM sessions WHERE token_hash=${tokenHash}`;
             assert.deepEqual(
               result(await post(9, { checkoutKey }, {}, cookie)),
@@ -926,6 +942,7 @@ export default async function Probe() {
             "/admin",
             "/admin/catalog",
             "/admin/orders",
+            "/admin/audit",
             `/admin/orders/${randomUUID()}`,
           ]) {
             assert.equal((await fetch(base + path)).status, 404);
@@ -950,6 +967,7 @@ export default async function Probe() {
               "/admin",
               "/admin/catalog",
               "/admin/orders",
+              "/admin/audit",
               `/admin/orders/${order.id}`,
             ]) {
               const response = await fetch(base + path, {
@@ -1040,6 +1058,7 @@ export default async function Probe() {
             for (const path of [
               "/admin",
               "/admin/orders",
+              "/admin/audit",
               `/admin/orders/${order.id}`,
             ])
               assert.equal(
@@ -1060,6 +1079,129 @@ export default async function Probe() {
           }
         },
       );
+      await t.test(
+        "ECMSG-116: audit readonly, privacy, admin budget and strict inputs over HTTP",
+        async () => {
+          await client`DELETE FROM login_rate_limits WHERE key IN ('global',${keys[0]},${keys[1]})`;
+          await client`DELETE FROM abuse_budgets WHERE user_id=${user.id}`;
+          await client`UPDATE users SET role='admin' WHERE id=${user.id}`;
+          const login = await post(0, credentials);
+          assert.deepEqual(result(login), { success: true });
+          const cookie = login.headers.get("set-cookie").split(";")[0];
+          const name = `Audit HTTP ${randomUUID()}`;
+          let categoryId;
+          try {
+            assert.deepEqual(
+              result(
+                await post(
+                  5,
+                  { operation: "create-category", name },
+                  {},
+                  cookie,
+                ),
+              ),
+              { success: true },
+            );
+            const [category] =
+              await client`SELECT id FROM categories WHERE name=${name}`;
+            categoryId = category.id;
+            const events =
+              await client`SELECT * FROM audit_events WHERE actor_user_id=${user.id} AND target_id=${categoryId}`;
+            assert.equal(events.length, 1);
+            assert.equal(events[0].event_type, "admin.category.created");
+            assert.equal(Object.keys(events[0]).length, 8);
+            const page = await fetch(
+              `${base}/admin/audit?actorUserId=${user.id}&targetId=${categoryId}&limit=1`,
+              { headers: { cookie } },
+            );
+            assert.equal(page.status, 200);
+            const body = await page.text();
+            assert.match(body, /admin.category.created/);
+            for (const secret of [
+              passwordHash,
+              cookie.split("=")[1],
+              value,
+              events[0].correlation_id,
+            ])
+              assert.ok(!body.includes(secret));
+            for (const query of [
+              "limit=51",
+              "page=1001",
+              "eventType=free",
+              "sort=sql%3Bdrop",
+              "actorUserId=invalid",
+              "targetId=invalid",
+              "payload=forged",
+            ])
+              assert.match(
+                await (
+                  await fetch(`${base}/admin/audit?${query}`, {
+                    headers: { cookie },
+                  })
+                ).text(),
+                /Filtros inválidos/,
+              );
+            for (const field of [
+              "eventType",
+              "actorUserId",
+              "payload",
+              "outcome",
+              "correlationId",
+            ])
+              assert.deepEqual(
+                result(
+                  await post(
+                    5,
+                    { operation: "create-category", name, [field]: "forged" },
+                    {},
+                    cookie,
+                  ),
+                ),
+                { success: false, code: "INVALID_INPUT" },
+              );
+            await client`UPDATE abuse_budgets SET attempts=30 WHERE user_id=${user.id} AND operation='admin.catalog'`;
+            assert.deepEqual(
+              result(
+                await post(
+                  5,
+                  {
+                    operation: "create-category",
+                    name: `Denied ${randomUUID()}`,
+                  },
+                  {},
+                  cookie,
+                ),
+              ),
+              { success: false, code: "RATE_LIMITED" },
+            );
+            await fetch(`${base}/admin/audit`, {
+              method: "POST",
+              headers: {
+                cookie,
+                origin: "https://127.0.0.1:3108",
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({ eventType: "free", payload: "forged" }),
+            });
+            assert.equal(
+              (
+                await client`SELECT count(*)::int n FROM audit_events WHERE target_id=${categoryId}`
+              )[0].n,
+              1,
+            );
+            await client`UPDATE users SET role='customer' WHERE id=${user.id}`;
+            assert.equal(
+              (await fetch(`${base}/admin/audit`, { headers: { cookie } }))
+                .status,
+              404,
+            );
+          } finally {
+            if (categoryId)
+              await client`DELETE FROM categories WHERE id=${categoryId}`;
+            await client`UPDATE users SET role='customer' WHERE id=${user.id}`;
+          }
+        },
+      );
     } finally {
       if (server) {
         server.kill();
@@ -1070,6 +1212,8 @@ export default async function Probe() {
         await client`DELETE FROM products WHERE category_id=${catalogCategoryId}`;
         await client`DELETE FROM categories WHERE id=${catalogCategoryId}`;
       }
+      await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE email=${email}) OR (actor_user_id IS NULL AND event_type='auth.abuse.threshold_reached' AND occurred_at>=${auditStartedAt})`;
+      await client`DELETE FROM abuse_budgets WHERE user_id IN (SELECT id FROM users WHERE email=${email})`;
       await client`DELETE FROM users WHERE email=${email}`;
       await client`DELETE FROM login_rate_limits WHERE key IN ('global',${keys[0]},${keys[1]})`;
       await client.end();
