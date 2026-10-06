@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { and, inArray, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { loginRateLimits } from "@/db/schema/login-rate-limits";
+import { writeAuditEvent } from "@/lib/audit/server";
 import { emailSchema } from "../schemas/credential.schema";
 
 import { securityEvent } from "./security-event";
@@ -85,7 +86,24 @@ export async function reserveLoginAttempt(
         thresholdReached: global.attempts === 20 || account?.attempts === limit,
       };
     });
-    if (reservation.thresholdReached) securityEvent(operation, "LIMIT_REACHED");
+    if (reservation.thresholdReached) {
+      securityEvent(operation, "LIMIT_REACHED");
+      // Only the committed counter crossing emits, never every rejected request.
+      // Audit failure must not roll back the already consumed hashing budget.
+      try {
+        await getDb().transaction((tx) =>
+          writeAuditEvent(tx, {
+            eventType: "auth.abuse.threshold_reached",
+            outcome: "THRESHOLD_REACHED",
+            actorUserId: null,
+            targetType: null,
+            targetId: null,
+          }),
+        );
+      } catch {
+        securityEvent(operation, "OPERATION_FAILED");
+      }
+    }
     return reservation.allowed;
   } catch {
     securityEvent(operation, "OPERATION_FAILED");

@@ -144,3 +144,42 @@ it("ECMSG-108: login auditado somente após sessão criada; falha do audit faz r
     await client`DELETE FROM users WHERE id=${user.id}`;
   }
 });
+
+it("ECMSG-112: limiar único, sem evento por bloqueio; falha do audit não devolve capacidade", async () => {
+  const { createHash } = await import("node:crypto");
+  const { reserveLoginAttempt } = await import(
+    "@/features/auth/server/login-rate-limit"
+  );
+  const writer = await import("./server");
+  const email = `${randomUUID()}@threshold.example.test`;
+  const key = `email:${createHash("sha256").update(email).digest("hex")}`;
+  const started = new Date().toISOString();
+  await client`DELETE FROM login_rate_limits WHERE key='global' OR key=${key}`;
+  try {
+    for (let i = 0; i < 5; i++)
+      expect(await reserveLoginAttempt(email)).toBe(true);
+    for (let i = 0; i < 3; i++)
+      expect(await reserveLoginAttempt(email)).toBe(false);
+    const events =
+      await client`SELECT id FROM audit_events WHERE event_type='auth.abuse.threshold_reached' AND occurred_at>=${started}`;
+    expect(events).toHaveLength(1);
+    anonymousIds.push(...events.map((row) => row.id));
+    await client`DELETE FROM login_rate_limits WHERE key='global' OR key=${key}`;
+    for (let i = 0; i < 4; i++) await reserveLoginAttempt(email);
+    const spy = vi
+      .spyOn(writer, "writeAuditEvent")
+      .mockRejectedValueOnce(new Error("Synthetic sink failure"));
+    try {
+      expect(await reserveLoginAttempt(email)).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(await reserveLoginAttempt(email)).toBe(false);
+    expect(
+      (await client`SELECT attempts FROM login_rate_limits WHERE key=${key}`)[0]
+        .attempts,
+    ).toBe(5);
+  } finally {
+    await client`DELETE FROM login_rate_limits WHERE key='global' OR key=${key}`;
+  }
+});

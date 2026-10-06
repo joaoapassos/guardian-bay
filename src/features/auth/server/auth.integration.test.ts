@@ -87,6 +87,7 @@ const unknownEmail = `${randomUUID()}@example.test`;
 const password = "Integration passphrase 24";
 let passwordHash: string;
 const rateKeys = new Set(["global"]);
+const auditStartedAt = new Date().toISOString();
 function fixtureRateKey(fixtureEmail: string, prefix = "email") {
   const key = `${prefix}:${createHash("sha256").update(fixtureEmail.trim().toLowerCase()).digest("hex")}`;
   rateKeys.add(key);
@@ -109,6 +110,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
+  await client`DELETE FROM audit_events WHERE actor_user_id IS NULL AND event_type='auth.abuse.threshold_reached' AND occurred_at>=${auditStartedAt}`;
   await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE email = ${email})`;
   await client`DELETE FROM users WHERE email = ${email}`;
   await database
