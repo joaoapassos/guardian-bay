@@ -1,7 +1,13 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 export function orderFailure(
-  operation: "preview" | "create" | "history" | "detail" | "admin-list",
+  operation:
+    | "preview"
+    | "create"
+    | "history"
+    | "detail"
+    | "admin-list"
+    | "admin-detail",
 ) {
   try {
     console.warn({
