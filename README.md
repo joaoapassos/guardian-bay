@@ -47,6 +47,8 @@ git diff --check origin/main...HEAD
 
 A [política de quality gates](docs/architecture/README.md#quality-gates-ecmsg-20) define verificações adicionais por risco e tratamento de falhas. Gate obrigatório falhou ou não foi executado: não mergear.
 
+As Actions de autenticação têm [política de requests e abuso](docs/architecture/README.md#boundaries-e-requests-ecmsg-26): body até 16 KiB, schemas estritos e rate limit PostgreSQL antes do hashing. A implantação pública ainda precisa de uma origem/IP confiável e proteção de entrada; headers IP enviados pelo cliente não são usados como autoridade.
+
 O build baixa Geist e Geist Mono via `next/font/google`; o ambiente de compilação precisa acessar `fonts.googleapis.com` e `fonts.gstatic.com`. As fontes são incluídas no build e servidas pela aplicação, sem acesso ao Google Fonts pelo navegador. `next typegen` e build geram arquivos em `.next/` e `next-env.d.ts`, ignorados pelo Git.
 
 A [estratégia de testes](docs/architecture/README.md#testes-ecmsg-19) mantém unitários em `check` e integração em comando separado. Para mudanças de identidade/autenticação/sessão, configure `TEST_DATABASE_URL` no ambiente apontando exclusivamente para PostgreSQL local com banco `guardian_bay_test`, diferente de `DATABASE_URL`, e execute `npm run test:integration`. A suíte aplica migrations versionadas, cria fixtures próprias e limpa somente essas fixtures; não cria o banco nem usa a conexão normal como fallback.

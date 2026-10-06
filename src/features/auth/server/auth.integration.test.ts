@@ -1,5 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { argon2id, hash } from "argon2";
+import { inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
@@ -13,12 +14,17 @@ import {
   it,
   vi,
 } from "vitest";
+import * as databaseInfrastructure from "@/db";
 import { getDb } from "@/db";
+import { loginRateLimits } from "@/db/schema/login-rate-limits";
 import { users } from "@/db/schema/users";
 import { loginAction } from "../actions/login.action";
 import { logoutAction } from "../actions/logout.action";
 import { readIdentityAction } from "../actions/read-identity.action";
 import { authenticate } from "./authenticate";
+import { login } from "./login";
+import { reserveLoginAttempt, withLoginHashSlot } from "./login-rate-limit";
+import * as passwordOperations from "./password";
 import { hashPassword, verifyPassword } from "./password";
 import { readOwnIdentity } from "./read-own-identity";
 import {
@@ -75,6 +81,13 @@ const database = drizzle(client);
 const email = `${randomUUID()}@example.test`;
 const password = "Integration passphrase 24";
 let passwordHash: string;
+const rateKeys = new Set(["global"]);
+function fixtureRateKey(fixtureEmail: string) {
+  const key = `email:${createHash("sha256").update(fixtureEmail.trim().toLowerCase()).digest("hex")}`;
+  rateKeys.add(key);
+  return key;
+}
+fixtureRateKey(email);
 
 beforeAll(async () => {
   vi.stubEnv("DATABASE_URL", value);
@@ -82,8 +95,18 @@ beforeAll(async () => {
   passwordHash = await hashPassword(password);
 });
 
+beforeEach(async () => {
+  // Only this suite's fixture keys and its dedicated global budget are reset.
+  await database
+    .delete(loginRateLimits)
+    .where(inArray(loginRateLimits.key, [...rateKeys]));
+});
+
 afterAll(async () => {
   await client`DELETE FROM users WHERE email = ${email}`;
+  await database
+    .delete(loginRateLimits)
+    .where(inArray(loginRateLimits.key, [...rateKeys]));
   await client.end();
   await getDb().$client.end();
   vi.unstubAllEnvs();
@@ -349,6 +372,7 @@ describe("ECMSG-25: autorização e correções de autenticação", () => {
   let ids: string[];
   let ownToken: string;
   beforeAll(async () => {
+    emails.forEach(fixtureRateKey);
     const legacyHash = await hash("old", {
       type: argon2id,
       memoryCost: 65536,
@@ -542,5 +566,296 @@ describe("ECMSG-25: autorização e correções de autenticação", () => {
     await expect(readIdentityAction({ userId: ids[0] })).rejects.toThrow(
       "Requisição inválida.",
     );
+  });
+});
+
+describe("ECMSG-26: requests, abuso e concorrência real", () => {
+  const emails = [randomUUID(), randomUUID()].map((id) => `${id}@example.test`);
+  const keys = emails.map(fixtureRateKey);
+  let userId: string;
+  beforeAll(async () => {
+    const [user] = await database
+      .insert(users)
+      .values({ email: emails[0], passwordHash })
+      .returning({ id: users.id });
+    userId = user.id;
+  });
+  beforeEach(() => {
+    request.headers = new Headers({
+      origin: "http://localhost:3000",
+      host: "localhost:3000",
+    });
+    request.token = undefined;
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.stubEnv("NODE_ENV", "test");
+  });
+  afterAll(async () => {
+    await client`DELETE FROM users WHERE id=${userId}`;
+  });
+
+  it("input inválido e argumentos extras não chegam a DB/Argon2/cookies", async () => {
+    const dbSpy = vi.spyOn(databaseInfrastructure, "getDb");
+    const passwordSpy = vi.spyOn(passwordOperations, "verifyPassword");
+    const inputs = [
+      undefined,
+      null,
+      "invalid",
+      { email: emails[0], password, role: "admin" },
+      { email: "x".repeat(321), password },
+      { email: emails[0], password: "x".repeat(100000) },
+      { email: emails[0], password, sessionToken: "forged" },
+    ];
+    for (const input of inputs)
+      expect(await login(input)).toEqual({
+        success: false,
+        code: "INVALID_INPUT",
+      });
+    expect(
+      await loginAction({ email: emails[0], password }, { role: "admin" }),
+    ).toEqual({ success: false, message: "Credenciais inválidas." });
+    expect(
+      await readIdentityAction({ userId: userId, permissions: ["all"] }),
+    ).toEqual({ success: false, code: "INVALID_INPUT" });
+    expect(await readIdentityAction({ userId }, "extra")).toEqual({
+      success: false,
+      code: "INVALID_INPUT",
+    });
+    expect(await logoutAction({ token: "forged" })).toEqual({
+      success: false,
+      code: "INVALID_INPUT",
+    });
+    expect(dbSpy).not.toHaveBeenCalled();
+    expect(passwordSpy).not.toHaveBeenCalled();
+  });
+  it("cinco tentativas são admitidas, sexta é bloqueada antes do Argon2", async () => {
+    const passwordSpy = vi.spyOn(passwordOperations, "verifyPassword");
+    for (let attempt = 0; attempt < 5; attempt++)
+      expect(
+        await loginAction({ email: emails[0], password: "incorrect" }),
+      ).toEqual({ success: false, message: "Credenciais inválidas." });
+    const [before] =
+      await client`SELECT expires_at FROM login_rate_limits WHERE key=${keys[0]}`;
+    expect(
+      await loginAction({ email: ` ${emails[0].toUpperCase()} `, password }),
+    ).toEqual({
+      success: false,
+      code: "RATE_LIMITED",
+      message: "Não foi possível autenticar agora. Tente novamente mais tarde.",
+    });
+    const [after] =
+      await client`SELECT expires_at,attempts FROM login_rate_limits WHERE key=${keys[0]}`;
+    expect(after.expires_at).toEqual(before.expires_at);
+    expect(after.attempts).toBe(5);
+    expect(passwordSpy).toHaveBeenCalledTimes(5);
+  });
+  it("limite e respostas não distinguem identidade existente/inexistente", async () => {
+    for (let attempt = 0; attempt < 6; attempt++) {
+      expect(
+        await loginAction({ email: emails[0], password: "incorrect" }),
+      ).toEqual(await loginAction({ email: emails[1], password: "incorrect" }));
+    }
+    const data =
+      await client`SELECT * FROM login_rate_limits WHERE key IN (${keys[0]},${keys[1]})`;
+    expect(data).toHaveLength(2);
+    for (const row of data) expect(Object.values(row)).not.toContain(emails[0]);
+  });
+  it("e-mails independentes compartilham somente o orçamento global", async () => {
+    for (let attempt = 0; attempt < 5; attempt++)
+      expect(await reserveLoginAttempt(emails[0])).toBe(true);
+    expect(await reserveLoginAttempt(emails[0])).toBe(false);
+    expect(await reserveLoginAttempt(emails[1])).toBe(true);
+  });
+  it("janela expirada reabre sem bloqueio permanente", async () => {
+    for (let attempt = 0; attempt < 5; attempt++)
+      await reserveLoginAttempt(emails[0]);
+    await client`UPDATE login_rate_limits SET started_at=CURRENT_TIMESTAMP-interval '16 minutes',expires_at=CURRENT_TIMESTAMP-interval '1 minute' WHERE key=${keys[0]}`;
+    expect(await reserveLoginAttempt(emails[0])).toBe(true);
+    const [row] =
+      await client`SELECT attempts,expires_at>CURRENT_TIMESTAMP AS active FROM login_rate_limits WHERE key=${keys[0]}`;
+    expect(row).toMatchObject({ attempts: 1, active: true });
+  });
+  it("reserva concorrente não ultrapassa cinco por e-mail nem vinte globais", async () => {
+    const results = await Promise.all(
+      Array.from({ length: 30 }, () => reserveLoginAttempt(emails[0])),
+    );
+    expect(results.filter(Boolean)).toHaveLength(5);
+    const rows =
+      await client`SELECT key,attempts FROM login_rate_limits WHERE key IN ('global',${keys[0]})`;
+    expect(rows.find((row) => row.key === keys[0])?.attempts).toBe(5);
+    expect(rows.find((row) => row.key === "global")?.attempts).toBe(20);
+  });
+  it("rotacionar identificadores não evita orçamento global", async () => {
+    const identifiers = Array.from(
+      { length: 25 },
+      () => `${randomUUID()}@example.test`,
+    );
+    identifiers.forEach(fixtureRateKey);
+    const results = await Promise.all(identifiers.map(reserveLoginAttempt));
+    expect(results.filter(Boolean)).toHaveLength(20);
+    const [global] =
+      await client`SELECT attempts FROM login_rate_limits WHERE key='global'`;
+    expect(global.attempts).toBe(20);
+  });
+  it("limite global bloqueia antes do hashing e limpa expirados ao reabrir", async () => {
+    const expiredKey = fixtureRateKey(`${randomUUID()}@example.test`);
+    await client`INSERT INTO login_rate_limits(key,attempts,started_at,expires_at) VALUES (${expiredKey},1,CURRENT_TIMESTAMP-interval '20 minutes',CURRENT_TIMESTAMP-interval '5 minutes')`;
+    await client`INSERT INTO login_rate_limits(key,attempts,started_at,expires_at) VALUES ('global',20,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP+interval '1 minute')`;
+    const passwordSpy = vi.spyOn(passwordOperations, "verifyPassword");
+    expect(await login({ email: emails[0], password })).toEqual({
+      success: false,
+      code: "RATE_LIMITED",
+    });
+    expect(passwordSpy).not.toHaveBeenCalled();
+    await client`UPDATE login_rate_limits SET started_at=CURRENT_TIMESTAMP-interval '2 minutes',expires_at=CURRENT_TIMESTAMP-interval '1 minute' WHERE key='global'`;
+    expect(await reserveLoginAttempt(emails[0])).toBe(true);
+    expect(
+      await client`SELECT key FROM login_rate_limits WHERE key=${expiredKey}`,
+    ).toHaveLength(0);
+  });
+  it("somente dois slots executam operação concorrente, sem fila de hashing", async () => {
+    let release = () => {};
+    let started = () => {};
+    const hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const bothStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    let entered = 0;
+    const operation = async () => {
+      if (++entered === 2) started();
+      await hold;
+      return "done";
+    };
+    const a = withLoginHashSlot(operation);
+    const b = withLoginHashSlot(operation);
+    try {
+      await bothStarted;
+      expect(
+        await withLoginHashSlot(async () => {
+          throw new Error("should not execute");
+        }),
+      ).toEqual({ admitted: false });
+      expect(entered).toBe(2);
+    } finally {
+      release();
+      await Promise.all([a, b]);
+    }
+    expect(await withLoginHashSlot(async () => "released")).toEqual({
+      admitted: true,
+      value: "released",
+    });
+  });
+  it("slots ocupados bloqueiam login antes de Argon2 e libera após rollback", async () => {
+    const held = await getDb().$client.reserve();
+    try {
+      await held`BEGIN`;
+      await held`SELECT pg_advisory_xact_lock(1195524428,0),pg_advisory_xact_lock(1195524428,1)`;
+      const passwordSpy = vi.spyOn(passwordOperations, "verifyPassword");
+      expect(await login({ email: emails[0], password })).toEqual({
+        success: false,
+        code: "RATE_LIMITED",
+      });
+      expect(passwordSpy).not.toHaveBeenCalled();
+    } finally {
+      await held`ROLLBACK`;
+      held.release();
+    }
+    await expect(
+      withLoginHashSlot(async () => {
+        throw new Error("sensitive payload");
+      }),
+    ).rejects.toThrow("Não foi possível processar a autenticação.");
+    expect(await withLoginHashSlot(async () => true)).toEqual({
+      admitted: true,
+      value: true,
+    });
+  });
+  it("constraints, unicidade e erros operacionais não expõem payload", async () => {
+    await reserveLoginAttempt(emails[0]);
+    await expect(
+      client`INSERT INTO login_rate_limits(key,attempts,started_at,expires_at) VALUES (${keys[0]},1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP+interval '1 minute')`,
+    ).rejects.toMatchObject({ code: "23505" });
+    for (const attempts of [0, -1, 21])
+      await expect(
+        client`UPDATE login_rate_limits SET attempts=${attempts} WHERE key=${keys[0]}`,
+      ).rejects.toMatchObject({ code: "23514" });
+    await expect(
+      client`UPDATE login_rate_limits SET key='raw-email@example.test' WHERE key=${keys[0]}`,
+    ).rejects.toMatchObject({ code: "23514" });
+    await expect(
+      client`UPDATE login_rate_limits SET expires_at=started_at WHERE key=${keys[0]}`,
+    ).rejects.toMatchObject({ code: "23514" });
+    await expect(
+      client`UPDATE login_rate_limits SET attempts=NULL WHERE key=${keys[0]}`,
+    ).rejects.toMatchObject({ code: "23502" });
+    const logSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = await withLoginHashSlot(async () => {
+      throw new Error(`password=${password}`);
+    }).catch((failure: Error) => failure);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe(
+      "Não foi possível processar a autenticação.",
+    );
+    expect((error as Error).cause).toBeUndefined();
+    expect((error as Error).stack).not.toContain(password);
+    expect(Object.keys(logSpy.mock.calls[0][0]).sort()).toEqual([
+      "correlationId",
+      "event",
+      "operation",
+      "result",
+      "timestamp",
+    ]);
+    expect(JSON.stringify(logSpy.mock.calls)).not.toContain(password);
+  });
+  it.each([
+    null,
+    "null",
+    "https://evil.test",
+    "http://localhost:4000",
+  ])("todas as Actions rejeitam Origin inválida antes do DB", async (origin) => {
+    const dbSpy = vi.spyOn(databaseInfrastructure, "getDb");
+    request.headers = new Headers({
+      host: "localhost:3000",
+      ...(origin ? { origin } : {}),
+      "x-forwarded-host": origin ?? "localhost:3000",
+      "x-forwarded-for": "1.2.3.4",
+      "x-real-ip": "1.2.3.4",
+    });
+    await expect(loginAction({ email: emails[0], password })).rejects.toThrow(
+      "Requisição inválida.",
+    );
+    await expect(logoutAction()).rejects.toThrow("Requisição inválida.");
+    await expect(readIdentityAction({ userId })).rejects.toThrow(
+      "Requisição inválida.",
+    );
+    expect(dbSpy).not.toHaveBeenCalled();
+  });
+  it("produção exige HTTPS; headers IP forjados não alteram chave", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    await expect(loginAction({ email: emails[0], password })).rejects.toThrow(
+      "Requisição inválida.",
+    );
+    request.headers = new Headers({
+      origin: "https://localhost:3000",
+      host: "localhost:3000",
+      "x-forwarded-for": "1.2.3.4",
+    });
+    expect(await loginAction({ email: emails[0], password })).toEqual({
+      success: true,
+    });
+    expect(request.lastCookie?.options).toMatchObject({
+      secure: true,
+      httpOnly: true,
+    });
+    request.headers.set("x-forwarded-for", "9.9.9.9");
+    await reserveLoginAttempt(emails[0]);
+    const [row] =
+      await client`SELECT attempts FROM login_rate_limits WHERE key=${keys[0]}`;
+    expect(row.attempts).toBe(2);
+    expect(await logoutAction()).toEqual({ success: true });
+    expect(await logoutAction()).toEqual({ success: true });
   });
 });
