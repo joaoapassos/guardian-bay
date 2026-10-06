@@ -146,3 +146,35 @@ it("ECMSG-69: preview exige sessão, carrinho próprio completo e catálogo atua
     await client`SELECT * FROM cart_items WHERE user_id=${userId}`,
   ).toHaveLength(1);
 });
+it("ECMSG-70: double submit/retry e chave igual entre usuários são isolados", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const checkoutKey = randomUUID();
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2),(${otherId},${productId},1)`;
+  const pair = await Promise.all([
+    checkoutAction({ checkoutKey }),
+    checkoutAction({ checkoutKey }),
+  ]);
+  expect(pair[0]).toEqual(pair[1]);
+  expect(pair[0]).toMatchObject({ success: true });
+  expect(
+    await client`SELECT id FROM orders WHERE user_id=${userId}`,
+  ).toHaveLength(1);
+  await client`UPDATE products SET name='Changed after snapshot',amount=1200 WHERE id=${productId}`;
+  expect(await checkoutAction({ checkoutKey })).toEqual(pair[0]);
+  expect(
+    await client`SELECT product_name,unit_amount,subtotal_amount FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id=${userId})`,
+  ).toMatchObject([
+    {
+      product_name: "Order fixture",
+      unit_amount: 1099,
+      subtotal_amount: "2198",
+    },
+  ]);
+  request.token = (await createSession(otherId)).token;
+  expect(await checkoutAction({ checkoutKey })).toMatchObject({
+    success: true,
+  });
+  expect(
+    await client`SELECT id FROM orders WHERE checkout_key=${checkoutKey}`,
+  ).toHaveLength(2);
+});
