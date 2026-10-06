@@ -5,6 +5,7 @@ import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/db";
 import { listProducts } from "./list-products";
+import { readProduct } from "./read-product";
 
 vi.mock("server-only", () => ({}));
 const value = process.env.TEST_DATABASE_URL;
@@ -34,12 +35,20 @@ describe("listagem pública", () => {
     const [fixture] =
       await client`INSERT INTO products(name,category_id,amount) VALUES ('Produto',${categoryId},1099) RETURNING id`;
     const productId = fixture.id;
+    expect(await readProduct(productId)).toBeNull();
+    expect(await readProduct(randomUUID())).toBeNull();
+    expect(await readProduct("' OR 1=1 --")).toBeNull();
     await client`UPDATE products SET is_published=false WHERE id=${productId}`;
     const hidden = await listProducts({});
     expect(
       hidden.success && hidden.products.some((p) => p.id === productId),
     ).toBe(false);
     await client`UPDATE products SET is_published=true WHERE id=${productId}`;
+    expect(await readProduct(productId)).toMatchObject({
+      id: productId,
+      description: "",
+      price: { amount: 1099 },
+    });
     const visible = await listProducts({});
     expect(
       visible.success && visible.products.find((p) => p.id === productId),

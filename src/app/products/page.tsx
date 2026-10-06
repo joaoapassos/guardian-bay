@@ -23,7 +23,9 @@ export default async function ProductsPage({
                   key={product.id}
                   className="rounded border border-zinc-300 p-5"
                 >
-                  <h2 className="text-xl font-semibold">{product.name}</h2>
+                  <h2 className="text-xl font-semibold">
+                    <Link href={`/products/${product.id}`}>{product.name}</Link>
+                  </h2>
                   <p>{product.category}</p>
                   <p>{product.price.formatted}</p>
                 </li>
