@@ -56,6 +56,6 @@ Next.js 16.3.8, React 19.2.8, Tailwind CSS 4 e React Compiler habilitado. TypeSc
 
 Biome 2.4.2 é o único linter/formatter, integrado ao `.gitignore`, com regras recomendadas de React/Next e organização de imports. Enforcement completo de boundaries permanece para trabalho posterior.
 
-PostgreSQL usa Drizzle ORM com Postgres.js; Drizzle Kit e `@next/env` preparam a CLI. Não há tabelas de domínio ou migrations ainda. Consulte o [fluxo de banco e migrations](docs/architecture/README.md#postgresql-e-drizzle-ecmsg-16) antes de executar `npm run db:generate`, `npm run db:migrate` ou `npm run db:studio`. As demais dependências futuras só serão adicionadas com uso concreto.
+PostgreSQL usa Drizzle ORM com Postgres.js; Drizzle Kit e `@next/env` preparam a CLI. Há schema `users` e migration inicial para [identidade e credenciais](docs/architecture/README.md#identidade-e-credenciais-ecmsg-23), com Zod e Argon2id server-only, sem cadastro/login/sessão. Consulte o [fluxo de banco e migrations](docs/architecture/README.md#postgresql-e-drizzle-ecmsg-16) antes de executar `npm run db:generate`, `npm run db:migrate` ou `npm run db:studio`. As demais dependências futuras só serão adicionadas com uso concreto.
 
 Consulte [AGENTS.md](AGENTS.md) para invariantes e [a arquitetura aprovada](docs/architecture/README.md) para responsabilidades, colocation e fronteira Server × Client. Antes de alterar APIs/configuração Next.js, consulte `node_modules/next/dist/docs/` da versão instalada.
