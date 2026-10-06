@@ -411,3 +411,154 @@ describe("ECMSG-62: catálogo atual e races", () => {
     }
   });
 });
+
+describe("ECMSG-63: boundaries, ownership e sessão concorrente", () => {
+  it("todas as Actions negam Origin ausente/forjado e payload extra", async () => {
+    request.token = (await createSession(userId)).token;
+    for (const action of [
+      addToCartAction,
+      updateCartItemAction,
+      removeCartItemAction,
+    ]) {
+      for (const origin of ["", "null", "https://evil.test"]) {
+        request.headers = new Headers({
+          host: "localhost:3000",
+          origin,
+          "x-forwarded-host": "evil.test",
+        });
+        await expect(action({ productId, quantity: 1 })).rejects.toThrow(
+          "Requisição inválida.",
+        );
+      }
+      request.headers = new Headers({
+        host: "localhost:3000",
+        origin: "http://localhost:3000",
+      });
+      expect(await action({ productId, quantity: 1, userId: otherId })).toEqual(
+        { success: false, code: "INVALID_INPUT" },
+      );
+      expect(await action({ productId }, "extra")).toEqual({
+        success: false,
+        code: "INVALID_INPUT",
+      });
+    }
+    expect(
+      await client`SELECT * FROM cart_items WHERE user_id=${userId}`,
+    ).toHaveLength(0);
+  });
+  it("revogação durante espera da identidade e reads revogados negam acesso", async () => {
+    request.token = (await createSession(userId)).token;
+    const { revokeSession } = await import("@/features/auth/server/session");
+    const blocker = postgres(value, { max: 1, onnotice: () => {} });
+    let unlock!: () => void;
+    let locked!: () => void;
+    const release = new Promise<void>((done) => {
+      unlock = done;
+    });
+    const acquired = new Promise<void>((done) => {
+      locked = done;
+    });
+    const holding = blocker.begin(async (tx) => {
+      await tx`SELECT id FROM users WHERE id=${userId} FOR UPDATE`;
+      locked();
+      await release;
+    });
+    try {
+      await acquired;
+      const pending = addToCartAction({ productId, quantity: 1 });
+      for (let i = 0; i < 100; i++) {
+        const [row] =
+          await client`SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%"users"%'`;
+        if (row.count) break;
+        if (i === 99) throw new Error("No identity wait");
+        await new Promise((done) => setTimeout(done, 20));
+      }
+      await revokeSession(request.token);
+      unlock();
+      await holding;
+      expect(await pending).toEqual({
+        success: false,
+        code: "UNAUTHENTICATED",
+      });
+      expect(await readCart()).toEqual({
+        success: false,
+        code: "UNAUTHENTICATED",
+      });
+      expect(
+        await client`SELECT * FROM cart_items WHERE user_id=${userId}`,
+      ).toHaveLength(0);
+    } finally {
+      unlock();
+      await holding;
+      await blocker.end();
+    }
+  });
+  it("expiração absoluta/idle durante lock desfaz add/update/remove", async () => {
+    const blocker = postgres(value, { max: 1, onnotice: () => {} });
+    try {
+      for (const operation of ["add", "update", "remove"] as const)
+        for (const expiry of ["absolute", "idle"] as const) {
+          request.token = (await createSession(userId)).token;
+          await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2) ON CONFLICT (user_id,product_id) DO UPDATE SET quantity=2`;
+          const { tokenHash } = await import("@/features/auth/server/session");
+          const hash = tokenHash(request.token);
+          if (expiry === "absolute")
+            await client`UPDATE sessions SET created_at=clock_timestamp()-interval '1 hour',expires_at=clock_timestamp()+interval '1 second' WHERE token_hash=${hash}`;
+          else
+            await client`UPDATE sessions SET created_at=clock_timestamp()-interval '1 hour',last_active_at=clock_timestamp()-interval '29 minutes 59 seconds' WHERE token_hash=${hash}`;
+          let unlock!: () => void;
+          let locked!: () => void;
+          const release = new Promise<void>((done) => {
+            unlock = done;
+          });
+          const acquired = new Promise<void>((done) => {
+            locked = done;
+          });
+          const holding = blocker.begin(async (tx) => {
+            if (operation === "remove")
+              await tx`SELECT quantity FROM cart_items WHERE user_id=${userId} AND product_id=${productId} FOR UPDATE`;
+            else
+              await tx`SELECT id FROM products WHERE id=${productId} FOR UPDATE`;
+            locked();
+            await release;
+          });
+          try {
+            await acquired;
+            const pending =
+              operation === "add"
+                ? addToCartAction({ productId, quantity: 1 })
+                : operation === "update"
+                  ? updateCartItemAction({ productId, quantity: 3 })
+                  : removeCartItemAction({ productId });
+            if (operation !== "remove") await waitForProductLock();
+            else {
+              let waiting = false;
+              for (let i = 0; i < 100 && !waiting; i++) {
+                const [row] =
+                  await client`SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%"cart_items"%'`;
+                waiting = !!row.count;
+                if (!waiting) await new Promise((done) => setTimeout(done, 20));
+              }
+              expect(waiting).toBe(true);
+            }
+            await client`SELECT pg_sleep(1.1)`;
+            unlock();
+            await holding;
+            expect(await pending).toEqual({
+              success: false,
+              code: "UNAUTHENTICATED",
+            });
+            const [stored] =
+              await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`;
+            expect(stored.quantity).toBe(2);
+          } finally {
+            unlock();
+            await holding;
+          }
+        }
+    } finally {
+      await blocker.end();
+      await client`DELETE FROM cart_items WHERE user_id=${userId}`;
+    }
+  });
+});
