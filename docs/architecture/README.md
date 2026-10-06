@@ -34,6 +34,10 @@ O layout Server resolve identidade por cookie/sessão e compõe navegação de v
 
 `cookies()` torna a composição dependente da request; identidade não usa cache compartilhado, `use cache`, store ou contexto Client. Render continua somente read: não renova idle timeout. Reads e queries protegidas continuam validando expiração/revogação. A área `/account` será implementada na ECMSG-36; o link não concede acesso antecipado.
 
+## Área da conta (ECMSG-36)
+
+`/account` é Server e recebe de `readAccount` somente `{ email }`. O identificador vem da sessão resolvida no servidor; o caller não escolhe userId por URL, query ou hidden input. A operação existente revalida sessão e ownership na query antes de projetar o DTO. Visitante/sessão inválida não recebe dado e é redirecionado para `/login`; o redirect é somente UX. Não há perfil completo, IDs/timestamps internos ou registro de sessão no HTML. Render não renova atividade; logout/revogação/expiração impedem nova leitura.
+
 ## Contrato de entrada e proteção contra abuso (ECMSG-27)
 
 Não há deployment definido. O link do scaffold para Vercel não configura hospedagem, proxy ou origem confiável. Atualmente `X-Forwarded-For`, `X-Real-IP` e `Forwarded` não identificam o caller; os limites de login funcionam sem eles.

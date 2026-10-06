@@ -30,6 +30,12 @@ test("production HTTP headers and scaffold resources", async (t) => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     assert.equal(ready, true, "owned production server must start");
     const base = "http://127.0.0.1:3107";
+    const account = await fetch(`${base}/account`, { redirect: "manual" });
+    assert.equal(account.status, 307);
+    assert.equal(
+      new URL(account.headers.get("location"), base).pathname,
+      "/login",
+    );
     for (const path of ["/", "/missing-security-resource", "/next.svg"]) {
       const response = await fetch(base + path);
       assert.equal(response.status, path.includes("missing") ? 404 : 200);
