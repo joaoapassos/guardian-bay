@@ -14,7 +14,7 @@ A ordem entre instruções do projeto é `AGENTS.md → arquitetura aprovada do 
 
 O projeto contém o scaffold de Next.js 16.3.8 com React 19.2.8, App Router em `src/app`, Tailwind 4 e React Compiler habilitado. `page.tsx` e `layout.tsx` têm um componente principal cada e não usam `"use client"`. TypeScript está em modo estrito, com `@/* → ./src/*`. Biome 2.4.2 já formata, organiza imports e aplica regras recomendadas de Next/React por `npm run lint`.
 
-Há infraestrutura PostgreSQL com Drizzle ORM/Kit e Postgres.js em `src/db`, configuração privada validada em `src/lib/env`, testes unitários e de integração com Vitest, baseline de headers HTTP e quality gates. `users` e `sessions` têm schemas/migrations; `features/auth` contém contratos Zod, Argon2id, Actions de login/logout e leitura autorizada da própria identidade. Não há UI de login, cadastro público ou operações comerciais. Radix UI, Zustand e React Hook Form permanecem decisões para uso futuro, com instalação somente quando houver consumidor concreto.
+Há infraestrutura PostgreSQL com Drizzle ORM/Kit e Postgres.js em `src/db`, configuração privada validada em `src/lib/env`, testes unitários e de integração com Vitest, baseline de headers HTTP e quality gates. `users`, `sessions` e `login_rate_limits` têm schemas/migrations; `features/auth` contém contratos Zod, Argon2id, Actions de login/logout, proteção contra abuso do login e leitura autorizada da própria identidade. Não há UI de login, cadastro público ou operações comerciais. Radix UI, Zustand e React Hook Form permanecem decisões para uso futuro, com instalação somente quando houver consumidor concreto.
 
 ## Decisões arquiteturais essenciais
 
@@ -441,7 +441,7 @@ Unitários usam Argon2 real para senha correta/incorreta, salts distintos, limit
 
 ## Autenticação e sessões (ECMSG-24)
 
-`loginAction` valida a origem da requisição e delega a `feature/server`: `authenticationCredentialSchema` → e-mail canônico → lookup parametrizado → `verifyPassword` → nova sessão → cookie. Criação continua usando `credentialSchema` com mínimo de 15 pontos de código; autenticação aceita senha existente não vazia, mantendo tipos, máximo de 128 pontos de código/256 unidades UTF-16 e rejeição de surrogates isolados. Ambos preservam a senha exatamente. Alterar o mínimo de criação não bloqueia credenciais existentes. Falhas de contrato, identidade inexistente e senha incorreta retornam somente `{ success: false, message: "Credenciais inválidas." }`; sucesso retorna `{ success: true }`. Identidade inexistente executa Argon2id contra hash sintético não secreto com o mesmo custo vigente, evitando o atalho sem hashing. Ao alterar a política de custo, atualize também esse hash. Isso reduz enumeração por timing, sem prometer tempo constante de banco/rede. Falhas operacionais propagam como exceções controladas, sem SQL, senha, hash, token ou causa bruta.
+`loginAction` valida a origem da requisição e delega a `feature/server`: `authenticationCredentialSchema` → e-mail canônico → reserva no rate limiter → slot de hashing → lookup parametrizado → `verifyPassword` → nova sessão → cookie. Criação continua usando `credentialSchema` com mínimo de 15 pontos de código; autenticação aceita senha existente não vazia, mantendo tipos, máximo de 128 pontos de código/256 unidades UTF-16 e rejeição de surrogates isolados. Ambos preservam a senha exatamente. Alterar o mínimo de criação não bloqueia credenciais existentes. Falhas de contrato, identidade inexistente e senha incorreta retornam somente `{ success: false, message: "Credenciais inválidas." }`; sucesso retorna `{ success: true }`. Limitação de tentativas/custo tem resultado próprio descrito abaixo. Identidade inexistente executa Argon2id contra hash sintético não secreto com o mesmo custo vigente, evitando o atalho sem hashing. Ao alterar a política de custo, atualize também esse hash. Isso reduz enumeração por timing, sem prometer tempo constante de banco/rede. Falhas operacionais propagam como exceções controladas, sem SQL, senha, hash, token ou causa bruta.
 
 `sessions.tokenHash` é PK: SHA-256 de 32 bytes criptograficamente aleatórios apresentados como 64 caracteres hexadecimais. O token bruto fica somente no fluxo server → cookie → browser; não é persistido, retornado pela Action ou logado. A tabela exige hash canônico, FK `users.id` com `ON DELETE CASCADE`, timestamps `NOT NULL`, `expiresAt > createdAt` e `createdAt <= lastActiveAt < expiresAt`, com índices de usuário e expiração. A sessão tem limite absoluto de oito horas e idle timeout de 30 minutos, pelo relógio do PostgreSQL; nenhuma atividade prolonga `expiresAt`.
 
@@ -455,7 +455,7 @@ As Actions usam POST, com a checagem Origin/Host (ou X-Forwarded-Host) do Next.j
 
 Autenticação resolve identidade, não concede autorização. Uma futura mutation de domínio deve verificar sessão atual, permissão e ownership na execução, considerando revogação/expiração concorrentes; a leitura prévia da página não autoriza o efeito. Mudança de privilégio deve rotacionar a sessão. Não há roles ou operações comerciais nesta Task.
 
-As Actions não têm consumidor de UI no scaffold; Next.js elimina referências não usadas do build. Cadastro público, rate limiting e proteção contra credential stuffing/brute force não foram implementados. Proteção contra abuso é candidata necessária da Epic 2 antes de exposição pública do login; cada verificação Argon2 consome 64 MiB, e concorrência multiplica CPU/memória. A estratégia segue as [recomendações de sessão OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).
+As Actions não têm consumidor de UI no scaffold; Next.js elimina referências não usadas do build. Não há cadastro público. O login tem [proteção compartilhada contra abuso](#boundaries-e-requests-ecmsg-26); cada verificação Argon2 continua consumindo 64 MiB. A estratégia de sessão segue as [recomendações OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).
 
 ## Autorização server-side (ECMSG-25)
 
@@ -467,11 +467,37 @@ Resultados internos distinguem `INVALID_INPUT`, `UNAUTHENTICATED`, `FORBIDDEN` e
 
 A query protegida revalida sessão e ownership no próprio snapshot PostgreSQL: revogar a sessão após o helper inicial, antes da query, impede o retorno. Uma revogação posterior não desfaz uma leitura já autorizada. Não há mutation de domínio nesta Task; futuras mutations devem incluir ownership/estado na própria instrução ou adotar transaction/lock quando o efeito exigir atomicidade, sem confiar em check anterior. Integração real demonstra A → A permitido, A → B negado ao trocar somente ID, tentativas de autoridade no payload rejeitadas e revogação entre check e query sem disclosure.
 
+## Boundaries e requests (ECMSG-26)
+
+Entradas implementadas: as três Actions abaixo. Não há Route Handler, Proxy/Middleware global, cadastro ou endpoint comercial. São boundaries públicas mesmo sem consumidor de UI; validação/autorização não dependem da navegação.
+
+| Action / caller | Entrada e validação | Identidade/autoridade | Custo, repetição e saída |
+| --- | --- | --- | --- |
+| `loginAction` / anônimo ou autenticado | Um argumento com `authenticationCredentialSchema` estrito; e-mail bruto até 320/canônico até 254, senha até 128 pontos de código/256 unidades UTF-16; rejeita argumentos extras | Valida credencial no servidor; caller não fornece hash, token ou role | Rate limit e até dois hashes simultâneos antes de Argon2; cada sucesso cria/rotaciona sessão; retorna sucesso, falha de credencial genérica ou limitação |
+| `logoutAction` / qualquer caller | Zero argumentos; rejeita payload inesperado; somente cookie cujo token tem formato fixo é usado na query | Token é verificado pela correspondência do hash persistido, não pelo payload | DELETE indexado, idempotente e expiração do cookie; sem token válido não acessa DB; retorna sucesso ou `INVALID_INPUT` |
+| `readIdentityAction` / sessão válida | Um argumento com `readIdentitySchema` estrito, somente UUID; rejeita campos/argumentos extras | Sessão atual, ownership e estado na query | Leituras indexadas; repetição só atualiza atividade na janela controlada; DTO `{ id, email }` ou código público mínimo |
+
+Todas usam POST do framework, Origin/Host público e cookie SameSite conforme a [política CSRF](#autenticação-e-sessões-ecmsg-24). Não há token CSRF próprio, CORS como defesa ou confiança em headers forwarded do cliente. `next.config.ts` define `experimental.serverActions.bodySizeLimit = "16kb"`, cobrindo o body bruto, inclusive overhead multipart, antes da decodificação. É suficiente para os contratos atuais; nenhum aceita arquivo. Inputs/argumentos malformados falham antes de DB, hashing ou criação de sessão. No fluxo nativo de formulário de Next.js 16.3.8, excesso de body é rejeitado com erro sanitizado de produção e pode resultar em HTTP 500; não se presume que o transporte retorne 413.
+
+### Abuso de login e custo
+
+`login` aplica a política também na operação server, antes de lookup/hash. PostgreSQL mantém janelas fixas iniciadas na primeira tentativa: **cinco tentativas por e-mail canônico em 15 minutos** e **vinte tentativas globais por minuto**. Todo input válido consome o orçamento global, inclusive quando o limite por e-mail já foi atingido; tentativas admitidas incluem sucesso/falha e reserva sem slot disponível. Rejeições não prolongam a janela. Não há flag de conta bloqueada, bloqueio permanente nem reset por login bem-sucedido. Existência do usuário não participa da reserva, preservando equivalência externa.
+
+`login_rate_limits` guarda somente chave `global` ou `email:` + SHA-256 do identificador canônico, contador e timestamps. Não guarda senha, token, IP ou e-mail em texto puro; o digest é pseudônimo, não anonimização contra tentativa por dicionário. PK, formato da chave, contador positivo limitado a vinte, timestamps `NOT NULL` e janela válida são constraints; há índice de expiração. UPSERT condicional reserva global e identificador na mesma transaction, sempre nessa ordem, sem SELECT/incremento em memória. Janelas expiradas são reiniciadas atomicamente. Na primeira tentativa de cada janela global, a limpeza remove no máximo cem chaves expiradas; sem tráfego, não há timer nem novos registros.
+
+A reserva termina antes do hashing, evitando manter locks de contador durante Argon2. Dois slots compartilhados no PostgreSQL usam `pg_try_advisory_xact_lock` no namespace privado `1195524428`; lookup/verificação usam a mesma transaction do slot. Se ambos estiverem ocupados, rejeita sem executar Argon2 e sem fila de hashing na aplicação. Locks são liberados ao encerrar a transaction; não há lease/token adicional. O limite de dois hashes implica até 128 MiB para a memória configurada do Argon2 nas entradas de login, além do overhead do processo/DB. Referências: [UPSERT Drizzle](https://orm.drizzle.team/docs/guides/upsert) e [locks transacionais PostgreSQL](https://www.postgresql.org/docs/current/functions-admin.html).
+
+Quando orçamento ou slots se esgotam, a Action retorna `{ success: false, code: "RATE_LIMITED", message: "Não foi possível autenticar agora. Tente novamente mais tarde." }`, sem contador, chave, tempo interno ou informação de existência. É contrato de Action, não conversão própria para HTTP 429. Tentativas que alcançam autenticação continuam usando resposta genérica e hash sintético para usuário inexistente. Logout não precisa de idempotency key; leitura não cria efeito além da atividade limitada. Não foi criado mecanismo global de replay/idempotência.
+
+Não há fonte confiável de IP definida neste deployment: `X-Forwarded-For` e `X-Real-IP` são ignorados. O orçamento global impede evasão apenas pela troca de e-mail, mas é compartilhado por usuários legítimos e atacantes; quem o consome pode causar indisponibilidade temporária do login. Também não limita volume de tráfego/queries baratas de logout/leitura. Antes de exposição pública, o deployment deve fornecer proteção de entrada por origem confiável, com proxy que substitui headers do cliente e backend inacessível diretamente. Não foram antecipados Redis, WAF, CAPTCHA ou parsing de cadeia de proxies.
+
+Eventos de segurança usam allowlist: evento, operação, resultado geral, timestamp e UUID de correlação gerado no servidor. Registra chegada ao limite uma vez por limiar/janela e falha operacional; não loga cada tentativa bloqueada. Não registra payload, e-mail/digest, contador, IP, senha, hash, cookie, token ou erro/cause bruto. Logs são server-side e não integram respostas públicas.
+
 ## Tratamento de erros e observabilidade (ECMSG-17)
 
 ### Estado e classificação
 
-Há erros controlados de configuração e de autenticação/sessão, sem logs próprios da aplicação ou Route Handlers. As Actions propagam falhas operacionais sem valores de input, hashes, tokens ou causas originais; rejeições de credencial têm resultado público mínimo. Configuração inválida é falha operacional, não input inválido do usuário: a boundary não deve traduzi-la em erro de credencial ou mostrar seu nome interno ao Client.
+Há erros controlados de configuração e autenticação/sessão, eventos mínimos de segurança do login e nenhum Route Handler. As Actions propagam falhas operacionais sem valores de input, hashes, tokens ou causas originais; rejeições de credencial têm resultado público mínimo. Configuração inválida é falha operacional, não input inválido do usuário: a boundary não deve traduzi-la em erro de credencial ou mostrar seu nome interno ao Client.
 
 | Classe | Significado | Tratamento |
 | --- | --- | --- |
@@ -503,7 +529,7 @@ Capture somente a operação que precisa de tratamento. `redirect()` e `notFound
 
 ### Logging server-side mínimo
 
-Nesta fase, não há logger compartilhado. Use `console.error`, `console.warn` ou `console.info` no código server com objeto construído por allowlist quando uma operação exigir logging. Não adicione logs à criação lazy do pool nem ao validador apenas para produzir eventos. Actions de autenticação/sessão preservam propagação das exceções controladas ao Next.js; não há histórico/auditoria de login.
+Nesta fase, não há logger compartilhado. Eventos de limite/falha operacional do login usam `console.warn` com allowlist definida na [política da boundary](#boundaries-e-requests-ecmsg-26). Não adicione logs à criação lazy do pool nem ao validador apenas para produzir eventos. Actions de autenticação/sessão preservam propagação das exceções controladas ao Next.js; não há histórico/auditoria completa de login.
 
 Um evento inesperado deve identificar `timestamp` (UTC/ISO), `event` estável, `operation` conhecido, classificação e categoria controlada do erro. Por exemplo conceitual, sem registrar o erro bruto:
 

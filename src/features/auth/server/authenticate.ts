@@ -9,11 +9,14 @@ import { verifyPassword } from "./password";
 const dummyHash =
   "$argon2id$v=19$m=65536,p=1,t=3$bhYjafBcHUUmsWMBUNxYfA$fEppDgrktjg68P24prq7BJBQLkDMXAN0DBmHPWEGBhw";
 
-export async function authenticate(input: unknown): Promise<string | null> {
+export async function authenticate(
+  input: unknown,
+  database?: Pick<ReturnType<typeof getDb>, "select">,
+): Promise<string | null> {
   const parsed = authenticationCredentialSchema.safeParse(input);
   if (!parsed.success) return null;
   try {
-    const [user] = await getDb()
+    const [user] = await (database ?? getDb())
       .select({ id: users.id, passwordHash: users.passwordHash })
       .from(users)
       .where(eq(users.email, parsed.data.email))

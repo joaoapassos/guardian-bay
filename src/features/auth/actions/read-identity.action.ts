@@ -5,8 +5,13 @@ import { requireSameOrigin } from "../server/require-same-origin";
 import { recordSessionActivity } from "../server/session";
 import { sessionCookiePolicy } from "../server/session-cookie";
 
-export async function readIdentityAction(input: unknown) {
+export async function readIdentityAction(
+  input: unknown,
+  ...extraArguments: unknown[]
+) {
   await requireSameOrigin();
+  if (extraArguments.length)
+    return { success: false as const, code: "INVALID_INPUT" as const };
   const result = await readOwnIdentity(input);
   if (result.success) {
     const store = await cookies();
