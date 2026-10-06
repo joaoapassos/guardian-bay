@@ -14,7 +14,7 @@ A ordem entre instruções do projeto é `AGENTS.md → arquitetura aprovada do 
 
 O projeto contém o scaffold de Next.js 16.3.8 com React 19.2.8, App Router em `src/app`, Tailwind 4 e React Compiler habilitado. `page.tsx` e `layout.tsx` têm um componente principal cada e não usam `"use client"`. TypeScript está em modo estrito, com `@/* → ./src/*`. Biome 2.4.2 já formata, organiza imports e aplica regras recomendadas de Next/React por `npm run lint`.
 
-Há infraestrutura PostgreSQL com Drizzle ORM/Kit e Postgres.js em `src/db`, configuração privada validada em `src/lib/env`, testes unitários com Vitest, baseline de headers HTTP e quality gates. Ainda não há tabelas, migrations ou funcionalidades de domínio. Radix UI, Zod, Zustand e React Hook Form permanecem decisões para uso futuro, com instalação somente quando houver consumidor concreto.
+Há infraestrutura PostgreSQL com Drizzle ORM/Kit e Postgres.js em `src/db`, configuração privada validada em `src/lib/env`, testes unitários com Vitest, baseline de headers HTTP e quality gates. A identidade tem schema `users` e migration inicial; `features/auth` contém contratos Zod e hashing/verificação server-only com Argon2id. Não há cadastro, login ou sessão. Radix UI, Zustand e React Hook Form permanecem decisões para uso futuro, com instalação somente quando houver consumidor concreto.
 
 ## Decisões arquiteturais essenciais
 
@@ -114,7 +114,7 @@ db         → lib
 
 **Motivação:** preservar clareza, facilidade de revisão e menor superfície de bugs e segurança.
 
-**Consequências:** não antecipar repositories, services, use-cases ou domain layers genéricas, helpers globais ou diretórios vazios. Uma nova abstração precisa demonstrar o problema e respeitar as boundaries existentes. Zod, Zustand, React Hook Form e Radix UI são escolhas para consumidores futuros, não dependências já instaladas. Veja [colocation e reutilização](#colocation-e-reutilização) e [revisão de novas adições](#revisão-de-novas-adições).
+**Consequências:** não antecipar repositories, services, use-cases ou domain layers genéricas, helpers globais ou diretórios vazios. Uma nova abstração precisa demonstrar o problema e respeitar as boundaries existentes. Zustand, React Hook Form e Radix UI são escolhas para consumidores futuros, não dependências já instaladas. Veja [colocation e reutilização](#colocation-e-reutilização) e [revisão de novas adições](#revisão-de-novas-adições).
 
 ## Camadas e responsabilidades
 
@@ -181,7 +181,7 @@ Features futuras podem ser `auth`, `catalog`, `cart`, `checkout` e `orders`. Cad
 
 ## Diretórios e convenções (ECMSG-14)
 
-Esta seção complementa as responsabilidades e o mapa de dependências acima. O código atual está em `src/app`, `src/db` e `src/lib/env`. Não há schemas de domínio, Actions ou Route Handlers. Os exemplos abaixo orientam novas adições, sem criar diretórios antecipadamente.
+Esta seção complementa as responsabilidades e o mapa de dependências acima. O código atual está em `src/app`, `src/db`, `src/lib/env` e `src/features/auth`. Há schema de identidade e contratos de credencial, mas não Actions ou Route Handlers. Os exemplos abaixo orientam novas adições, sem criar diretórios antecipadamente.
 
 ### Onde colocar novo código
 
@@ -388,7 +388,7 @@ Não use `next.config.ts` → `env` para secrets: essa opção incorpora os valo
 
 ### Acesso e validação
 
-A ECMSG-16 introduz o consumidor DB e o módulo `src/lib/env/server.ts`. Seu `getDatabaseUrl()` valida a configuração antes da criação da instância. A função pura em `database-url.ts` recebe somente o valor a validar e é compartilhada com a CLI; não lê nem exporta ambiente. Zod não está instalado e não será adicionado apenas para configuração.
+A ECMSG-16 introduz o consumidor DB e o módulo `src/lib/env/server.ts`. Seu `getDatabaseUrl()` valida a configuração antes da criação da instância. A função pura em `database-url.ts` recebe somente o valor a validar e é compartilhada com a CLI; não lê nem exporta ambiente. Os contratos de credencial usam Zod; a validação de configuração mantém sua implementação pura existente.
 
 O módulo `src/lib/env/server.ts` é protegido com `import "server-only";`. Ele lê somente as variáveis declaradas necessárias e exporta um acessor específico, nunca o objeto inteiro de `process.env`. Features/componentes não fazem leituras arbitrárias: a infraestrutura responsável usa esse ponto de acesso. Para `DATABASE_URL`, a infraestrutura `db` obtém o valor validado antes de abrir a conexão; UI não importa configuração privada.
 
@@ -418,17 +418,31 @@ A validação compartilhada aceita `postgres:` ou `postgresql:`, com hostname, d
 
 O fluxo padrão é schema TypeScript real → `npm run db:generate` → revisão e commit dos arquivos SQL/metadados em `drizzle/` → `npm run db:migrate` no banco correto. `npm run db:studio` abre a ferramenta local para inspeção e requer banco disponível; não exponha Studio publicamente. Não há script `db:push`. Revise migrations antes de aplicá-las, especialmente mudanças destrutivas. Não rode migrations automaticamente durante render, startup de página ou build.
 
-Ainda não existem tabelas ou migrations. Portanto, `schema/` e `drizzle/` só surgirão com a primeira tabela real; não execute generate para fabricar migration vazia. As definições físicas futuras ficam em `db/schema`, e tipos inferidos permanecem internos: feature/server projeta DTO mínimo. Queries comuns usam APIs parametrizadas do Drizzle; não concatene SQL com dados externos.
+`src/db/schema/users.ts` define a identidade, com migration inicial em `drizzle/`. As definições físicas ficam em `db/schema`, e tipos inferidos permanecem internos: feature/server projeta DTO mínimo. Queries comuns usam APIs parametrizadas do Drizzle; não concatene SQL com dados externos. O schema é carregável pela CLI e não realiza acesso a dados; a conexão e os helpers de credenciais permanecem server-only.
 
 Para verificar o carregamento da configuração sem banco nem migrations, use uma URL fictícia formalmente válida em ambiente temporário e `npx drizzle-kit check`. Esse comando verifica histórico de migrations, não conectividade ou integridade de um banco; com histórico ausente, não comprova migrations reais. Não execute migrate/studio com placeholders. Uma conexão real requer PostgreSQL e `DATABASE_URL` utilizável e deve ser validada localmente, sem endpoint público.
 
 Referências oficiais consultadas: [PostgreSQL](https://orm.drizzle.team/docs/get-started-postgresql), [config](https://orm.drizzle.team/docs/drizzle-config-file), [generate](https://orm.drizzle.team/docs/drizzle-kit-generate), [migrate](https://orm.drizzle.team/docs/drizzle-kit-migrate), [check](https://orm.drizzle.team/docs/drizzle-kit-check) e [lifecycle Postgres.js](https://github.com/porsager/postgres#the-connection-pool).
 
+## Identidade e credenciais (ECMSG-23)
+
+`users.id` é a identidade estável, UUID gerado pelo PostgreSQL. `email` é o identificador de autenticação: a entrada aceita e-mail ASCII, remove somente espaços nas extremidades e converte para minúsculas antes de validar formato e limite de 254 caracteres. Pontos e `+tag` são preservados; não há regras específicas de provedores nem suporte a e-mail internacionalizado nesta etapa. O contrato limita a entrada bruta a 320 caracteres antes da normalização. Cadastro e lookup futuros devem usar o mesmo `emailSchema`.
+
+O banco exige PK, campos `NOT NULL`, e-mail único e representação ASCII/minúscula sem espaços e com um único `@`. O schema Zod valida o formato mais estritamente; o banco garante a representação canônica e a unicidade inclusive em inserts concorrentes. `createdAt` é `timestamptz` com default `now()`; `updatedAt` será avaliado quando existir uma operação de atualização. Não há perfil, role ou permissões na identidade.
+
+`passwordHash` é credencial sensível, não identidade ou sessão. `hashPassword` e `verifyPassword`, em `features/auth/server/password.ts`, usam `argon2` 0.45.1 com Argon2id v19, memória de 64 MiB, três iterações, paralelismo 1 e saída de 32 bytes. A biblioteca gera salt criptográfico aleatório de 16 bytes por hash e faz a comparação; o formato PHC incorpora salt e parâmetros. O custo é uma política versionada privada do servidor, ajustável no módulo após avaliação de recursos, nunca por input do cliente. A escolha segue a [orientação OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) e a API da [biblioteca](https://github.com/ranisalt/node-argon2); usa runtime Node, não Edge. Next.js já externaliza `argon2`, sem configuração adicional.
+
+Criação aceita de 15 a 128 pontos de código Unicode, sem exigir classes de caracteres. Senhas não são aparadas, normalizadas ou truncadas; espaços são preservados. O limite inicial de 256 unidades UTF-16 e a rejeição de surrogates isolados limitam o UTF-8 a 512 bytes. Verificação mantém o limite máximo, sem aplicar novamente o mínimo de criação, e recebe o hash somente da persistência privilegiada. Senha incorreta retorna `false`; input de criação inválido e falha operacional produzem erros internos controlados, sem valor, hash ou causa original. Um hash inválido é falha operacional, não confirmação de identidade. O login futuro deve controlar respostas e timing para evitar enumeração; esses helpers não são um endpoint de login.
+
+A tabela não possui coluna de senha em texto puro e exige formato PHC Argon2id compatível com a biblioteca. A constraint verifica representação, não prova que um hash foi derivado de uma senha: somente código server pode produzi-lo para persistência. O hash retornado pelo helper é exclusivamente interno e nunca integra DTO/Action/props, logs ou respostas públicas. Schemas de entrada puros podem ser compartilhados para UX; o Client não pode importar helpers de credenciais ou DB. Não há operação de cadastro, leitura pública de credenciais, sessão ou autorização nesta Task.
+
+Testes usam Argon2 real para senha correta/incorreta, salts distintos, limites Unicode e erros sem secrets. O mock de `server-only` no runner substitui apenas o marcador Next.js, não criptografia nem a proteção de build. Migration gerada/revisada não equivale a aplicação ou teste de constraints em PostgreSQL; esse teste exige banco isolado de integração.
+
 ## Tratamento de erros e observabilidade (ECMSG-17)
 
 ### Estado e classificação
 
-O scaffold tem somente erros de configuração em `lib/env/database-url.ts`, sem logs da aplicação, Actions, handlers ou queries de domínio. Essas exceções informam apenas o nome da configuração; não retornam valores nem causas originais. Configuração inválida é falha operacional, não input inválido do usuário: uma futura boundary não deve traduzi-la em 400 ou mostrar seu nome interno ao Client.
+Há erros controlados de configuração em `lib/env/database-url.ts` e de credenciais em `features/auth/server/password.ts`, sem logs da aplicação, Actions, handlers ou queries de domínio. Essas exceções não retornam valores de input, hashes ou causas originais. Configuração inválida é falha operacional, não input inválido do usuário: uma futura boundary não deve traduzi-la em 400 ou mostrar seu nome interno ao Client.
 
 | Classe | Significado | Tratamento |
 | --- | --- | --- |
@@ -570,7 +584,7 @@ Não misture `.spec` e `.test`, não crie diretórios vazios ou helpers/factorie
 
 O primeiro arquivo é `src/lib/env/database-url.test.ts`: testa ausência/vazio/espaços, formato/protocolo/host/database/porta inválidos, URLs válidas e erros sem credenciais, host ou causa original. Usa somente fixtures fictícias passadas à função pura, sem ler ambiente nem importar DB. Casos de rejeição falham se a validação correspondente for removida; o teste de information disclosure falha se o valor bruto entrar no erro.
 
-Mocks são permitidos em boundaries de integrações externas quando necessários, sem mockar a regra sob teste. Unitários puros não precisam de mocks. Não mocke Drizzle inteiro para afirmar que query/constraint/autorização funciona. Integração deve garantir banco de teste diferente de desenvolvimento e produção, isolamento/limpeza previsíveis, migrations revisadas e proibição de executar operações destrutivas fora dele. Ainda não há tabela/operação, portanto não se cria banco de testes, Docker/Testcontainers ou `DATABASE_URL_TEST` nesta Task.
+Mocks são permitidos em boundaries de integrações externas quando necessários, sem mockar a regra sob teste. Unitários puros não precisam de mocks. Não mocke Drizzle inteiro para afirmar que query/constraint/autorização funciona. Integração deve garantir banco de teste diferente de desenvolvimento e produção, isolamento/limpeza previsíveis, migrations revisadas e proibição de executar operações destrutivas fora dele. Há schema de identidade e migration inicial, mas ainda não existe infraestrutura de integração. Constraints devem ser verificadas em PostgreSQL isolado quando esse ambiente estiver disponível.
 
 Segurança entra nos testes normais junto da surface real: validação server-side; usuário A sem acesso/modificação ao recurso de B (IDOR/BOLA); preço/estoque/totais determinados pelo servidor; sessão ausente/inválida; estratégia CSRF; erros externos sem SQL, stack, secrets/connection string ou detalhes internos. Operações críticas devem testar concorrência quando houver risco, como duas compras do último item. Headers HTTP serão testados com aplicação iniciada em integração/E2E ou CI, sem duplicar strings da configuração em um teste artificial.
 

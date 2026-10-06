@@ -4,7 +4,7 @@ Guardian Bay é um e-commerce de simulação. Este modelo orienta a Epic 2 e apl
 
 ## Escopo e estado atual
 
-Hoje existem páginas Server do scaffold, assets públicos, baseline HTTP, configuração privada validada e infraestrutura lazy PostgreSQL/Drizzle protegida por `server-only`. Nenhuma rota consome o banco. Não existem autenticação/sessão, Client Components próprios, Actions, Route Handlers, tabelas ou operações comerciais. Os testes atuais verificam somente a validação de `DATABASE_URL`.
+Hoje existem páginas Server do scaffold, assets públicos, baseline HTTP, configuração privada validada e infraestrutura lazy PostgreSQL/Drizzle protegida por `server-only`. Há schema `users`, migration inicial e [helpers server-only de credenciais](README.md#identidade-e-credenciais-ecmsg-23), com testes de hashing/verificação e contratos de entrada. Nenhuma rota consome o banco. Não existem login/sessão, Client Components próprios, Actions, Route Handlers ou operações comerciais; constraints ainda exigem teste em PostgreSQL isolado.
 
 Os fluxos de conta, catálogo, carrinho, pedido e pagamento simulado abaixo são previstos pela arquitetura, não funcionalidades implementadas. Não há integração financeira real. Bibliotecas citadas na stack que ainda não constam de `package.json` não são controles existentes. Deployment, domínio, terminação TLS e permissões reais de banco ainda não estão definidos; precisam de revisão quando houver ambiente concreto.
 
@@ -72,7 +72,7 @@ Usamos [STRIDE](https://learn.microsoft.com/en-us/azure/security/develop/threat-
 
 ## Controles atuais e candidatos da Epic 2
 
-Controles observáveis: guards `server-only` em DB/configuração, validação pura de `DATABASE_URL` sem expor valor/cause, configuração lazy do pool, `.env*` ignorado com exceção do template, baseline HTTP e gates de lint/tipos/unitários/build. Eles não demonstram segurança dos fluxos comerciais ainda ausentes. Consulte [erros e observabilidade](README.md#tratamento-de-erros-e-observabilidade-ecmsg-17), [baseline HTTP](README.md#baseline-de-segurança-http-ecmsg-18) e [testes](README.md#testes-ecmsg-19) para os limites já aprovados.
+Controles observáveis: guards `server-only` em DB/configuração/credenciais, Argon2id e contratos Zod de credenciais, validação pura de `DATABASE_URL` sem expor valor/cause, configuração lazy do pool, `.env*` ignorado com exceção do template, baseline HTTP e gates de lint/tipos/unitários/build. Eles não demonstram segurança dos fluxos comerciais ainda ausentes. Consulte [erros e observabilidade](README.md#tratamento-de-erros-e-observabilidade-ecmsg-17), [baseline HTTP](README.md#baseline-de-segurança-http-ecmsg-18) e [testes](README.md#testes-ecmsg-19) para os limites já aprovados.
 
 Candidatos para próximas Tasks, vinculados às ameaças acima:
 
