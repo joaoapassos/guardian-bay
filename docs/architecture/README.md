@@ -992,3 +992,7 @@ Pedidos aceitam somente status conhecido, orderId UUID exato, created-desc/creat
 ### Confirmação e feedback do backoffice (ECMSG-101)
 
 Radix AlertDialog tem um consumidor concreto: retirada de produto publicado. Cancelar recebe foco inicial; Escape cancela, foco retorna ao botão de salvar e confirmação envia a intenção ao mesmo contrato server-side. Não se confirma indiscriminadamente edição comum ou quantidade absoluta. Forms expõem pending, sucesso, input inválido, acesso negado, falha genérica e conflito sem retry automático. `@radix-ui/react-alert-dialog` é a única dependência direta adicionada para esse requisito; não há design system paralelo.
+
+### Isolamento administrativo (ECMSG-102)
+
+Listagem/detalhe de Orders verificam admin dentro da transação, com a mesma ordem identidade → sessão das operações existentes, e revalidam antes de devolver DTO. Role removida, revogação e expiração negam acesso mesmo após render anterior ou espera pelo lock. Queries selecionam somente campos necessários; nenhum userId, hash, token, checkoutKey ou row Drizzle integra DTO. Falha interna é relançada com mensagem controlada e evento server-side por allowlist, sem erro original. Catálogo/estoque mantêm a autorização independente das Actions, mesma origem, contrato estrito e revisão; layout, confirmação e expected revision não concedem autoridade.
