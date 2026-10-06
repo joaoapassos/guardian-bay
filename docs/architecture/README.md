@@ -14,7 +14,7 @@ A ordem entre instruções do projeto é `AGENTS.md → arquitetura aprovada do 
 
 O projeto contém o scaffold de Next.js 16.3.8 com React 19.2.8, App Router em `src/app`, Tailwind 4 e React Compiler habilitado. `page.tsx` e `layout.tsx` têm um componente principal cada e não usam `"use client"`. TypeScript está em modo estrito, com `@/* → ./src/*`. Biome 2.4.2 já formata, organiza imports e aplica regras recomendadas de Next/React por `npm run lint`.
 
-Há infraestrutura PostgreSQL com Drizzle ORM/Kit e Postgres.js em `src/db`, configuração privada validada em `src/lib/env`, testes unitários com Vitest, baseline de headers HTTP e quality gates. A identidade tem schema `users` e migration inicial; `features/auth` contém contratos Zod e hashing/verificação server-only com Argon2id. Não há cadastro, login ou sessão. Radix UI, Zustand e React Hook Form permanecem decisões para uso futuro, com instalação somente quando houver consumidor concreto.
+Há infraestrutura PostgreSQL com Drizzle ORM/Kit e Postgres.js em `src/db`, configuração privada validada em `src/lib/env`, testes unitários e de integração com Vitest, baseline de headers HTTP e quality gates. `users` e `sessions` têm schemas/migrations; `features/auth` contém contratos Zod, Argon2id, Actions de login/logout e resolução server-only da identidade. Não há UI de login, cadastro público ou autorização de recursos. Radix UI, Zustand e React Hook Form permanecem decisões para uso futuro, com instalação somente quando houver consumidor concreto.
 
 ## Decisões arquiteturais essenciais
 
@@ -106,7 +106,7 @@ db         → lib
 
 **Motivação:** obter evidência adequada à mudança, mantendo feedback rápido sem atribuir a mocks garantias que dependem da infraestrutura real.
 
-**Consequências:** constraints, transactions e concorrência exigem PostgreSQL real de teste. Integração/E2E recebem ambientes próprios quando houver consumidores; hoje há somente unitários. Biome é o único linter/formatter, e boundaries de imports ainda são revisadas manualmente. Veja [testes](#testes-ecmsg-19) e [quality gates](#quality-gates-ecmsg-20).
+**Consequências:** constraints, transactions e concorrência exigem PostgreSQL real de teste; autenticação/sessões têm integração separada dos unitários. Biome é o único linter/formatter, e boundaries de imports ainda são revisadas manualmente. Veja [testes](#testes-ecmsg-19) e [quality gates](#quality-gates-ecmsg-20).
 
 ### Evolução incremental
 
@@ -181,7 +181,7 @@ Features futuras podem ser `auth`, `catalog`, `cart`, `checkout` e `orders`. Cad
 
 ## Diretórios e convenções (ECMSG-14)
 
-Esta seção complementa as responsabilidades e o mapa de dependências acima. O código atual está em `src/app`, `src/db`, `src/lib/env` e `src/features/auth`. Há schema de identidade e contratos de credencial, mas não Actions ou Route Handlers. Os exemplos abaixo orientam novas adições, sem criar diretórios antecipadamente.
+Esta seção complementa as responsabilidades e o mapa de dependências acima. O código atual está em `src/app`, `src/db`, `src/lib/env` e `src/features/auth`, incluindo Actions de login/logout e schemas de identidade/sessão. Não há Route Handlers. Os exemplos abaixo orientam novas adições, sem criar diretórios antecipadamente.
 
 ### Onde colocar novo código
 
@@ -371,6 +371,7 @@ O inventário de configuração da aplicação é o `.env.example` na raiz. Toda
 | Variável | Classificação | Consumidor e obrigatoriedade |
 | --- | --- | --- |
 | `DATABASE_URL` | Exclusivamente server-side, potencialmente contém credenciais | Obrigatória antes de obter a instância DB e para a CLI Drizzle Kit; não exigida por rotas sem DB |
+| `TEST_DATABASE_URL` | Exclusivamente testes, potencialmente contém credenciais | Obrigatória para `test:integration`; banco local dedicado `guardian_bay_test`, sem fallback para a conexão da aplicação |
 
 Não há variáveis públicas necessárias, nem variáveis de autenticação/sessão justificadas atualmente. Não antecipe `AUTH_SECRET`, `SESSION_SECRET` ou infraestrutura client de configuração. Os nomes aqui são exemplos de categorias privadas, não requisitos atuais.
 
@@ -418,7 +419,7 @@ A validação compartilhada aceita `postgres:` ou `postgresql:`, com hostname, d
 
 O fluxo padrão é schema TypeScript real → `npm run db:generate` → revisão e commit dos arquivos SQL/metadados em `drizzle/` → `npm run db:migrate` no banco correto. `npm run db:studio` abre a ferramenta local para inspeção e requer banco disponível; não exponha Studio publicamente. Não há script `db:push`. Revise migrations antes de aplicá-las, especialmente mudanças destrutivas. Não rode migrations automaticamente durante render, startup de página ou build.
 
-`src/db/schema/users.ts` define a identidade, com migration inicial em `drizzle/`. As definições físicas ficam em `db/schema`, e tipos inferidos permanecem internos: feature/server projeta DTO mínimo. Queries comuns usam APIs parametrizadas do Drizzle; não concatene SQL com dados externos. O schema é carregável pela CLI e não realiza acesso a dados; a conexão e os helpers de credenciais permanecem server-only.
+`src/db/schema/users.ts` define a identidade e `sessions.ts`, a sessão revogável, com migrations em `drizzle/`. As definições físicas ficam em `db/schema`, e tipos inferidos permanecem internos: feature/server projeta DTO mínimo. Queries comuns usam APIs parametrizadas do Drizzle; não concatene SQL com dados externos. O schema é carregável pela CLI e não realiza acesso a dados; a conexão e os helpers de credenciais/sessão permanecem server-only.
 
 Para verificar o carregamento da configuração sem banco nem migrations, use uma URL fictícia formalmente válida em ambiente temporário e `npx drizzle-kit check`. Esse comando verifica histórico de migrations, não conectividade ou integridade de um banco; com histórico ausente, não comprova migrations reais. Não execute migrate/studio com placeholders. Uma conexão real requer PostgreSQL e `DATABASE_URL` utilizável e deve ser validada localmente, sem endpoint público.
 
@@ -426,23 +427,39 @@ Referências oficiais consultadas: [PostgreSQL](https://orm.drizzle.team/docs/ge
 
 ## Identidade e credenciais (ECMSG-23)
 
-`users.id` é a identidade estável, UUID gerado pelo PostgreSQL. `email` é o identificador de autenticação: a entrada aceita e-mail ASCII, remove somente espaços nas extremidades e converte para minúsculas antes de validar formato e limite de 254 caracteres. Pontos e `+tag` são preservados; não há regras específicas de provedores nem suporte a e-mail internacionalizado nesta etapa. O contrato limita a entrada bruta a 320 caracteres antes da normalização. Cadastro e lookup futuros devem usar o mesmo `emailSchema`.
+`users.id` é a identidade estável, UUID gerado pelo PostgreSQL. `email` é o identificador de autenticação: a entrada aceita e-mail ASCII, remove somente espaços nas extremidades e converte para minúsculas antes de validar formato e limite de 254 caracteres. Pontos e `+tag` são preservados; não há regras específicas de provedores nem suporte a e-mail internacionalizado nesta etapa. O contrato limita a entrada bruta a 320 caracteres antes da normalização. O login usa esse contrato; cadastro futuro deve usar o mesmo `emailSchema`.
 
 O banco exige PK, campos `NOT NULL`, e-mail único e representação ASCII/minúscula sem espaços e com um único `@`. O schema Zod valida o formato mais estritamente; o banco garante a representação canônica e a unicidade inclusive em inserts concorrentes. `createdAt` é `timestamptz` com default `now()`; `updatedAt` será avaliado quando existir uma operação de atualização. Não há perfil, role ou permissões na identidade.
 
 `passwordHash` é credencial sensível, não identidade ou sessão. `hashPassword` e `verifyPassword`, em `features/auth/server/password.ts`, usam `argon2` 0.45.1 com Argon2id v19, memória de 64 MiB, três iterações, paralelismo 1 e saída de 32 bytes. A biblioteca gera salt criptográfico aleatório de 16 bytes por hash e faz a comparação; o formato PHC incorpora salt e parâmetros. O custo é uma política versionada privada do servidor, ajustável no módulo após avaliação de recursos, nunca por input do cliente. A escolha segue a [orientação OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) e a API da [biblioteca](https://github.com/ranisalt/node-argon2); usa runtime Node, não Edge. Next.js já externaliza `argon2`, sem configuração adicional.
 
-Criação aceita de 15 a 128 pontos de código Unicode, sem exigir classes de caracteres. Senhas não são aparadas, normalizadas ou truncadas; espaços são preservados. O limite inicial de 256 unidades UTF-16 e a rejeição de surrogates isolados limitam o UTF-8 a 512 bytes. Verificação mantém o limite máximo, sem aplicar novamente o mínimo de criação, e recebe o hash somente da persistência privilegiada. Senha incorreta retorna `false`; input de criação inválido e falha operacional produzem erros internos controlados, sem valor, hash ou causa original. Um hash inválido é falha operacional, não confirmação de identidade. O login futuro deve controlar respostas e timing para evitar enumeração; esses helpers não são um endpoint de login.
+Criação aceita de 15 a 128 pontos de código Unicode, sem exigir classes de caracteres. Senhas não são aparadas, normalizadas ou truncadas; espaços são preservados. O limite inicial de 256 unidades UTF-16 e a rejeição de surrogates isolados limitam o UTF-8 a 512 bytes. Verificação mantém o limite máximo, sem aplicar novamente o mínimo de criação, e recebe o hash somente da persistência privilegiada. Senha incorreta retorna `false`; input de criação inválido e falha operacional produzem erros internos controlados, sem valor, hash ou causa original. Um hash inválido é falha operacional, não confirmação de identidade. A boundary de login controla respostas e usa verificação equivalente para identidade inexistente.
 
-A tabela não possui coluna de senha em texto puro e exige formato PHC Argon2id compatível com a biblioteca. A constraint verifica representação, não prova que um hash foi derivado de uma senha: somente código server pode produzi-lo para persistência. O hash retornado pelo helper é exclusivamente interno e nunca integra DTO/Action/props, logs ou respostas públicas. Schemas de entrada puros podem ser compartilhados para UX; o Client não pode importar helpers de credenciais ou DB. Não há operação de cadastro, leitura pública de credenciais, sessão ou autorização nesta Task.
+A tabela não possui coluna de senha em texto puro e exige formato PHC Argon2id compatível com a biblioteca. A constraint verifica representação, não prova que um hash foi derivado de uma senha: somente código server pode produzi-lo para persistência. O hash retornado pelo helper é exclusivamente interno e nunca integra DTO/Action/props, logs ou respostas públicas. Schemas de entrada puros podem ser compartilhados para UX; o Client não pode importar helpers de credenciais ou DB. Não há cadastro público ou leitura pública de credenciais.
 
-Testes usam Argon2 real para senha correta/incorreta, salts distintos, limites Unicode e erros sem secrets. O mock de `server-only` no runner substitui apenas o marcador Next.js, não criptografia nem a proteção de build. Migration gerada/revisada não equivale a aplicação ou teste de constraints em PostgreSQL; esse teste exige banco isolado de integração.
+Unitários usam Argon2 real para senha correta/incorreta, salts distintos, limites Unicode e erros sem secrets. O mock de `server-only` no runner substitui apenas o marcador Next.js, não criptografia nem a proteção de build. A integração aplica migrations em PostgreSQL isolado e verifica constraints/defaults e o fluxo hash → INSERT → SELECT → verificação.
+
+## Autenticação e sessões (ECMSG-24)
+
+`loginAction` valida a origem da requisição e delega a `feature/server`: `credentialSchema` → e-mail canônico → lookup parametrizado → `verifyPassword` → nova sessão → cookie. Falhas de contrato, identidade inexistente e senha incorreta retornam somente `{ success: false, message: "Credenciais inválidas." }`; sucesso retorna `{ success: true }`. Identidade inexistente executa Argon2id contra hash sintético não secreto com o mesmo custo vigente, evitando o atalho sem hashing. Ao alterar a política de custo, atualize também esse hash. Isso reduz enumeração por timing, sem prometer tempo constante de banco/rede. Falhas operacionais propagam como exceções controladas, sem SQL, senha, hash, token ou causa bruta.
+
+`sessions.tokenHash` é PK: SHA-256 de 32 bytes criptograficamente aleatórios apresentados como 64 caracteres hexadecimais. O token bruto fica somente no fluxo server → cookie → browser; não é persistido, retornado pela Action ou logado. A tabela exige hash canônico, FK `users.id` com `ON DELETE CASCADE`, timestamps `NOT NULL` e `expiresAt > createdAt`, com índices de usuário e expiração. A sessão expira oito horas após criação, pelo relógio do PostgreSQL, sem renovação deslizante/refresh token.
+
+Cada login gera novo token; criação e revogação do token anterior apresentado no cookie ocorrem na mesma transaction. Tokens simultâneos de logins independentes são válidos; não há política de sessão única por usuário. `getAuthenticatedIdentity()` lê o cookie e retorna somente `{ id, email }` ou `null`, após join com usuário e verificação da expiração no banco; não usa cache compartilhado. Cookie/token ausente, malformado, inexistente, revogado ou expirado não autentica. Logout remove a sessão no banco antes de expirar o cookie e é idempotente. Não há tarefa automática de limpeza de registros expirados; eles já são rejeitados na leitura.
+
+O cookie usa `HttpOnly`, `SameSite=Lax`, `Path=/`, sem `Domain`, e expiração igual à sessão. Em produção chama-se `__Host-guardian-session` e exige `Secure`/HTTPS; em desenvolvimento HTTP chama-se `guardian-session`, sem `Secure`. Não há sessão em localStorage, sessionStorage ou Zustand. Cookies e leitura da identidade permanecem server-only, em runtime Node. A posse de um token válido autentica até expiração/revogação; hashing no banco não impede replay de token bruto roubado.
+
+Login/logout são mutations por Server Action (POST), com a checagem Origin/Host do Next.js. `requireSameOrigin` também exige Origin válida, igual ao Host e HTTPS em produção: requests sem Origin são rejeitados. SameSite complementa essa proteção; não há token CSRF próprio nem CORS como defesa. As surfaces atuais não têm mutations por GET ou Route Handler. Um proxy deve preservar o Host público e o HTTPS de origem; não foi ampliada a allowlist de origens. Novas surfaces precisam reavaliar CSRF.
+
+Autenticação resolve identidade, não concede autorização. Uma futura mutation de domínio deve verificar sessão atual, permissão e ownership na execução, considerando revogação/expiração concorrentes; a leitura prévia da página não autoriza o efeito. Mudança de privilégio deve rotacionar a sessão. Não há roles ou operações comerciais nesta Task.
+
+As Actions não têm consumidor de UI no scaffold; Next.js elimina referências não usadas do build. Cadastro público, rate limiting e proteção contra credential stuffing/brute force não foram implementados. Proteção contra abuso é candidata necessária da Epic 2 antes de exposição pública do login; cada verificação Argon2 consome 64 MiB, e concorrência multiplica CPU/memória. A estratégia segue as [recomendações de sessão OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).
 
 ## Tratamento de erros e observabilidade (ECMSG-17)
 
 ### Estado e classificação
 
-Há erros controlados de configuração em `lib/env/database-url.ts` e de credenciais em `features/auth/server/password.ts`, sem logs da aplicação, Actions, handlers ou queries de domínio. Essas exceções não retornam valores de input, hashes ou causas originais. Configuração inválida é falha operacional, não input inválido do usuário: uma futura boundary não deve traduzi-la em 400 ou mostrar seu nome interno ao Client.
+Há erros controlados de configuração e de autenticação/sessão, sem logs próprios da aplicação ou Route Handlers. As Actions propagam falhas operacionais sem valores de input, hashes, tokens ou causas originais; rejeições de credencial têm resultado público mínimo. Configuração inválida é falha operacional, não input inválido do usuário: a boundary não deve traduzi-la em erro de credencial ou mostrar seu nome interno ao Client.
 
 | Classe | Significado | Tratamento |
 | --- | --- | --- |
@@ -474,7 +491,7 @@ Capture somente a operação que precisa de tratamento. `redirect()` e `notFound
 
 ### Logging server-side mínimo
 
-Nesta fase, não há consumidor que justifique logger compartilhado. Use `console.error`, `console.warn` ou `console.info` no código server com objeto construído por allowlist quando a primeira operação exigir logging. Não adicione logs à criação lazy do pool nem ao validador apenas para produzir eventos. Sem operação pública atual, esta Task define a política; não comprova observabilidade de workflows ainda inexistentes.
+Nesta fase, não há logger compartilhado. Use `console.error`, `console.warn` ou `console.info` no código server com objeto construído por allowlist quando uma operação exigir logging. Não adicione logs à criação lazy do pool nem ao validador apenas para produzir eventos. Actions de autenticação/sessão preservam propagação das exceções controladas ao Next.js; não há histórico/auditoria de login.
 
 Um evento inesperado deve identificar `timestamp` (UTC/ISO), `event` estável, `operation` conhecido, classificação e categoria controlada do erro. Por exemplo conceitual, sem registrar o erro bruto:
 
@@ -525,7 +542,7 @@ Referências locais consultadas: `01-app/01-getting-started/10-error-handling.md
 
 ## Baseline de segurança HTTP (ECMSG-18)
 
-Headers estáticos são definidos uma única vez em `next.config.ts`, por `headers()` com `/:path*`, sem Proxy/Middleware. A baseline é igual em development e production; não há permissões relaxadas para desenvolvimento. O scaffold não tem handlers, integrações browser externas ou sessão. Deployments/CDNs devem preservar esses headers e evitar políticas conflitantes; static export precisaria de configuração equivalente na plataforma, pois não executa `headers()` no servidor Next.js.
+Headers estáticos são definidos uma única vez em `next.config.ts`, por `headers()` com `/:path*`, sem Proxy/Middleware. A baseline é igual em development e production; não há permissões relaxadas para desenvolvimento. Não há handlers ou integrações browser externas; as propriedades do cookie de sessão estão na [decisão de autenticação](#autenticação-e-sessões-ecmsg-24). Deployments/CDNs devem preservar esses headers e evitar políticas conflitantes; static export precisaria de configuração equivalente na plataforma, pois não executa `headers()` no servidor Next.js.
 
 | Header / configuração | Valor / decisão | Motivo e limite |
 | --- | --- | --- |
@@ -555,7 +572,7 @@ Não se emite `Strict-Transport-Security` na configuração atual: `NODE_ENV=pro
 
 O projeto é full stack same-origin. Não há headers CORS globais nem `Access-Control-Allow-Origin: *`; a ausência de CORS evita autorização de leitura cross-origin pelo browser, mas não é autenticação nem impede requests/CSRF. Um futuro handler consumido externamente deve definir origens, métodos, headers, credenciais e `Vary: Origin` quando necessário ao seu caso, sem permitir origins arbitrárias ou usar wildcard em operações sensíveis. As proteções próprias de Origin/Host das Server Actions continuam válidas; não crie middleware CORS para elas.
 
-Headers não resolvem sozinhos CSRF em mutations com cookies. A Task de autenticação/sessão deve avaliar SameSite, Origin/Referer, particularidades de Actions e handlers e tokens quando necessários. Cookies sensíveis devem considerar HttpOnly, Secure, SameSite, Path e expiration conforme propósito; não há cookies ou tokens fictícios nesta Task.
+Headers não resolvem sozinhos CSRF em mutations com cookies. Login/logout usam a [política de Origin e cookie](#autenticação-e-sessões-ecmsg-24); novas Actions/handlers devem avaliar os controles conforme sua surface.
 
 Não há `Cache-Control: no-store` global. Preserve cache e otimizações do Next.js para conteúdo público; dados sensíveis futuros definem caching no responsável pela leitura/resposta, incluindo caches de servidor/CDN. Headers não substituem autorização.
 
@@ -580,15 +597,15 @@ Vitest 4.1.11 é o runner único: executa TypeScript/ES modules rapidamente em N
 
 Não misture `.spec` e `.test`, não crie diretórios vazios ou helpers/factories globais preventivos. Testes da feature seguem seu dono; promover helpers exige reutilização concreta. Testes de async Server Components e integrações reais do framework devem usar o ambiente adequado (integração/E2E), sem assumir que Vitest em Node reproduz o runtime Next.js ou verifica `server-only`.
 
-`npm test` executa `vitest run` sem interação, e `npm run test:watch` acompanha alterações. `npm run check` inclui lint, typecheck e unitários rápidos/determinísticos. A configuração exclui explicitamente `*.integration.test.*` e `*.e2e.test.*`; esses testes terão comandos/configurações próprios quando introduzidos, sem tornar `check` dependente de PostgreSQL. Não aceite execução com zero testes como validação; não há opção para ignorar ausência de testes.
+`npm test` executa `vitest run` sem interação, e `npm run test:watch` acompanha alterações. `npm run check` inclui lint, typecheck e unitários rápidos/determinísticos. A configuração exclui explicitamente `*.integration.test.*` e `*.e2e.test.*`; integração tem comando/configuração próprios, sem tornar `check` dependente de PostgreSQL. Não aceite execução com zero testes como validação; não há opção para ignorar ausência de testes.
 
 O primeiro arquivo é `src/lib/env/database-url.test.ts`: testa ausência/vazio/espaços, formato/protocolo/host/database/porta inválidos, URLs válidas e erros sem credenciais, host ou causa original. Usa somente fixtures fictícias passadas à função pura, sem ler ambiente nem importar DB. Casos de rejeição falham se a validação correspondente for removida; o teste de information disclosure falha se o valor bruto entrar no erro.
 
-Mocks são permitidos em boundaries de integrações externas quando necessários, sem mockar a regra sob teste. Unitários puros não precisam de mocks. Não mocke Drizzle inteiro para afirmar que query/constraint/autorização funciona. Integração deve garantir banco de teste diferente de desenvolvimento e produção, isolamento/limpeza previsíveis, migrations revisadas e proibição de executar operações destrutivas fora dele. Há schema de identidade e migration inicial, mas ainda não existe infraestrutura de integração. Constraints devem ser verificadas em PostgreSQL isolado quando esse ambiente estiver disponível.
+Mocks são permitidos em boundaries de integrações externas quando necessários, sem mockar a regra sob teste. Unitários puros não precisam de mocks. Não mocke Drizzle inteiro para afirmar que query/constraint/autorização funciona. `npm run test:integration`, com `vitest.integration.config.mts`, exige `TEST_DATABASE_URL` explícita, PostgreSQL local e banco `guardian_bay_test`; rejeita a mesma identificação de banco da configuração normal. Aplica migrations versionadas com o migrator Drizzle, cria fixtures com UUID e limpa somente essas fixtures, sem DROP/TRUNCATE. PostgreSQL e Argon2 são reais; headers/cookies de request são simulados para testar Actions. Isso não substitui validação HTTP real do Next.js para cookies/CSRF.
 
 Segurança entra nos testes normais junto da surface real: validação server-side; usuário A sem acesso/modificação ao recurso de B (IDOR/BOLA); preço/estoque/totais determinados pelo servidor; sessão ausente/inválida; estratégia CSRF; erros externos sem SQL, stack, secrets/connection string ou detalhes internos. Operações críticas devem testar concorrência quando houver risco, como duas compras do último item. Headers HTTP serão testados com aplicação iniciada em integração/E2E ou CI, sem duplicar strings da configuração em um teste artificial.
 
-Não use secrets, tokens/sessões, PII ou produção nos testes. Preserve `.env*` ignorado com única exceção `.env.example`; ambiente de integração futuro deve ser explícito e seguro, sem reutilizar implicitamente configuração local. Evite rede, relógio real, ordem de execução e estado global em unitários; controle aleatoriedade/tempo somente quando necessário. Priorize casos relevantes, sem percentual arbitrário de cobertura ou dependências extras para números. React Testing Library, jsdom, Playwright, MSW, coverage e CI ficam para consumidores concretos.
+Não use secrets, tokens/sessões ou PII reais nem produção nos testes; fixtures de autenticação são sintéticas e isoladas. Preserve `.env*` ignorado com única exceção `.env.example`; integração exige configuração explícita, sem reutilizar implicitamente a conexão normal. Evite rede, relógio real, ordem de execução e estado global em unitários; controle aleatoriedade/tempo somente quando necessário. Priorize casos relevantes, sem percentual arbitrário de cobertura ou dependências extras para números. React Testing Library, jsdom, Playwright, MSW, coverage e CI ficam para consumidores concretos.
 
 Referência: [guia do Vitest](https://vitest.dev/guide/). Os requisitos npm das versões instaladas definem a compatibilidade de Node.js.
 
@@ -614,7 +631,7 @@ O build detecta integração/compilação de produção que lint, tipos e unitá
 
 A separação de testes é a da ECMSG-19: unitários entram em check; componentes poderão entrar se rápidos/determinísticos e independentes de infraestrutura; integração e E2E permanecem em comandos/configurações próprios. Falhas, skipped e zero testes não são equivalentes a sucesso de cobertura da mudança. Gate atual não precisa de `DATABASE_URL`, pois não importa DB e não há consumidor de banco no build das rotas atuais.
 
-Quando persistência existir, integração exigirá PostgreSQL real de teste, diferente de desenvolvimento/produção, com isolamento e limpeza previsíveis. Mudanças de schema exigirão migrations versionadas, geração/revisão consistente com o schema e análise explícita de alterações destrutivas. Fluxos críticos exigirão E2E pertinente, e headers HTTP serão inspecionados com aplicação iniciada. Não instalar banco, browsers ou gerar migrations apenas para materializar gates vazios.
+Mudanças de identidade, autenticação ou sessão exigem `npm run test:integration` com PostgreSQL real isolado, além dos gates gerais. Mudanças de schema exigem migrations versionadas, geração/revisão consistente e análise explícita de alterações destrutivas; valide aplicação do zero em banco vazio dedicado. Fluxos críticos exigem E2E pertinente, e cookies/CSRF devem ser inspecionados com aplicação iniciada quando afetados. Não instalar banco ou browsers apenas para materializar gates vazios.
 
 ### Segurança e dependências
 
