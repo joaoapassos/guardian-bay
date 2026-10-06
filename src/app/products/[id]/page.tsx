@@ -19,7 +19,7 @@ export default async function ProductPage({
       <p>{product.category}</p>
       <p className="my-4 text-xl">{product.price.formatted}</p>
       <p className="whitespace-pre-wrap">{product.description}</p>
-      <AddToCartButton productId={product.id} />
+      <AddToCartButton productId={product.id} inStock={product.inStock} />
     </main>
   );
 }

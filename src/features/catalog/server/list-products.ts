@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, ilike } from "drizzle-orm";
 import { getDb } from "@/db";
 import { categories } from "@/db/schema/categories";
+import { inventory } from "@/db/schema/inventory";
 import { products } from "@/db/schema/products";
 import { priceDto } from "@/lib/money/price";
 import { productImage } from "../images";
@@ -35,9 +36,11 @@ export async function listProducts(input: unknown) {
       currency: products.currency,
       category: categories.name,
       imageKey: products.imageKey,
+      stockQuantity: inventory.availableQuantity,
     })
     .from(products)
     .innerJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(inventory, eq(inventory.productId, products.id))
     .where(
       and(
         eq(products.isPublished, true),
@@ -59,8 +62,9 @@ export async function listProducts(input: unknown) {
     hasNext: rows.length > limit,
     products: rows
       .slice(0, limit)
-      .map(({ amount, currency, imageKey, ...product }) => ({
+      .map(({ amount, currency, imageKey, stockQuantity, ...product }) => ({
         ...product,
+        inStock: (stockQuantity ?? 0) > 0,
         price: priceDto({ amount, currency }),
         image: productImage(imageKey, product.name),
       })),
