@@ -113,3 +113,36 @@ it("ECMSG-67: defaults, FK, idempotência por dono e constraints comerciais", as
     client`DELETE FROM users WHERE id=${userId}`,
   ).rejects.toMatchObject({ code: expect.stringMatching(/^(23503|23001)$/) });
 });
+
+it("ECMSG-69: preview exige sessão, carrinho próprio completo e catálogo atual", async () => {
+  const { checkoutPreview } = await import("./checkout-preview");
+  request.token = undefined;
+  expect(await checkoutPreview()).toEqual({
+    success: false,
+    code: "UNAUTHENTICATED",
+  });
+  request.token = (await createSession(userId)).token;
+  await client`INSERT INTO cart_items(user_id,product_id) VALUES (${otherId},${productId})`;
+  expect(await checkoutPreview()).toEqual({
+    success: false,
+    code: "EMPTY_CART",
+  });
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2)`;
+  expect(await checkoutPreview()).toMatchObject({
+    success: true,
+    snapshot: { total: { amount: 2198 } },
+  });
+  await client`UPDATE products SET amount=1201 WHERE id=${productId}`;
+  expect(await checkoutPreview()).toMatchObject({
+    success: true,
+    snapshot: { total: { amount: 2402 } },
+  });
+  await client`UPDATE products SET is_published=false WHERE id=${productId}`;
+  expect(await checkoutPreview()).toEqual({
+    success: false,
+    code: "UNAVAILABLE",
+  });
+  expect(
+    await client`SELECT * FROM cart_items WHERE user_id=${userId}`,
+  ).toHaveLength(1);
+});
