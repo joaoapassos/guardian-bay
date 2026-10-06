@@ -409,6 +409,52 @@ Verifique resultado esperado com mensagem/campos públicos controlados; falha in
 
 Referências locais consultadas: `01-app/01-getting-started/10-error-handling.md`, `05-server-and-client-components.md`, `15-route-handlers.md`, `01-app/02-guides/server-actions.md` e `01-app/03-api-reference/03-file-conventions/{error,not-found,instrumentation}.md`, sob `node_modules/next/dist/docs/`.
 
+## Baseline de segurança HTTP (ECMSG-18)
+
+Headers estáticos são definidos uma única vez em `next.config.ts`, por `headers()` com `/:path*`, sem Proxy/Middleware. A baseline é igual em development e production; não há permissões relaxadas para desenvolvimento. O scaffold não tem handlers, integrações browser externas ou sessão. Deployments/CDNs devem preservar esses headers e evitar políticas conflitantes; static export precisaria de configuração equivalente na plataforma, pois não executa `headers()` no servidor Next.js.
+
+| Header / configuração | Valor / decisão | Motivo e limite |
+| --- | --- | --- |
+| `Content-Security-Policy` | `object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'` | Bloqueia plugins/objects, base externa, submissão de formulário cross-origin e qualquer framing, inclusive same-origin |
+| `X-Content-Type-Options` | `nosniff` | Respeita Content-Type e impede execução de script/style com MIME incompatível; assets devem continuar com MIME correto |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Mesmo site conserva URL; HTTPS externo recebe somente origin, e downgrade HTTPS→HTTP não envia referrer. Dados sensíveis não devem aparecer em URLs, inclusive internas |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=()` | Nega capacidades sem consumidor: captura de mídia, localização, Payment Request API, WebUSB e fullscreen. Pagamento simulado não requer Payment Request; revisar antes de introduzir consumidor legítimo |
+| `poweredByHeader` | `false` | Remove `X-Powered-By: Next.js`; reduz identificação desnecessária sem prometer ocultar tecnologia ou substituir controles reais |
+
+Permissions Policy tem suporte variável por navegador/directive: browsers sem suporte não recebem garantia equivalente. A lista é curta e baseada nas capacidades avaliadas, sem directives antigas indiscriminadas.
+
+### CSP parcial e framing
+
+`frame-ancestors 'none'` é o mecanismo moderno de clickjacking; não há requisito de embutir Guardian Bay em iframes. `X-Frame-Options` não é duplicado: a baseline assume navegadores modernos com CSP, sem requisito atual de compatibilidade legada. Avalie `DENY` adicional somente se suporte a browsers antigos se tornar requisito. `frame-ancestors` controla quem embute a aplicação, não quais iframes ela pode carregar.
+
+Não há `default-src` nesta CSP parcial: consequentemente, `script-src`, `style-src`, `img-src`, `font-src` e `connect-src` não são restringidos por ela. Isso é uma limitação explícita, não proteção completa contra XSS. O scaffold usa scripts inline de React/Next para hidratação/RSC, CSS Tailwind e atributos inline do `next/image`; imagens SVG vêm de `public`. Geist via `next/font/google` é baixada no build e servida localmente pelo Next.js, sem exigir Google Fonts no navegador.
+
+Uma CSP rígida para scripts precisa avaliar nonce/hash com as páginas reais. O guia instalado informa que nonce por request exige Proxy e rendering dinâmico, com impactos em cache/ISR/PPR. Hash/SRI requer avaliar suporte e os scripts inline, não apenas os arquivos externos; suporte experimental não justifica trocar o bundler nesta Task. Não introduza `script-src 'unsafe-inline'`, `'unsafe-eval'`, `*`, origens amplas ou nonce fixo para contornar isso. Não inclua automaticamente `data:`, `blob:` ou `https:` em categorias sem consumidor.
+
+A baseline não restringe HMR/WebSocket nem scripts/styles, portanto não precisa adicionar exceções de desenvolvimento que enfraqueçam produção. CSP rígida fica para uma Task ligada ao primeiro conjunto real de páginas/features, com testes de hidratação, fontes, imagens, estilos, scripts e HMR. Não há Report-Only nem endpoint de reports sem objetivo/consumidor. A CSP atual reduz superfícies específicas; escaping e tratamento seguro de conteúdo continuam obrigatórios.
+
+### HTTPS e HSTS
+
+Não se emite `Strict-Transport-Security` na configuração atual: `NODE_ENV=production` não prova que o deployment atende HTTPS. O ambiente local é HTTP e não há domínio/terminação TLS definidos. Quando deployment HTTPS existir, aplique HSTS no ponto que conhece a conexão TLS (plataforma/reverse proxy), verifique ausência de duplicação e aumente `max-age` conforme validação operacional. Não confie indiscriminadamente em `X-Forwarded-Proto` enviado por qualquer origem. `includeSubDomains` exige controle de todos os subdomínios e `preload` exige compromisso operacional explícito; nenhum é habilitado agora. Também não aplique `upgrade-insecure-requests` em HTTP local sem contexto HTTPS.
+
+### CORS, mutations, cookies e cache
+
+O projeto é full stack same-origin. Não há headers CORS globais nem `Access-Control-Allow-Origin: *`; a ausência de CORS evita autorização de leitura cross-origin pelo browser, mas não é autenticação nem impede requests/CSRF. Um futuro handler consumido externamente deve definir origens, métodos, headers, credenciais e `Vary: Origin` quando necessário ao seu caso, sem permitir origins arbitrárias ou usar wildcard em operações sensíveis. As proteções próprias de Origin/Host das Server Actions continuam válidas; não crie middleware CORS para elas.
+
+Headers não resolvem sozinhos CSRF em mutations com cookies. A Task de autenticação/sessão deve avaliar SameSite, Origin/Referer, particularidades de Actions e handlers e tokens quando necessários. Cookies sensíveis devem considerar HttpOnly, Secure, SameSite, Path e expiration conforme propósito; não há cookies ou tokens fictícios nesta Task.
+
+Não há `Cache-Control: no-store` global. Preserve cache e otimizações do Next.js para conteúdo público; dados sensíveis futuros definem caching no responsável pela leitura/resposta, incluindo caches de servidor/CDN. Headers não substituem autorização.
+
+### Headers deliberadamente ausentes e validação
+
+Não adicione `X-XSS-Protection` (filtro obsoleto que pode ser contraproducente), `Public-Key-Pins` (HPKP removido dos browsers modernos, com risco de indisponibilidade) ou `Expect-CT` (obsoleto com enforcement de CT nos navegadores). Não configure headers de isolamento como COOP/COEP sem consumidor real, pois podem alterar integrações e navegação. A plataforma pode emitir `Server`/outros identificadores fora do controle de `poweredByHeader`; reavalie no deployment.
+
+Valide respostas reais da página, assets e 404 após iniciar dev/produção: confirme CSP, nosniff, Referrer-Policy, Permissions-Policy, ausência de HSTS no HTTP local, de CORS global e de X-Powered-By. No navegador, confira ausência de violações inesperadas, recursos carregados e HMR; uma tentativa deliberada de framing deve falhar. Logs de teste dessa tentativa podem conter a violação esperada, sem relaxar a política.
+
+Na validação da ECMSG-18, `npm run check`, build de produção e `git diff --check` passaram. Respostas reais de `/`, `/next.svg` e rota inexistente (404) em dev/produção apresentaram os quatro headers da tabela, sem HSTS no HTTP local, CORS global ou X-Powered-By. Chromium carregou scripts, CSS, imagens e fontes sem violações inesperadas, negou as seis capacidades e bloqueou framing; HMR foi verificado por atualização/restauração temporária da página. Isso não valida deployment HTTPS, outros browsers ou CSP rígida futura.
+
+Referências: guias instalados `headers`, `poweredByHeader`, `content-security-policy`, Server/Client Components, Route Handlers e deploying sob `node_modules/next/dist/docs/`; MDN [CSP/frame-ancestors](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/frame-ancestors), [nosniff](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Content-Type-Options), [Referrer-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy), [Permissions-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy) e [HSTS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Strict-Transport-Security), consultados no conteúdo oficial atual.
+
 ## Quality gate e escopo
 
 Biome é formatter, linter principal e quality gate. É o mecanismo preferido para enforcement automatizado de boundaries quando possível, futuramente com restricted imports e overrides para limites como `Client × feature/server`, `Client × db`, `components × db`, `lib × features` e `db × features`, respeitando referências remotas de Actions. A configuração atual não impõe o mapa arquitetural: por enquanto, ele é verificado em revisão. Esta Task não adiciona configuração extensa, ESLint ou dependências.
