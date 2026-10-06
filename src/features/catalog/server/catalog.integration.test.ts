@@ -113,6 +113,7 @@ describe("listagem pública", () => {
   });
 });
 afterAll(async () => {
+  await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE id=${userId})`;
   await client`DELETE FROM users WHERE id=${userId}`;
   await client`DELETE FROM inventory WHERE product_id IN (SELECT id FROM products WHERE category_id=${categoryId})`;
   await client`DELETE FROM products WHERE category_id=${categoryId}`;
@@ -531,4 +532,52 @@ it("ECMSG-100: busca administrativa literal e filtros limitados", async () => {
     { sort: "raw" },
   ])
     expect(await readAdminCatalog(input)).toBeNull();
+});
+
+it("ECMSG-109: mutation e audit atômicos; conflito não gera sucesso", async () => {
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  request.token = (await createSession(userId)).token;
+  const [category] =
+    await client`SELECT revision FROM categories WHERE id=${categoryId}`;
+  const input = {
+    operation: "update-category",
+    id: categoryId,
+    revision: category.revision,
+    name: `Audit ${suffix}`,
+  };
+  const before = (
+    await client`SELECT count(*)::int AS count FROM audit_events WHERE actor_user_id=${userId}`
+  )[0].count;
+  expect(await manageCatalog(input)).toEqual({ success: true });
+  expect(await manageCatalog(input)).toMatchObject({ code: "CONFLICT" });
+  expect(
+    (
+      await client`SELECT count(*)::int AS count FROM audit_events WHERE actor_user_id=${userId}`
+    )[0].count,
+  ).toBe(before + 1);
+  expect(
+    (
+      await client`SELECT target_id,event_type FROM audit_events WHERE actor_user_id=${userId} ORDER BY occurred_at DESC LIMIT 1`
+    )[0],
+  ).toEqual({ target_id: categoryId, event_type: "admin.category.updated" });
+  const writer = await import("@/lib/audit/server");
+  const spy = vi
+    .spyOn(writer, "writeAuditEvent")
+    .mockRejectedValueOnce(new Error("Synthetic audit failure"));
+  try {
+    expect(
+      await manageCatalog({
+        ...input,
+        revision: category.revision + 1,
+        name: "Should rollback",
+      }),
+    ).toMatchObject({ code: "OPERATION_FAILED" });
+  } finally {
+    spy.mockRestore();
+  }
+  expect(
+    (
+      await client`SELECT name,revision FROM categories WHERE id=${categoryId}`
+    )[0],
+  ).toEqual({ name: input.name, revision: category.revision + 1 });
 });

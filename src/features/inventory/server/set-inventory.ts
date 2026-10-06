@@ -5,6 +5,7 @@ import { getDb } from "@/db";
 import { inventory } from "@/db/schema/inventory";
 import { products } from "@/db/schema/products";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
+import { writeAuditEvent } from "@/lib/audit/server";
 import { setInventorySchema } from "../schemas/set-inventory";
 
 const expired = Symbol("authorization-expired");
@@ -14,7 +15,8 @@ export async function setInventoryQuantity(input: unknown) {
     return { success: false as const, code: "INVALID_INPUT" as const };
   try {
     return await getDb().transaction(async (tx) => {
-      if (!(await requireAuthenticatedAdmin(tx)).success)
+      const auth = await requireAuthenticatedAdmin(tx);
+      if (!auth.success)
         return { success: false as const, code: "FORBIDDEN" as const };
       const { productId, quantity, revision } = parsed.data;
       const [product] = await tx
@@ -39,6 +41,14 @@ export async function setInventoryQuantity(input: unknown) {
         )
         .returning({ productId: inventory.productId });
       if (!(await requireAuthenticatedAdmin(tx)).success) throw expired;
+      if (changed.length)
+        await writeAuditEvent(tx, {
+          eventType: "admin.inventory.updated",
+          outcome: "SUCCESS",
+          actorUserId: auth.identity.id,
+          targetType: "inventory",
+          targetId: productId,
+        });
       return changed.length
         ? { success: true as const }
         : { success: false as const, code: "CONFLICT" as const };

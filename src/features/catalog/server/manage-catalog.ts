@@ -6,6 +6,8 @@ import { categories } from "@/db/schema/categories";
 import { inventory } from "@/db/schema/inventory";
 import { products } from "@/db/schema/products";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
+import type { AuditInput } from "@/lib/audit/input";
+import { writeAuditEvent } from "@/lib/audit/server";
 import { manageCatalogSchema } from "../schemas/manage-catalog";
 
 export async function manageCatalog(input: unknown) {
@@ -18,8 +20,17 @@ export async function manageCatalog(input: unknown) {
       if (!auth.success)
         return { success: false as const, code: "FORBIDDEN" as const };
       const data = parsed.data;
+      let eventType: AuditInput["eventType"];
+      let targetType: AuditInput["targetType"];
+      let targetId: string;
       if (data.operation === "create-category") {
-        await tx.insert(categories).values({ name: data.name });
+        const [category] = await tx
+          .insert(categories)
+          .values({ name: data.name })
+          .returning({ id: categories.id });
+        targetId = category.id;
+        targetType = "category";
+        eventType = "admin.category.created";
       } else if (data.operation === "update-category") {
         const rows = await tx
           .update(categories)
@@ -33,7 +44,11 @@ export async function manageCatalog(input: unknown) {
           .returning({ id: categories.id });
         if (!rows.length)
           return { success: false as const, code: "CONFLICT" as const };
+        targetId = data.id;
+        targetType = "category";
+        eventType = "admin.category.updated";
       } else {
+        targetType = "product";
         const fields = {
           name: data.name,
           description: data.description,
@@ -49,7 +64,21 @@ export async function manageCatalog(input: unknown) {
             .values(fields)
             .returning({ id: products.id });
           await tx.insert(inventory).values({ productId: product.id });
+          targetId = product.id;
+          eventType = "admin.product.created";
         } else {
+          const [previous] = await tx
+            .select({ published: products.isPublished })
+            .from(products)
+            .where(eq(products.id, data.id))
+            .for("update");
+          targetId = data.id;
+          eventType =
+            previous && previous.published !== data.isPublished
+              ? data.isPublished
+                ? "admin.product.published"
+                : "admin.product.unpublished"
+              : "admin.product.updated";
           const rows = await tx
             .update(products)
             .set({ ...fields, revision: sql`${products.revision} + 1` })
@@ -67,6 +96,13 @@ export async function manageCatalog(input: unknown) {
       // Expiration may occur while waiting for a product/category lock.
       if (!(await requireAuthenticatedAdmin(tx)).success)
         throw new Error("AUTHORIZATION_EXPIRED");
+      await writeAuditEvent(tx, {
+        eventType,
+        outcome: "SUCCESS",
+        actorUserId: auth.identity.id,
+        targetType,
+        targetId,
+      });
       return { success: true as const };
     });
   } catch {
