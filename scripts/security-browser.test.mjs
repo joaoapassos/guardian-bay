@@ -656,7 +656,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   `!!document.querySelector('option[value="${category.id}"]')`,
                   "category available for product",
                 );
-                const catalogName = `Browser product ${randomUUID()}`;
+                const catalogName = `Browser product ${randomUUID()} <img src=x onerror=window.cartXss=true>`;
                 await adminSubmit("Criar produto", {
                   name: catalogName,
                   description: "<script>window.catalogXss=true</script>",
@@ -682,6 +682,54 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   ),
                   true,
                 );
+                await evaluate(
+                  "[...document.querySelectorAll('button')].find(b=>b.textContent==='Adicionar ao carrinho').click()",
+                );
+                await waitFor(
+                  "[...document.querySelectorAll('output')].some(o=>o.textContent.includes('Produto adicionado ao carrinho.'))",
+                  "add mutation finished",
+                );
+                await navigate("/cart");
+                await waitFor(
+                  "document.querySelector('main').textContent.includes('Subtotal: R$') && !!document.querySelector('input[name=quantity]')",
+                  "persisted cart page",
+                );
+                assert.equal(
+                  await evaluate(
+                    "window.cartXss === undefined && document.querySelector('main').textContent.includes('<img src=x onerror=window.cartXss=true>')",
+                  ),
+                  true,
+                );
+                await evaluate(
+                  "document.querySelector('input[name=quantity]').value='2'; document.querySelector('input[name=quantity]').form.requestSubmit()",
+                );
+                await waitFor(
+                  "document.querySelector('main').textContent.includes('21,98') && document.querySelector('input[name=quantity]').defaultValue==='2'",
+                  "quantity and total server refresh",
+                );
+                await evaluate(
+                  "[...document.querySelectorAll('button')].find(b=>b.textContent==='Remover item').click()",
+                );
+                await waitFor(
+                  "document.querySelector('main').textContent.includes('Seu carrinho está vazio')",
+                  "remove real item",
+                );
+                await navigate("/products");
+                await evaluate(
+                  `(() => { const row=[...document.querySelectorAll('main li')].find(li=>li.textContent.includes(${JSON.stringify(catalogName)})); row.querySelector('button').click(); })()`,
+                );
+                await waitFor(
+                  "[...document.querySelectorAll('output')].some(o=>o.textContent.includes('Produto adicionado ao carrinho.'))",
+                  "add mutation finished",
+                );
+                await navigate(`/products/${catalogProduct.id}`);
+                await evaluate(
+                  "[...document.querySelectorAll('button')].find(b=>b.textContent==='Adicionar ao carrinho').click()",
+                );
+                await waitFor(
+                  "[...document.querySelectorAll('output')].some(o=>o.textContent.includes('Produto adicionado ao carrinho.'))",
+                  "add mutation finished",
+                );
                 await navigate("/admin/catalog");
                 const editLabel = `Editar produto ${catalogName}`;
                 await adminSubmit(editLabel, { amount: "1200" }, false);
@@ -693,6 +741,11 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   await client`SELECT amount,revision FROM products WHERE id=${catalogProduct.id}`;
                 assert.equal(edited.amount, 1200);
                 assert.equal(edited.revision, 2);
+                await navigate("/cart");
+                await waitFor(
+                  "document.querySelector('main').textContent.includes('24,00') && document.querySelector('input[name=quantity]').defaultValue==='2'",
+                  "current catalogue price, no snapshot",
+                );
                 await navigate("/admin/catalog");
                 acceptCatalogDialog = false;
                 await adminSubmit(editLabel, { isPublished: false }, false);
@@ -719,6 +772,35 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   )[0].is_published,
                   false,
                 );
+                await navigate("/cart");
+                await waitFor(
+                  "document.querySelector('main').textContent.includes('Produto indisponível') && document.querySelector('input[name=quantity]').disabled",
+                  "unpublished item remains visible",
+                );
+                assert.ok(
+                  await evaluate(
+                    "document.querySelector('main').textContent.includes('0,00')",
+                  ),
+                );
+                assert.equal(
+                  (
+                    await client`SELECT quantity FROM cart_items WHERE user_id=${catalogUser.id} AND product_id=${catalogProduct.id}`
+                  )[0].quantity,
+                  2,
+                );
+                await evaluate(
+                  "[...document.querySelectorAll('button')].find(b=>b.textContent==='Remover item').click()",
+                );
+                await waitFor(
+                  "document.querySelector('main').textContent.includes('Seu carrinho está vazio')",
+                  "unavailable removal remains possible",
+                );
+                assert.equal(
+                  (
+                    await client`SELECT count(*)::int AS count FROM cart_items WHERE user_id=${catalogUser.id}`
+                  )[0].count,
+                  0,
+                );
                 await navigate(`/products/${catalogProduct.id}`);
                 await waitFor(
                   "document.querySelector('main')?.textContent.includes('Produto não encontrado')",
@@ -736,6 +818,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 );
               } finally {
                 if (catalogCategoryId) {
+                  await client`DELETE FROM cart_items WHERE product_id IN (SELECT id FROM products WHERE category_id=${catalogCategoryId})`;
                   await client`DELETE FROM products WHERE category_id=${catalogCategoryId}`;
                   await client`DELETE FROM categories WHERE id=${catalogCategoryId}`;
                 }

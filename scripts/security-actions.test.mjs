@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -76,6 +76,16 @@ import { logoutAction } from "@/features/auth/actions/logout.action";
 import { readIdentityAction } from "@/features/auth/actions/read-identity.action";
 import { getAuthenticatedIdentity } from "@/features/auth/server/session-cookie";
 import { manageCatalogAction } from "@/features/catalog/actions/manage-catalog.action";
+import { addToCartAction } from "@/features/cart/actions/add-to-cart.action";
+import { updateCartItemAction, removeCartItemAction } from "@/features/cart/actions/cart-item.action";
+function cartInput(form: FormData) {
+ const input: Record<string,unknown> = Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));
+ if("quantity" in input) input.quantity=Number(input.quantity);
+ return input;
+}
+async function cartAdd(form:FormData) {"use server"; const result=await addToCartAction(cartInput(form));redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
+async function cartUpdate(form:FormData) {"use server"; const result=await updateCartItemAction(cartInput(form));redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
+async function cartRemove(form:FormData) {"use server"; const result=await removeCartItemAction(cartInput(form));redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
 async function catalog(form: FormData) {
   "use server";
   const input: Record<string, unknown> = Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));
@@ -121,7 +131,7 @@ export default async function Probe() {
     <form action={logout}/><form action={read}><input name="userId"/></form>
     <form action={register}><input name="email"/><input name="password"/></form>
     <form action={changePassword}><input name="currentPassword"/><input name="newPassword"/></form>
-    <form action={catalog}/>
+    <form action={catalog}/><form action={cartAdd}/><form action={cartUpdate}/><form action={cartRemove}/>
   </main>;
 }
 `,
@@ -167,7 +177,7 @@ export default async function Probe() {
       const actions = [...html.matchAll(/name="(\$ACTION_ID_[^"]+)"/g)].map(
         (match) => match[1],
       );
-      assert.equal(actions.length, 6);
+      assert.equal(actions.length, 9);
       const budget = async () =>
         (
           await client`SELECT attempts FROM login_rate_limits WHERE key='global'`
@@ -194,6 +204,161 @@ export default async function Probe() {
           ),
         );
       const credentials = { email, password };
+      await t.test(
+        "cart Actions: HTTP ownership, authority, Origin, body, replay and disclosure",
+        async () => {
+          const [category] =
+            await client`INSERT INTO categories(name) VALUES (${`Cart HTTP ${randomUUID()}`}) RETURNING id`;
+          const [product] =
+            await client`INSERT INTO products(name,category_id,amount,is_published) VALUES ('HTTP cart',${category.id},1099,true) RETURNING id`;
+          const [other] =
+            await client`INSERT INTO users(email,password_hash) VALUES (${`${randomUUID()}@cart-http.example.test`},${passwordHash}) RETURNING id`;
+          const raw = randomBytes(32).toString("hex");
+          const cookie = `__Host-guardian-session=${raw}`;
+          await client`INSERT INTO sessions(token_hash,user_id,expires_at) VALUES (${createHash("sha256").update(raw).digest("hex")},${user.id},now()+interval '1 hour')`;
+          try {
+            assert.deepEqual(
+              result(await post(6, { productId: product.id, quantity: "1" })),
+              { success: false, code: "UNAUTHENTICATED" },
+            );
+            for (const index of [6, 7, 8]) {
+              const input = {
+                productId: product.id,
+                ...(index !== 8 ? { quantity: "1" } : {}),
+              };
+              for (const origin of [
+                "",
+                "null",
+                "https://evil.test",
+                "http://127.0.0.1:3108",
+              ]) {
+                const response = await post(index, input, { origin }, cookie);
+                assert.ok(response.status >= 400);
+                const body = await response.text();
+                assert.ok(!body.includes(raw) && !body.includes(value));
+              }
+              const oversized = await post(
+                index,
+                { ...input, total: "x".repeat(20 * 1024) },
+                {},
+                cookie,
+              );
+              assert.ok(oversized.status >= 400);
+              for (const key of [
+                "userId",
+                "cartId",
+                "ownerId",
+                "amount",
+                "price",
+                "unitPrice",
+                "currency",
+                "subtotal",
+                "total",
+                "role",
+                "isPublished",
+                "revision",
+              ])
+                assert.deepEqual(
+                  result(
+                    await post(
+                      index,
+                      { ...input, [key]: key === "currency" ? "USD" : "1" },
+                      {},
+                      cookie,
+                    ),
+                  ),
+                  { success: false, code: "INVALID_INPUT" },
+                );
+            }
+            await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${other.id},${product.id},9)`;
+            assert.deepEqual(
+              result(
+                await post(
+                  7,
+                  { productId: product.id, quantity: "2" },
+                  {},
+                  cookie,
+                ),
+              ),
+              { success: false, code: "CONFLICT" },
+            );
+            assert.deepEqual(
+              result(await post(8, { productId: product.id }, {}, cookie)),
+              { success: true },
+            );
+            assert.equal(
+              (
+                await client`SELECT quantity FROM cart_items WHERE user_id=${other.id}`
+              )[0].quantity,
+              9,
+            );
+            for (let i = 0; i < 2; i++)
+              assert.deepEqual(
+                result(
+                  await post(
+                    6,
+                    { productId: product.id, quantity: "1" },
+                    {},
+                    cookie,
+                  ),
+                ),
+                { success: true },
+              );
+            assert.equal(
+              (
+                await client`SELECT quantity FROM cart_items WHERE user_id=${user.id} AND product_id=${product.id}`
+              )[0].quantity,
+              2,
+            );
+            assert.deepEqual(
+              result(
+                await post(
+                  7,
+                  { productId: product.id, quantity: "3" },
+                  {},
+                  cookie,
+                ),
+              ),
+              { success: true },
+            );
+            await client`UPDATE products SET is_published=false WHERE id=${product.id}`;
+            assert.deepEqual(
+              result(
+                await post(
+                  6,
+                  { productId: product.id, quantity: "1" },
+                  {},
+                  cookie,
+                ),
+              ),
+              { success: false, code: "UNAVAILABLE" },
+            );
+            for (let i = 0; i < 2; i++)
+              assert.deepEqual(
+                result(await post(8, { productId: product.id }, {}, cookie)),
+                { success: true },
+              );
+            await client`DELETE FROM sessions WHERE token_hash=${createHash("sha256").update(raw).digest("hex")}`;
+            assert.deepEqual(
+              result(
+                await post(
+                  6,
+                  { productId: product.id, quantity: "1" },
+                  {},
+                  cookie,
+                ),
+              ),
+              { success: false, code: "UNAUTHENTICATED" },
+            );
+          } finally {
+            await client`DELETE FROM cart_items WHERE product_id=${product.id}`;
+            await client`DELETE FROM sessions WHERE token_hash=${createHash("sha256").update(raw).digest("hex")}`;
+            await client`DELETE FROM products WHERE id=${product.id}`;
+            await client`DELETE FROM categories WHERE id=${category.id}`;
+            await client`DELETE FROM users WHERE id=${other.id}`;
+          }
+        },
+      );
       await t.test(
         "Origin, forwarded spoof and body limit fail before hashing",
         async () => {
