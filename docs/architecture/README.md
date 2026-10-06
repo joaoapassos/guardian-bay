@@ -16,6 +16,12 @@ A alteração de credencial prevista na Epic 3 exigirá identidade/sessão váli
 
 Guardian Bay não possui recuperação self-service de senha: não haverá link de reset, e-mail, OTP, pergunta secreta ou recovery code. Perda de acesso requer contato direto com administrador, por processo externo ainda não implementado. A ECMSG-38 formalizará os requisitos; não existe painel, role, reset privilegiado, senha padrão ou canal de contato configurado. Administração futura deverá verificar identidade e autorização, substituir a credencial sem conhecer a senha original e revogar sessões com auditoria.
 
+## Cadastro (ECMSG-33)
+
+`registerAction` exige mesma origem, valida o contrato strict de criação e delega ao server-only. Normalização de e-mail e política de senha são as mesmas da credencial existente. Argon2 precede INSERT com `ON CONFLICT(email) DO NOTHING`; não há SELECT prévio como garantia de unicidade. Novo cadastro e duplicado retornam somente `{ success: true }`, sem confirmar existência, e ambos executam hashing. Não há autenticação automática: o usuário deve realizar login com sua credencial; o cadastro nunca substitui a senha de conta existente.
+
+Cadastro admite duas tentativas por e-mail/15 minutos em chave `reg:` pseudonimizada, distinta da chave de login. Compartilha vinte operações/minuto globais e os dois slots Argon2 do login, impedindo multiplicação de custo pela nova superfície. Slots indisponíveis/limites produzem RATE_LIMITED antes do hash. Não registra senha/e-mail bruto nem cria perfil/status. Proteção volumétrica e confiança de origem continuam requisitos de deployment.
+
 ## Contrato de entrada e proteção contra abuso (ECMSG-27)
 
 Não há deployment definido. O link do scaffold para Vercel não configura hospedagem, proxy ou origem confiável. Atualmente `X-Forwarded-For`, `X-Real-IP` e `Forwarded` não identificam o caller; os limites de login funcionam sem eles.

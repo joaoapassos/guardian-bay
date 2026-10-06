@@ -19,7 +19,7 @@ export const loginRateLimits = pgTable(
   (table) => [
     check(
       "login_rate_limits_key",
-      sql`${table.key} = 'global' OR ${table.key} ~ '^email:[0-9a-f]{64}$'`,
+      sql`${table.key} = 'global' OR ${table.key} ~ '^(email|reg):[0-9a-f]{64}$'`,
     ),
     check(
       "login_rate_limits_attempts",

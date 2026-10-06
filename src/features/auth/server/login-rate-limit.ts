@@ -41,10 +41,14 @@ async function increment(
 }
 
 // No client-controlled IP header. Global budget also bounds identifier rotation.
-export async function reserveLoginAttempt(email: unknown): Promise<boolean> {
+export async function reserveLoginAttempt(
+  email: unknown,
+  operation: "login" | "register" = "login",
+): Promise<boolean> {
   const input = emailSchema.safeParse(email);
   if (!input.success) return false;
-  const key = `email:${createHash("sha256").update(input.data).digest("hex")}`;
+  const limit = operation === "register" ? 2 : 5;
+  const key = `${operation === "register" ? "reg" : "email"}:${createHash("sha256").update(input.data).digest("hex")}`;
   try {
     const reservation = await getDb().transaction(async (tx) => {
       const global = await increment(tx, "global", 20, 60);
@@ -68,16 +72,16 @@ export async function reserveLoginAttempt(email: unknown): Promise<boolean> {
           ),
         );
       }
-      const account = await increment(tx, key, 5, 900);
+      const account = await increment(tx, key, limit, 900);
       return {
         allowed: Boolean(account),
-        thresholdReached: global.attempts === 20 || account?.attempts === 5,
+        thresholdReached: global.attempts === 20 || account?.attempts === limit,
       };
     });
-    if (reservation.thresholdReached) securityEvent("login", "LIMIT_REACHED");
+    if (reservation.thresholdReached) securityEvent(operation, "LIMIT_REACHED");
     return reservation.allowed;
   } catch {
-    securityEvent("login", "OPERATION_FAILED");
+    securityEvent(operation, "OPERATION_FAILED");
     throw new Error("Não foi possível processar a autenticação.");
   }
 }
@@ -86,6 +90,7 @@ export async function reserveLoginAttempt(email: unknown): Promise<boolean> {
 // Namespace 1195524428 is reserved for this feature; never supplied by callers.
 export async function withLoginHashSlot<T>(
   operation: (tx: Transaction) => Promise<T>,
+  eventOperation: "login" | "register" = "login",
 ) {
   try {
     return await getDb().transaction(async (tx) => {
@@ -99,7 +104,7 @@ export async function withLoginHashSlot<T>(
       return { admitted: false as const };
     });
   } catch {
-    securityEvent("login", "OPERATION_FAILED");
+    securityEvent(eventOperation, "OPERATION_FAILED");
     throw new Error("Não foi possível processar a autenticação.");
   }
 }
