@@ -1014,3 +1014,46 @@ it("ECMSG-97: listagem administrativa nega visitante/customer e projeta pedidos 
     await client`UPDATE users SET role='customer' WHERE id=${userId}`;
   }
 });
+
+it("ECMSG-98: detalhe administrativo exige role atual e usa snapshot mínimo", async () => {
+  const { adminOrderDetail } = await import("./admin-order-detail");
+  const [order] =
+    await client`INSERT INTO orders(user_id,checkout_key,total_amount,status) VALUES (${otherId},${randomUUID()},2198,'PAID') RETURNING id`;
+  await client`INSERT INTO order_items(order_id,product_id,product_name,quantity,unit_amount,subtotal_amount) VALUES (${order.id},${productId},'Historical name',2,1099,2198)`;
+  expect(await adminOrderDetail(order.id)).toMatchObject({ code: "FORBIDDEN" });
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  try {
+    await client`UPDATE products SET name='Current name',amount=1200 WHERE id=${productId}`;
+    const result = await adminOrderDetail(order.id);
+    expect(result).toMatchObject({
+      success: true,
+      order: {
+        total: { amount: 2198 },
+        items: [{ productName: "Historical name", price: { amount: 1099 } }],
+      },
+    });
+    if (result.success) {
+      expect(Object.keys(result.order).sort()).toEqual([
+        "createdAt",
+        "items",
+        "orderId",
+        "status",
+        "total",
+      ]);
+      expect(Object.keys(result.order.items[0]).sort()).toEqual([
+        "price",
+        "productName",
+        "quantity",
+        "subtotal",
+      ]);
+    }
+    expect(await adminOrderDetail(randomUUID())).toMatchObject({
+      code: "NOT_FOUND",
+    });
+    expect(await adminOrderDetail("' OR 1=1 --")).toMatchObject({
+      code: "NOT_FOUND",
+    });
+  } finally {
+    await client`UPDATE users SET role='customer' WHERE id=${userId}`;
+  }
+});
