@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 export function securityEvent(
   operation:
     | "login"
+    | "register"
     | "session-create"
     | "session-read"
     | "session-activity"

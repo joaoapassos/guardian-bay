@@ -21,6 +21,7 @@ import { users } from "@/db/schema/users";
 import { loginAction } from "../actions/login.action";
 import { logoutAction } from "../actions/logout.action";
 import { readIdentityAction } from "../actions/read-identity.action";
+import { registerAction } from "../actions/register.action";
 import { authenticate } from "./authenticate";
 import { login } from "./login";
 import { reserveLoginAttempt, withLoginHashSlot } from "./login-rate-limit";
@@ -83,8 +84,8 @@ const unknownEmail = `${randomUUID()}@example.test`;
 const password = "Integration passphrase 24";
 let passwordHash: string;
 const rateKeys = new Set(["global"]);
-function fixtureRateKey(fixtureEmail: string) {
-  const key = `email:${createHash("sha256").update(fixtureEmail.trim().toLowerCase()).digest("hex")}`;
+function fixtureRateKey(fixtureEmail: string, prefix = "email") {
+  const key = `${prefix}:${createHash("sha256").update(fixtureEmail.trim().toLowerCase()).digest("hex")}`;
   rateKeys.add(key);
   return key;
 }
@@ -367,7 +368,9 @@ describe("ECMSG-25: autorização e correções de autenticação", () => {
   let ids: string[];
   let ownToken: string;
   beforeAll(async () => {
-    emails.forEach(fixtureRateKey);
+    emails.forEach((email) => {
+      fixtureRateKey(email);
+    });
     const legacyHash = await hash("old", {
       type: argon2id,
       memoryCost: 65536,
@@ -566,7 +569,7 @@ describe("ECMSG-25: autorização e correções de autenticação", () => {
 
 describe("ECMSG-26: requests, abuso e concorrência real", () => {
   const emails = [randomUUID(), randomUUID()].map((id) => `${id}@example.test`);
-  const keys = emails.map(fixtureRateKey);
+  const keys = emails.map((email) => fixtureRateKey(email));
   let userId: string;
   beforeAll(async () => {
     const [user] = await database
@@ -686,8 +689,12 @@ describe("ECMSG-26: requests, abuso e concorrência real", () => {
       { length: 25 },
       () => `${randomUUID()}@example.test`,
     );
-    identifiers.forEach(fixtureRateKey);
-    const results = await Promise.all(identifiers.map(reserveLoginAttempt));
+    identifiers.forEach((email) => {
+      fixtureRateKey(email);
+    });
+    const results = await Promise.all(
+      identifiers.map((email) => reserveLoginAttempt(email)),
+    );
     expect(results.filter(Boolean)).toHaveLength(20);
     const [global] =
       await client`SELECT attempts FROM login_rate_limits WHERE key='global'`;
@@ -870,5 +877,97 @@ describe("ECMSG-26: requests, abuso e concorrência real", () => {
     expect(row.attempts).toBe(2);
     expect(await logoutAction()).toEqual({ success: true });
     expect(await logoutAction()).toEqual({ success: true });
+  });
+});
+
+describe("ECMSG-33: cadastro seguro PostgreSQL", () => {
+  const emails = [randomUUID(), randomUUID()].map((id) => `${id}@example.test`);
+  emails.forEach((email) => {
+    fixtureRateKey(email, "reg");
+  });
+  beforeEach(() => {
+    request.headers = new Headers({
+      origin: "http://localhost:3000",
+      host: "localhost:3000",
+    });
+    request.token = undefined;
+    vi.stubEnv("NODE_ENV", "test");
+  });
+  afterEach(() => vi.restoreAllMocks());
+  afterAll(async () => {
+    await client`DELETE FROM users WHERE email IN (${emails[0]},${emails[1]})`;
+  });
+  it("normaliza, persiste somente hash e cadastro duplicado não muda senha ou resposta", async () => {
+    const input = { email: `  ${emails[0].toUpperCase()}  `, password };
+    const first = await registerAction(input);
+    expect(first).toEqual({ success: true });
+    expect(request.token).toBeUndefined();
+    const [stored] =
+      await client`SELECT password_hash FROM users WHERE email=${emails[0]}`;
+    expect(stored.password_hash).toMatch(/^\$argon2id\$/);
+    expect(await verifyPassword(password, stored.password_hash)).toBe(true);
+    expect(
+      await registerAction({ ...input, password: "Other valid passphrase" }),
+    ).toEqual(first);
+    const [same] =
+      await client`SELECT password_hash FROM users WHERE email=${emails[0]}`;
+    expect(same.password_hash === stored.password_hash).toBe(true);
+  });
+  it("duas criações concorrentes mantêm apenas uma identidade", async () => {
+    const results = await Promise.all([
+      registerAction({ email: emails[1], password }),
+      registerAction({ email: emails[1], password }),
+    ]);
+    expect(results).toEqual([{ success: true }, { success: true }]);
+    expect(
+      (await client`SELECT id FROM users WHERE email=${emails[1]}`).length,
+    ).toBe(1);
+  });
+  it("payload inválido/extra falha antes de DB e hash", async () => {
+    const db = vi.spyOn(databaseInfrastructure, "getDb");
+    const hashing = vi.spyOn(passwordOperations, "hashPassword");
+    for (const input of [
+      null,
+      { email: emails[0], password: "short" },
+      { email: emails[0], password, passwordHash: "fake" },
+      { email: emails[0], password: "x".repeat(300) },
+    ])
+      expect(await registerAction(input)).toEqual({
+        success: false,
+        code: "INVALID_INPUT",
+      });
+    expect(
+      await registerAction({ email: emails[0], password }, "extra"),
+    ).toEqual({ success: false, code: "INVALID_INPUT" });
+    expect(db).not.toHaveBeenCalled();
+    expect(hashing).not.toHaveBeenCalled();
+  });
+  it("terceira tentativa bloqueia antes de Argon2 sem afetar login por conta", async () => {
+    const hashing = vi.spyOn(passwordOperations, "hashPassword");
+    for (let i = 0; i < 2; i++)
+      expect(await registerAction({ email: emails[0], password })).toEqual({
+        success: true,
+      });
+    expect(await registerAction({ email: emails[0], password })).toEqual({
+      success: false,
+      code: "RATE_LIMITED",
+    });
+    expect(hashing).toHaveBeenCalledTimes(2);
+    expect(await reserveLoginAttempt(emails[0])).toBe(true);
+    fixtureRateKey(emails[0]);
+  });
+  it("origem indevida e falhas operacionais não expõem input", async () => {
+    request.headers.set("origin", "https://evil.test");
+    await expect(
+      registerAction({ email: emails[0], password }),
+    ).rejects.toThrow("Requisição inválida.");
+    request.headers.set("origin", "http://localhost:3000");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(databaseInfrastructure, "getDb").mockImplementation(() => {
+      throw new Error(password);
+    });
+    await expect(
+      registerAction({ email: emails[0], password }),
+    ).rejects.toThrow("Não foi possível processar a autenticação.");
   });
 });
