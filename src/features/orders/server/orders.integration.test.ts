@@ -329,3 +329,214 @@ it("ECMSG-75: detalhes usam snapshot, ownership na query e DTO mínimo", async (
     code: "NOT_FOUND",
   });
 });
+
+async function waitForOrderLock(table: "products" | "users") {
+  for (let i = 0; i < 100; i++) {
+    const [row] =
+      await client`SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE ${`%"${table}"%`}`;
+    if (row.count > 0) return;
+    await new Promise((done) => setTimeout(done, 20));
+  }
+  throw new Error("Checkout did not reach expected lock");
+}
+async function holdOrderLock(
+  action: (tx: postgres.TransactionSql) => Promise<unknown>,
+) {
+  const blocker = postgres(url.href, { max: 1, onnotice: () => {} });
+  let acquired!: () => void;
+  let release!: () => void;
+  const locked = new Promise<void>((done) => {
+    acquired = done;
+  });
+  const unlock = new Promise<void>((done) => {
+    release = done;
+  });
+  const holding = blocker.begin(async (tx) => {
+    await action(tx);
+    acquired();
+    await unlock;
+  });
+  await locked;
+  return {
+    release: async () => {
+      release();
+      await holding;
+      await blocker.end();
+    },
+  };
+}
+
+it("ECMSG-76: Origin/contrato, visitante e mass assignment antes de mutation", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const input = { checkoutKey: randomUUID() };
+  request.token = undefined;
+  expect(await checkoutAction(input)).toEqual({
+    success: false,
+    code: "UNAUTHENTICATED",
+  });
+  request.token = (await createSession(userId)).token;
+  for (const key of [
+    "userId",
+    "items",
+    "unitPrice",
+    "amount",
+    "subtotal",
+    "total",
+    "currency",
+    "status",
+    "paymentStatus",
+    "role",
+  ])
+    expect(await checkoutAction({ ...input, [key]: 1 })).toEqual({
+      success: false,
+      code: "INVALID_INPUT",
+    });
+  expect(await checkoutAction(input, "extra")).toEqual({
+    success: false,
+    code: "INVALID_INPUT",
+  });
+  request.headers = new Headers({
+    host: "localhost:3000",
+    origin: "https://attacker.test",
+  });
+  await expect(checkoutAction(input)).rejects.toThrow("Requisição inválida.");
+  expect(
+    await client`SELECT id FROM orders WHERE user_id=${userId}`,
+  ).toHaveLength(0);
+});
+it("ECMSG-76: catálogo alterado durante espera é relido sob lock", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
+  const lock = await holdOrderLock(
+    (tx) => tx`UPDATE products SET amount=1234 WHERE id=${productId}`,
+  );
+  try {
+    const pending = checkoutAction({ checkoutKey: randomUUID() });
+    await waitForOrderLock("products");
+    await lock.release();
+    expect(await pending).toMatchObject({ success: true, status: "PAID" });
+    expect(
+      (await client`SELECT total_amount FROM orders WHERE user_id=${userId}`)[0]
+        .total_amount,
+    ).toBe("1234");
+  } finally {
+    await lock.release();
+  }
+  await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
+  const unpublished = await holdOrderLock(
+    (tx) => tx`UPDATE products SET is_published=false WHERE id=${productId}`,
+  );
+  try {
+    const pending = checkoutAction({ checkoutKey: randomUUID() });
+    await waitForOrderLock("products");
+    await unpublished.release();
+    expect(await pending).toEqual({ success: false, code: "UNAVAILABLE" });
+    expect(
+      await client`SELECT id FROM orders WHERE user_id=${userId}`,
+    ).toHaveLength(1);
+    expect(
+      await client`SELECT * FROM cart_items WHERE user_id=${userId}`,
+    ).toHaveLength(1);
+  } finally {
+    await unpublished.release();
+  }
+});
+it("ECMSG-76: expiração absoluta/idle durante lock causa rollback", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const { tokenHash } = await import("@/features/auth/server/session");
+  for (const kind of ["absolute", "idle"] as const) {
+    request.token = (await createSession(userId)).token;
+    const hash = tokenHash(request.token);
+    if (kind === "absolute")
+      await client`UPDATE sessions SET created_at=clock_timestamp()-interval '1 hour',expires_at=clock_timestamp()+interval '1 second' WHERE token_hash=${hash}`;
+    else
+      await client`UPDATE sessions SET created_at=clock_timestamp()-interval '1 hour',last_active_at=clock_timestamp()-interval '29 minutes 59 seconds' WHERE token_hash=${hash}`;
+    await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId}) ON CONFLICT DO NOTHING`;
+    const lock = await holdOrderLock(
+      (tx) => tx`SELECT id FROM products WHERE id=${productId} FOR UPDATE`,
+    );
+    try {
+      const pending = checkoutAction({ checkoutKey: randomUUID() });
+      await waitForOrderLock("products");
+      await client`SELECT pg_sleep(1.1)`;
+      await lock.release();
+      expect(await pending).toEqual({
+        success: false,
+        code: "UNAUTHENTICATED",
+      });
+      expect(
+        await client`SELECT id FROM orders WHERE user_id=${userId}`,
+      ).toHaveLength(0);
+      expect(
+        await client`SELECT * FROM cart_items WHERE user_id=${userId}`,
+      ).toHaveLength(1);
+    } finally {
+      await lock.release();
+    }
+  }
+});
+it("ECMSG-76: revogação antes da autorização bloqueada nega pedido", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const { tokenHash } = await import("@/features/auth/server/session");
+  await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
+  const lock = await holdOrderLock(
+    (tx) => tx`SELECT id FROM users WHERE id=${userId} FOR UPDATE`,
+  );
+  try {
+    const pending = checkoutAction({ checkoutKey: randomUUID() });
+    await waitForOrderLock("users");
+    await client`DELETE FROM sessions WHERE token_hash=${tokenHash(request.token)}`;
+    await lock.release();
+    expect(await pending).toEqual({ success: false, code: "UNAUTHENTICATED" });
+    expect(
+      await client`SELECT id FROM orders WHERE user_id=${userId}`,
+    ).toHaveLength(0);
+  } finally {
+    await lock.release();
+  }
+});
+it("ECMSG-76: checkout serializa add/update/remove sem misturar snapshots", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const { addToCartAction } = await import(
+    "@/features/cart/actions/add-to-cart.action"
+  );
+  const { updateCartItemAction, removeCartItemAction } = await import(
+    "@/features/cart/actions/cart-item.action"
+  );
+  for (const operation of ["add", "update", "remove"] as const) {
+    await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2) ON CONFLICT (user_id,product_id) DO UPDATE SET quantity=2`;
+    const lock = await holdOrderLock(
+      (tx) => tx`SELECT id FROM products WHERE id=${productId} FOR UPDATE`,
+    );
+    try {
+      const pending = checkoutAction({ checkoutKey: randomUUID() });
+      await waitForOrderLock("products");
+      const mutation =
+        operation === "add"
+          ? addToCartAction({ productId, quantity: 1 })
+          : operation === "update"
+            ? updateCartItemAction({ productId, quantity: 3 })
+            : removeCartItemAction({ productId });
+      await waitForOrderLock("users");
+      await lock.release();
+      const order = await pending;
+      expect(order).toMatchObject({ success: true, status: "PAID" });
+      expect(await mutation).toEqual(
+        operation === "update"
+          ? { success: false, code: "CONFLICT" }
+          : { success: true },
+      );
+      if (order.success)
+        expect(
+          (
+            await client`SELECT quantity FROM order_items WHERE order_id=${order.orderId}`
+          )[0].quantity,
+        ).toBe(2);
+      const remaining =
+        await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`;
+      expect(remaining).toEqual(operation === "add" ? [{ quantity: 1 }] : []);
+    } finally {
+      await lock.release();
+    }
+  }
+});

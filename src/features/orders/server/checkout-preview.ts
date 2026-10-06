@@ -8,6 +8,7 @@ import { sessions } from "@/db/schema/sessions";
 import { sessionValidity, tokenHash } from "@/features/auth/server/session";
 import { sessionCookiePolicy } from "@/features/auth/server/session-cookie";
 import { createOrderSnapshot } from "../order-snapshot";
+import { orderFailure } from "./order-event";
 
 export function checkoutCandidate(
   rows: {
@@ -61,6 +62,7 @@ export async function checkoutPreview() {
       return { success: false as const, code: "UNAUTHENTICATED" as const };
     return checkoutCandidate(rows);
   } catch {
+    orderFailure("preview");
     throw new Error("Não foi possível revisar o checkout.");
   }
 }
