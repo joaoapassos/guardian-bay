@@ -109,6 +109,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
+  await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE email = ${email})`;
   await client`DELETE FROM users WHERE email = ${email}`;
   await database
     .delete(loginRateLimits)
@@ -334,6 +335,7 @@ describe("autenticação e sessões com PostgreSQL real", () => {
     await expect(
       client`INSERT INTO sessions(token_hash,user_id,expires_at) VALUES (${"f".repeat(64)},NULL,CURRENT_TIMESTAMP + interval '1 hour')`,
     ).rejects.toMatchObject({ code: "23502" });
+    await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE id = ${userId})`;
     await client`DELETE FROM users WHERE id = ${userId}`;
     expect(
       await client`SELECT * FROM sessions WHERE user_id = ${userId}`,
@@ -409,6 +411,7 @@ describe("ECMSG-25: autorização e correções de autenticação", () => {
     await client`DELETE FROM sessions WHERE user_id IN (${ids[0]},${ids[1]},${ids[2]})`;
   });
   afterAll(async () => {
+    await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE email IN (${emails[0]},${emails[1]},${emails[2]}))`;
     await client`DELETE FROM users WHERE email IN (${emails[0]},${emails[1]},${emails[2]})`;
   });
   it("login verifica credencial existente menor que o mínimo de criação", async () => {
@@ -597,6 +600,7 @@ describe("ECMSG-26: requests, abuso e concorrência real", () => {
     vi.stubEnv("NODE_ENV", "test");
   });
   afterAll(async () => {
+    await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE id=${userId})`;
     await client`DELETE FROM users WHERE id=${userId}`;
   });
 
@@ -902,6 +906,7 @@ describe("ECMSG-33: cadastro seguro PostgreSQL", () => {
   });
   afterEach(() => vi.restoreAllMocks());
   afterAll(async () => {
+    await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE email IN (${emails[0]},${emails[1]}))`;
     await client`DELETE FROM users WHERE email IN (${emails[0]},${emails[1]})`;
   });
   it("normaliza, persiste somente hash e cadastro duplicado não muda senha ou resposta", async () => {
@@ -990,6 +995,7 @@ describe("ECMSG-36: área da própria conta", () => {
     id = user.id;
   });
   afterAll(async () => {
+    await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE id=${id})`;
     await client`DELETE FROM users WHERE id=${id}`;
   });
   it("visitante e token inválido não recebem dado", async () => {
@@ -1040,6 +1046,7 @@ describe("ECMSG-37: troca de senha e revogação atômica", () => {
     vi.stubEnv("NODE_ENV", "test");
   });
   afterAll(async () => {
+    await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE id=${id})`;
     await client`DELETE FROM users WHERE id=${id}`;
   });
   const input = () => ({
@@ -1093,6 +1100,12 @@ describe("ECMSG-37: troca de senha e revogação atômica", () => {
     expect(await verifyPassword(nextPassword, row.password_hash)).toBe(true);
     expect(await resolveSession(first.token)).toBeNull();
     expect(await resolveSession(second.token)).toBeNull();
+    const audit =
+      await client`SELECT event_type FROM audit_events WHERE actor_user_id=${id} AND event_type IN ('auth.password.changed','auth.sessions.revoked')`;
+    expect(audit.map((event) => event.event_type).sort()).toEqual([
+      "auth.password.changed",
+      "auth.sessions.revoked",
+    ]);
     expect(request.lastCookie).toMatchObject({
       value: "",
       options: { maxAge: 0, httpOnly: true, path: "/" },
@@ -1265,6 +1278,7 @@ describe("admin persistido e atual (ECMSG-48)", () => {
       ).toMatchObject({ success: false });
     } finally {
       request.token = undefined;
+      await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE id=${user.id})`;
       await client`DELETE FROM users WHERE id=${user.id}`;
     }
   });

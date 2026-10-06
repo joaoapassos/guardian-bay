@@ -98,3 +98,49 @@ it("ECMSG-107: writer usa transação do chamador e rollback não deixa evento",
     )[0].count,
   ).toBe(before + 1);
 });
+
+it("ECMSG-108: login auditado somente após sessão criada; falha do audit faz rollback", async () => {
+  const { createSession } = await import("@/features/auth/server/session");
+  const writer = await import("./server");
+  const { hashPassword } = await import("@/features/auth/server/password");
+  const credentialHash = await hashPassword("Audit integration passphrase");
+  const [user] =
+    await client`INSERT INTO users(email,password_hash) VALUES (${`${randomUUID()}@audit.example.test`},${credentialHash}) RETURNING id`;
+  try {
+    await createSession(user.id, undefined, credentialHash);
+    expect(
+      (
+        await client`SELECT event_type FROM audit_events WHERE actor_user_id=${user.id}`
+      ).map((row) => row.event_type),
+    ).toEqual(["auth.login.succeeded"]);
+    const count = (
+      await client`SELECT count(*)::int AS count FROM sessions WHERE user_id=${user.id}`
+    )[0].count;
+    const spy = vi
+      .spyOn(writer, "writeAuditEvent")
+      .mockRejectedValueOnce(new Error("Synthetic sink failure"));
+    try {
+      await expect(
+        createSession(user.id, undefined, credentialHash),
+      ).rejects.toThrow("Não foi possível processar a sessão.");
+    } finally {
+      spy.mockRestore();
+    }
+    expect(
+      (
+        await client`SELECT count(*)::int AS count FROM sessions WHERE user_id=${user.id}`
+      )[0].count,
+    ).toBe(count);
+    await expect(
+      createSession(user.id, undefined, "stale-hash"),
+    ).rejects.toThrow();
+    expect(
+      (
+        await client`SELECT count(*)::int AS count FROM audit_events WHERE actor_user_id=${user.id}`
+      )[0].count,
+    ).toBe(1);
+  } finally {
+    await client`DELETE FROM audit_events WHERE actor_user_id=${user.id}`;
+    await client`DELETE FROM users WHERE id=${user.id}`;
+  }
+});
