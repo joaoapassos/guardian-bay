@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { request as httpRequest } from "node:http";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { argon2id, hash } from "argon2";
@@ -76,8 +77,10 @@ import { logoutAction } from "@/features/auth/actions/logout.action";
 import { readIdentityAction } from "@/features/auth/actions/read-identity.action";
 import { getAuthenticatedIdentity } from "@/features/auth/server/session-cookie";
 import { manageCatalogAction } from "@/features/catalog/actions/manage-catalog.action";
+import { checkoutAction } from "@/features/orders/actions/checkout.action";
 import { addToCartAction } from "@/features/cart/actions/add-to-cart.action";
 import { updateCartItemAction, removeCartItemAction } from "@/features/cart/actions/cart-item.action";
+async function checkout(form:FormData) {"use server"; const input=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_"))); const result=await checkoutAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
 function cartInput(form: FormData) {
  const input: Record<string,unknown> = Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));
  if("quantity" in input) input.quantity=Number(input.quantity);
@@ -131,7 +134,7 @@ export default async function Probe() {
     <form action={logout}/><form action={read}><input name="userId"/></form>
     <form action={register}><input name="email"/><input name="password"/></form>
     <form action={changePassword}><input name="currentPassword"/><input name="newPassword"/></form>
-    <form action={catalog}/><form action={cartAdd}/><form action={cartUpdate}/><form action={cartRemove}/>
+    <form action={catalog}/><form action={cartAdd}/><form action={cartUpdate}/><form action={cartRemove}/><form action={checkout}/>
   </main>;
 }
 `,
@@ -177,7 +180,7 @@ export default async function Probe() {
       const actions = [...html.matchAll(/name="(\$ACTION_ID_[^"]+)"/g)].map(
         (match) => match[1],
       );
-      assert.equal(actions.length, 9);
+      assert.equal(actions.length, 10);
       const budget = async () =>
         (
           await client`SELECT attempts FROM login_rate_limits WHERE key='global'`
@@ -204,6 +207,155 @@ export default async function Probe() {
           ),
         );
       const credentials = { email, password };
+      await t.test(
+        "checkout Action: real HTTP, ownership, body, commercial authority and idempotency",
+        async () => {
+          const [category] =
+            await client`INSERT INTO categories(name) VALUES (${`Checkout HTTP ${randomUUID()}`}) RETURNING id`;
+          const [product] =
+            await client`INSERT INTO products(name,category_id,amount,is_published) VALUES ('Checkout HTTP',${category.id},1099,true) RETURNING id`;
+          const raw = randomBytes(32).toString("hex");
+          const tokenHash = createHash("sha256").update(raw).digest("hex");
+          const cookie = `__Host-guardian-session=${raw}`;
+          const checkoutKey = randomUUID();
+          await client`INSERT INTO sessions(token_hash,user_id,expires_at) VALUES (${tokenHash},${user.id},now()+interval '1 hour')`;
+          try {
+            assert.deepEqual(result(await post(9, { checkoutKey })), {
+              success: false,
+              code: "UNAUTHENTICATED",
+            });
+            for (const origin of [
+              "",
+              "null",
+              "https://attacker.test",
+              "http://127.0.0.1:3108",
+            ]) {
+              const response = await post(
+                9,
+                { checkoutKey },
+                { origin },
+                cookie,
+              );
+              assert.ok(response.status >= 400);
+              const text = await response.text();
+              assert.ok(!text.includes(raw) && !text.includes(value));
+            }
+            // fetch normalizes Host in this Node version; use a raw HTTP request.
+            const hostForm = new FormData();
+            hostForm.set(actions[9], "");
+            hostForm.set("checkoutKey", checkoutKey);
+            const encoded = new Request(base, {
+              method: "POST",
+              body: hostForm,
+            });
+            const encodedBody = Buffer.from(await encoded.arrayBuffer());
+            const spoofedStatus = await new Promise((resolve, reject) => {
+              const outgoing = httpRequest(
+                base,
+                {
+                  method: "POST",
+                  headers: {
+                    host: "attacker.test",
+                    origin: "https://127.0.0.1:3108",
+                    "x-forwarded-host": "127.0.0.1:3108",
+                    cookie,
+                    "content-type": encoded.headers.get("content-type"),
+                    "content-length": encodedBody.length,
+                  },
+                },
+                (response) => {
+                  response.resume();
+                  response.on("end", () => resolve(response.statusCode));
+                },
+              );
+              outgoing.on("error", reject);
+              outgoing.end(encodedBody);
+            });
+            assert.ok(spoofedStatus >= 400);
+            for (const key of [
+              "userId",
+              "items",
+              "unitPrice",
+              "amount",
+              "subtotal",
+              "total",
+              "currency",
+              "status",
+              "paymentStatus",
+              "role",
+              "snapshot",
+            ])
+              assert.deepEqual(
+                result(await post(9, { checkoutKey, [key]: "1" }, {}, cookie)),
+                { success: false, code: "INVALID_INPUT" },
+              );
+            const oversized = await post(
+              9,
+              { checkoutKey, items: "x".repeat(20 * 1024) },
+              {},
+              cookie,
+            );
+            assert.ok(oversized.status >= 400);
+            assert.deepEqual(
+              result(await post(9, { checkoutKey: "' OR 1=1 --" }, {}, cookie)),
+              { success: false, code: "INVALID_INPUT" },
+            );
+            assert.deepEqual(
+              result(await post(9, { checkoutKey }, {}, cookie)),
+              { success: false, code: "EMPTY_CART" },
+            );
+            await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${user.id},${product.id},2)`;
+            await client`UPDATE products SET is_published=false WHERE id=${product.id}`;
+            assert.deepEqual(
+              result(await post(9, { checkoutKey }, {}, cookie)),
+              { success: false, code: "UNAVAILABLE" },
+            );
+            await client`UPDATE products SET is_published=true WHERE id=${product.id}`;
+            const pair = await Promise.all([
+              post(9, { checkoutKey }, {}, cookie),
+              post(9, { checkoutKey }, {}, cookie),
+            ]);
+            const paid = result(pair[0]);
+            assert.deepEqual(paid, result(pair[1]));
+            assert.equal(paid.status, "PAID");
+            assert.equal(paid.success, true);
+            assert.deepEqual(Object.keys(paid).sort(), [
+              "orderId",
+              "status",
+              "success",
+            ]);
+            assert.equal(
+              (
+                await client`SELECT count(*)::int n FROM orders WHERE user_id=${user.id}`
+              )[0].n,
+              1,
+            );
+            await client`INSERT INTO cart_items(user_id,product_id) VALUES (${user.id},${product.id})`;
+            assert.deepEqual(
+              result(await post(9, { checkoutKey }, {}, cookie)),
+              paid,
+            );
+            assert.equal(
+              (
+                await client`SELECT count(*)::int n FROM cart_items WHERE user_id=${user.id}`
+              )[0].n,
+              1,
+            );
+            await client`DELETE FROM sessions WHERE token_hash=${tokenHash}`;
+            assert.deepEqual(
+              result(await post(9, { checkoutKey }, {}, cookie)),
+              { success: false, code: "UNAUTHENTICATED" },
+            );
+          } finally {
+            await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id=${user.id})`;
+            await client`DELETE FROM orders WHERE user_id=${user.id}`;
+            await client`DELETE FROM cart_items WHERE user_id=${user.id} AND product_id=${product.id}`;
+            await client`DELETE FROM sessions WHERE token_hash=${tokenHash}`;
+            await client`DELETE FROM products WHERE id=${product.id}`;
+            await client`DELETE FROM categories WHERE id=${category.id}`;
+          }
+        },
+      );
       await t.test(
         "cart Actions: HTTP ownership, authority, Origin, body, replay and disclosure",
         async () => {
