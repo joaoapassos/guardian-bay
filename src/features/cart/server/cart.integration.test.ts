@@ -278,3 +278,23 @@ describe("ECMSG-58: atualização e remoção", () => {
     ).toEqual([{ success: true }, { success: true }]);
   });
 });
+
+describe("ECMSG-61: intenção do catálogo", () => {
+  it("produto renderizado público não autoriza add após despublicação", async () => {
+    request.token = (await createSession(userId)).token;
+    const { readProduct } = await import(
+      "@/features/catalog/server/read-product"
+    );
+    const rendered = await readProduct(productId);
+    expect(rendered).not.toBeNull();
+    await client`UPDATE products SET is_published=false WHERE id=${productId}`;
+    expect(await addToCartAction({ productId, quantity: 1 })).toEqual({
+      success: false,
+      code: "UNAVAILABLE",
+    });
+    expect(
+      await client`SELECT * FROM cart_items WHERE user_id=${userId}`,
+    ).toHaveLength(0);
+    await client`UPDATE products SET is_published=true WHERE id=${productId}`;
+  });
+});

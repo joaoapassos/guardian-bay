@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { connection } from "next/server";
+import { AddToCartButton } from "@/features/cart/components/add-to-cart-button";
 import { ProductImage } from "@/features/catalog/components/product-image";
 import { listProducts } from "@/features/catalog/server/list-products";
 
@@ -85,6 +86,7 @@ export default async function ProductsPage({
                   </h2>
                   <p>{product.category}</p>
                   <p>{product.price.formatted}</p>
+                  <AddToCartButton productId={product.id} />
                 </li>
               ))}
             </ul>
