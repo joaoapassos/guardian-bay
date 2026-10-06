@@ -200,3 +200,51 @@ it("ECMSG-71: aprovação/recusa são server-side, replay preserva resultado", a
     await checkoutAction({ checkoutKey: randomUUID(), paymentStatus: "PAID" }),
   ).toEqual({ success: false, code: "INVALID_INPUT" });
 });
+it("ECMSG-72: sucesso remove convertidos; replay antigo preserva adição nova e recusa preserva carrinho", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2)`;
+  const checkoutKey = randomUUID();
+  const paid = await checkoutAction({ checkoutKey });
+  expect(paid).toMatchObject({ success: true, status: "PAID" });
+  expect(
+    await client`SELECT * FROM cart_items WHERE user_id=${userId}`,
+  ).toHaveLength(0);
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},3)`;
+  expect(await checkoutAction({ checkoutKey })).toEqual(paid);
+  expect(
+    (await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`)[0]
+      .quantity,
+  ).toBe(3);
+  await client`UPDATE products SET amount=1000000 WHERE id=${productId}`;
+  expect(await checkoutAction({ checkoutKey: randomUUID() })).toMatchObject({
+    success: true,
+    status: "PAYMENT_FAILED",
+  });
+  expect(
+    (await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`)[0]
+      .quantity,
+  ).toBe(3);
+});
+it("ECMSG-72: falha ao persistir itens reverte pedido e preserva carrinho", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  // Dedicated test DB only; temporary trigger forces a real mid-transaction fault.
+  await client`CREATE FUNCTION test_order_item_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test failure'; END $$`;
+  await client`CREATE TRIGGER test_order_item_failure BEFORE INSERT ON order_items FOR EACH ROW EXECUTE FUNCTION test_order_item_failure()`;
+  try {
+    await expect(checkoutAction({ checkoutKey: randomUUID() })).rejects.toThrow(
+      "Não foi possível concluir o checkout.",
+    );
+    expect(
+      await client`SELECT id FROM orders WHERE user_id=${userId}`,
+    ).toHaveLength(0);
+    expect(
+      await client`SELECT * FROM cart_items WHERE user_id=${userId}`,
+    ).toHaveLength(1);
+  } finally {
+    await client`DROP TRIGGER test_order_item_failure ON order_items`;
+    await client`DROP FUNCTION test_order_item_failure()`;
+    warn.mockRestore();
+  }
+});

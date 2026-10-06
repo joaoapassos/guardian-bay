@@ -154,6 +154,28 @@ export async function createOrder(input: unknown) {
             eq(orders.status, "PENDING_PAYMENT"),
           ),
         );
+      if (status === "PAID") {
+        // Identity lock serializes cart mutations; delete only snapshot products.
+        await tx.delete(cartItems).where(
+          and(
+            eq(cartItems.userId, user.id),
+            inArray(
+              cartItems.productId,
+              checked.snapshot.items.map((item) => item.productId),
+            ),
+          ),
+        );
+      }
+      if (
+        !(
+          await tx
+            .select({ id: sessions.userId })
+            .from(sessions)
+            .where(valid())
+            .limit(1)
+        ).length
+      )
+        throw expired;
       return { success: true as const, orderId: order.orderId, status };
     });
   } catch (error) {
