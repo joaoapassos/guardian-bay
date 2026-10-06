@@ -11,6 +11,7 @@ import { users } from "@/db/schema/users";
 import { tokenHash } from "@/features/auth/server/session";
 import { sessionCookiePolicy } from "@/features/auth/server/session-cookie";
 import { checkoutSchema } from "../schemas/checkout";
+import { simulatePayment } from "../simulated-payment";
 import { checkoutCandidate } from "./checkout-preview";
 import { orderFailure } from "./order-event";
 
@@ -139,7 +140,21 @@ export async function createOrder(input: unknown) {
         ).length
       )
         throw expired;
-      return { success: true as const, ...order };
+      const status = simulatePayment({
+        status: order.status,
+        totalAmount: checked.snapshot.total.amount,
+      });
+      await tx
+        .update(orders)
+        .set({ status })
+        .where(
+          and(
+            eq(orders.id, order.orderId),
+            eq(orders.userId, user.id),
+            eq(orders.status, "PENDING_PAYMENT"),
+          ),
+        );
+      return { success: true as const, orderId: order.orderId, status };
     });
   } catch (error) {
     if (error === expired)

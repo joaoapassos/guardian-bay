@@ -178,3 +178,25 @@ it("ECMSG-70: double submit/retry e chave igual entre usuários são isolados", 
     await client`SELECT id FROM orders WHERE checkout_key=${checkoutKey}`,
   ).toHaveLength(2);
 });
+it("ECMSG-71: aprovação/recusa são server-side, replay preserva resultado", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
+  const key = randomUUID();
+  expect(await checkoutAction({ checkoutKey: key })).toMatchObject({
+    success: true,
+    status: "PAID",
+  });
+  await client`UPDATE products SET amount=1000000 WHERE id=${productId}`;
+  expect(await checkoutAction({ checkoutKey: key })).toMatchObject({
+    success: true,
+    status: "PAID",
+  });
+  await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId}) ON CONFLICT DO NOTHING`;
+  const failedKey = randomUUID();
+  const failed = await checkoutAction({ checkoutKey: failedKey });
+  expect(failed).toMatchObject({ success: true, status: "PAYMENT_FAILED" });
+  expect(await checkoutAction({ checkoutKey: failedKey })).toEqual(failed);
+  expect(
+    await checkoutAction({ checkoutKey: randomUUID(), paymentStatus: "PAID" }),
+  ).toEqual({ success: false, code: "INVALID_INPUT" });
+});
