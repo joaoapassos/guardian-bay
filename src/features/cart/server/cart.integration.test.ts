@@ -5,6 +5,8 @@ import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/db";
 import { hashPassword } from "@/features/auth/server/password";
+import { createSession } from "@/features/auth/server/session";
+import { readCart } from "./read-cart";
 
 vi.mock("server-only", () => ({}));
 const request = vi.hoisted(() => ({
@@ -101,5 +103,48 @@ describe("ECMSG-55: persistência real", () => {
       client`DELETE FROM products WHERE id=${productId}`,
     ).rejects.toMatchObject({ code: "23503" });
     await client`DELETE FROM cart_items WHERE user_id=${userId}`;
+  });
+});
+
+describe("ECMSG-56: leitura autorizada", () => {
+  it("visitante, vazio e isolamento A/B com DTO mínimo", async () => {
+    request.token = undefined;
+    expect(await readCart()).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+    request.token = (await createSession(userId)).token;
+    expect(await readCart()).toEqual({ success: true, items: [] });
+    await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${otherId},${productId},2)`;
+    expect(await readCart()).toEqual({ success: true, items: [] });
+    await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},3)`;
+    const result = await readCart();
+    expect(result).toMatchObject({
+      success: true,
+      items: [
+        {
+          productId,
+          quantity: 3,
+          available: true,
+          price: { amount: 1099, currency: "BRL" },
+        },
+      ],
+    });
+    if (result.success)
+      expect(Object.keys(result.items[0])).toEqual([
+        "productId",
+        "name",
+        "quantity",
+        "available",
+        "price",
+        "image",
+      ]);
+    await client`UPDATE products SET is_published=false WHERE id=${productId}`;
+    expect(await readCart()).toMatchObject({
+      success: true,
+      items: [{ available: false }],
+    });
+    await client`UPDATE products SET is_published=true WHERE id=${productId}`;
+    await client`DELETE FROM cart_items WHERE user_id IN (${userId},${otherId})`;
   });
 });
