@@ -20,6 +20,10 @@ Concorrência: mutations transacionais serializam por identidade → sessão →
 
 Dependência explícita permitida: cart/server reutiliza autoridade server-only de auth e schemas físicos de products; UI de app compõe botão de cart junto ao catálogo, sem import arbitrário entre internals de features. Leitura usa DTO de imagem público já aprovado, não modelo Drizzle como contrato.
 
+### Catálogo durante o carrinho (ECMSG-62)
+
+Read relê produto por join no mesmo snapshot da sessão/itens: mudança de preço/nome/imagem/categoria aparece na próxima leitura, sem preço antigo persistido. Item despublicado continua visível, com subtotal nulo e total elegível excluído. Mutation add/update usa lock SHARE da linha de produto antes de decidir publicação; se esperou uma edição/despublicação, o PostgreSQL READ COMMITTED entrega o estado atualizado. O lock permanece até terminar a transaction, serializando alterações posteriores. Remoção não depende de publicação/categoria nem precisa bloquear o produto. Não se bloqueia catálogo inteiro. Testes usam transactions independentes e verificam espera real em pg_stat_activity, sem inferir race somente por timer.
+
 ## Modelo do catálogo (ECMSG-42)
 
 Catálogo define o que é vendido e apresentado; não gerencia inventory, carrinho, pedidos, estoque ou total de compra. Produto tem UUID gerado pelo servidor/banco, nome plain text de 1–120 caracteres após trim, descrição plain text de até 2.000 caracteres, categoria obrigatória, preço inteiro em centavos e moeda explícita BRL. URLs usam UUID, sem slug ou compatibilidade de renomeação de slug. Nomes de produto não precisam ser únicos.

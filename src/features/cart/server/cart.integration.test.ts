@@ -298,3 +298,116 @@ describe("ECMSG-61: intenção do catálogo", () => {
     await client`UPDATE products SET is_published=true WHERE id=${productId}`;
   });
 });
+
+async function waitForProductLock() {
+  for (let i = 0; i < 100; i++) {
+    const [row] =
+      await client`SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%"products"%'`;
+    if (row.count > 0) return;
+    await new Promise((done) => setTimeout(done, 20));
+  }
+  throw new Error("Mutation did not reach product lock");
+}
+
+describe("ECMSG-62: catálogo atual e races", () => {
+  it("relê preço/nome/imagem/categoria, mantém despublicado removível", async () => {
+    request.token = (await createSession(userId)).token;
+    await addToCartAction({ productId, quantity: 2 });
+    const [category] =
+      await client`INSERT INTO categories(name) VALUES (${`Moved ${suffix}`}) RETURNING id`;
+    try {
+      await client`UPDATE products SET name='New cart name',amount=1201,image_key='shield',category_id=${category.id} WHERE id=${productId}`;
+      expect(await readCart()).toMatchObject({
+        success: true,
+        items: [
+          {
+            name: "New cart name",
+            price: { amount: 1201 },
+            image: { key: "shield" },
+            subtotal: { amount: 2402 },
+          },
+        ],
+        total: { amount: 2402 },
+      });
+      await client`UPDATE products SET is_published=false WHERE id=${productId}`;
+      expect(await readCart()).toMatchObject({
+        success: true,
+        items: [{ available: false, subtotal: null }],
+        total: { amount: 0 },
+      });
+      expect(await updateCartItemAction({ productId, quantity: 1 })).toEqual({
+        success: false,
+        code: "UNAVAILABLE",
+      });
+      expect(await removeCartItemAction({ productId })).toEqual({
+        success: true,
+      });
+    } finally {
+      await client`UPDATE products SET name='Cart fixture',amount=1099,image_key=null,is_published=true,category_id=${categoryId} WHERE id=${productId}`;
+      await client`DELETE FROM categories WHERE id=${category.id}`;
+    }
+  });
+  it("add/update revalidam publicação depois do lock; read snapshot e remove continuam seguros", async () => {
+    const blocker = postgres(value, { max: 1, onnotice: () => {} });
+    try {
+      for (const operation of ["add", "update"] as const) {
+        await client`UPDATE products SET is_published=true WHERE id=${productId}`;
+        await addToCartAction({ productId, quantity: 1 });
+        let locked!: () => void;
+        let unlock!: () => void;
+        const acquired = new Promise<void>((done) => {
+          locked = done;
+        });
+        const release = new Promise<void>((done) => {
+          unlock = done;
+        });
+        const holding = blocker.begin(async (tx) => {
+          await tx`UPDATE products SET is_published=false WHERE id=${productId}`;
+          locked();
+          await release;
+        });
+        try {
+          await acquired;
+          // Uncommitted change is not a new authoritative catalogue snapshot.
+          expect(await readCart()).toMatchObject({
+            success: true,
+            items: [{ available: true }],
+          });
+          const pending =
+            operation === "add"
+              ? addToCartAction({ productId, quantity: 1 })
+              : updateCartItemAction({ productId, quantity: 2 });
+          await waitForProductLock();
+          unlock();
+          await holding;
+          expect(await pending).toEqual({
+            success: false,
+            code: "UNAVAILABLE",
+          });
+          expect(await readCart()).toMatchObject({
+            success: true,
+            items: [{ quantity: 1, available: false }],
+            total: { amount: 0 },
+          });
+          expect(await removeCartItemAction({ productId })).toEqual({
+            success: true,
+          });
+        } finally {
+          unlock();
+          await holding;
+        }
+      }
+      await client`UPDATE products SET is_published=true WHERE id=${productId}`;
+      await addToCartAction({ productId, quantity: 1 });
+      await blocker.begin(async (tx) => {
+        await tx`UPDATE products SET amount=1500 WHERE id=${productId}`;
+        expect(await removeCartItemAction({ productId })).toEqual({
+          success: true,
+        });
+      });
+    } finally {
+      await blocker.end();
+      await client`UPDATE products SET amount=1099,is_published=true WHERE id=${productId}`;
+    }
+  });
+});
