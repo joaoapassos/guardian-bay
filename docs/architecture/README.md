@@ -1,6 +1,6 @@
 # Arquitetura e fronteiras do sistema
 
-Sistema: E-commerce seguro · Fundação, segurança base, identidade/acesso e catálogo.
+Sistema: E-commerce seguro · Fundação, segurança base, identidade/acesso, catálogo e carrinho.
 
 Este documento registra as decisões aprovadas. O [AGENTS.md](../../AGENTS.md) estabelece invariantes; as [skills](../../.agents/skills/) descrevem procedimentos para aplicá-las.
 
@@ -39,6 +39,24 @@ Read relê produto por join no mesmo snapshot da sessão/itens: mudança de pre�
 | Allowlist de logs e sink indisponível | `cart-event.test.ts` e exceção operacional injetada somente na boundary do DB |
 
 Negative testing temporário: retirar ownership da leitura ou UPDATE, filtro de publicação, limite do schema, contrato strict ou revalidação após lock faz as assertions falharem. Código original é restaurado antes do gate/commit; não há mutantes no produto. Testes não mockam Drizzle para provar queries/concorrência. Cart não renova idle durante render/mutation; novo login é necessário ao expirar. Mocks de cookies/headers na integração não substituem o harness de transporte real.
+
+## Revisão da Epic 5 (ECMSG-65)
+
+Base: `epic-4-catalogo` em `1b9aac0` (ECMSG-53). Epic 5 usa doze commits sequenciais ECMSG-54–65, sem squash ou alteração da branch base. `cart_items` guarda apenas userId/productId/quantity, com PK composta, FK RESTRICT e CHECK 1–99. Índice da PK atende leituras por dono e unicidade; nenhum índice de catálogo inteiro ou tabela carts sem consumidor. Até 100 produtos distintos é regra transacional sob lock da identidade, não constraint de cardinalidade SQL.
+
+`/cart` lê via feature server-only, sem userId/cartId público, cache compartilhado ou mutation durante render. Client fica nos controles e envia apenas intenção; não há Zustand/localStorage autoritativo, fetch HTTP interno, REST, guest cart, camada repository/service genérica ou dependência nova. Cart reutiliza auth e schemas físicos do catálogo por dependências server explícitas; app compõe UI das duas features. Preço vem do catálogo atual, quantidade do contrato estrito e subtotal/total do Dinero no servidor. Valores derivados podem exceder PostgreSQL integer, mas o máximo de 21.260.088.105.300 centavos permanece seguro em JavaScript. Item indisponível persiste, pode ser removido e não participa do total. Snapshot comercial continua exclusivo do futuro pedido/checkout; carrinho não promete estoque/reserva.
+
+Revisão contextual confirmou autenticação atual, ownership nas queries, Origin/Host/body limitado, rejeição de mass assignment/preço/moeda/roles, SQL parametrizado, nomes escapados e logs allowlist. Locks identidade → sessão → produto/item serializam mutations com mudança de credencial/revogação e preservam publicação durante add/update. Expiração absoluta/idle durante espera causa rollback e resultado UNAUTHENTICATED; o sentinel privado é somente mecanismo de rollback transacional, não fluxo normal de validação. Erro inesperado é registrado sem cause/input e relançado com mensagem controlada, mantendo Next error handling; Client não exibe Error/message/stack internos. Revogação posterior ao ponto de autorização/commit não desfaz efeito já autorizado. Replay de add incrementa até o limite; update absoluto e remove explícito têm comportamento documentado, sem promessa de exactly-once.
+
+Gates finais: `check`, `test:integration`, `test:security` e `verify`; 98 unitários, 109 PostgreSQL e 8 HTTP/Chromium sem skips. Seis mutantes temporários foram detectados por assertions reais (ownership da leitura/UPDATE, publicação, contrato strict, quantidade e sessão após lock), e restaurados. `git diff --check`, staged, diff acumulado contra Epic 4 e origin/main passam. Apenas `.env.example` é rastreado entre `.env*`; não há valores reais de sessão/conexão no patch.
+
+Dez migrations aplicadas pelo migrator Drizzle em instalação vazia e upgrade desde as nove da Epic 4, preservando usuário/sessão. Colunas/defaults, constraints, índices e journal são equivalentes; snapshots encadeiam corretamente. `db:generate` não detecta drift e `drizzle-kit check` passa. Toda validação de persistência usa PostgreSQL local isolado de teste. A suíte herdada do catálogo espera SQLSTATE RESTRICT 23001, introduzido no PostgreSQL 18; no 17 ela falha embora o FK restrinja a exclusão (23503). Gates completos foram validados com PostgreSQL 18, sem alterar testes/regras da Epic 4. Compatibilidade dessa assertion com versões anteriores é pendência de tooling/testes, não falha da regra comercial.
+
+`npm audit --omit=dev`: zero findings. Audit completo: quatro moderados na cadeia Drizzle Kit → esm-loader → core-utils → esbuild 0.18.20, pelo GHSA-67mh-4wv8-2f99 do servidor HTTP `serve`. Inspeção do loader confirma transform/transformSync; nenhum comando deste projeto usa `serve` do esbuild. Finding não bloqueante no caminho atual; atualização compatível do tooling permanece pendente, sem audit fix ou upgrade automático. Nenhuma dependência foi adicionada nesta Epic.
+
+`nextjs-security-scan` aplicado a cópia dos arquivos rastreados: 27 alertas de secret são fixtures sintéticas, atributo password, URL fictícia do validador ou exemplo proibido da própria skill; nenhum secret real confirmado. Dos 227 alertas de padrões, 226 referem-se a templates SQL parametrizados Postgres.js/Drizzle e um recomenda allowedOrigins genericamente, contrário à política same-origin. Triagem manual inspecionou tags, inputs, guards, DTOs e sinks; nenhum finding bloqueante confirmado. Scanners não comprovam segurança sozinhos.
+
+Limites herdados: CSP parcial, token bearer roubado, e-mail não verificado, proteção volumétrica/HTTPS/deployment, coleta/retenção de logs e limpeza de sessões. Cart acrescenta queries/quantidades limitadas, mas não proteção de taxa de tráfego global; não instala Redis/WAF/rate limiter sem deployment/custo concreto. O contêiner desta validação exigiu wrapper local para iniciar Chromium sem o sandbox de processos disponível; somente perfil descartável de teste, sem arquivo/política de produção alterado. Isso prova fluxo/browser/CSP, não isolamento operacional do browser ou aprovação para exposição pública. Veja o threat model para classificação dos riscos residuais.
 
 ## Modelo do catálogo (ECMSG-42)
 
@@ -240,7 +258,7 @@ A ordem entre instruções do projeto é `AGENTS.md → arquitetura aprovada do 
 
 O projeto usa Next.js 16.3.8 com React 19.2.8, App Router em `src/app`, Tailwind 4 e React Compiler habilitado. `page.tsx` e `layout.tsx` têm um componente principal cada e não usam `"use client"`. TypeScript está em modo estrito, com `@/* → ./src/*`. Biome 2.4.2 já formata, organiza imports e aplica regras recomendadas de Next/React por `npm run lint`.
 
-Há infraestrutura PostgreSQL com Drizzle ORM/Kit e Postgres.js em `src/db`, configuração privada validada em `src/lib/env`, testes unitários e de integração com Vitest, baseline de headers HTTP e quality gates. `users`, `sessions` e `login_rate_limits` têm schemas/migrations; `features/auth` contém contratos Zod, Argon2id, cadastro, login/logout, alteração de senha, proteção compartilhada contra abuso e leitura autorizada da própria identidade. Há UI de login/cadastro/conta com RHF e sessão resolvida no layout Server. Não há operações comerciais; Radix UI e Zustand permanecem opções para consumidor concreto.
+Há infraestrutura PostgreSQL com Drizzle ORM/Kit e Postgres.js em `src/db`, configuração privada validada em `src/lib/env`, testes unitários e de integração com Vitest, baseline de headers HTTP e quality gates. `users`, `sessions` e `login_rate_limits` têm schemas/migrations; `features/auth` contém contratos Zod, Argon2id, cadastro, login/logout, alteração de senha, proteção compartilhada contra abuso e leitura autorizada da própria identidade. Há UI de login/cadastro/conta com RHF e sessão resolvida no layout Server. Catálogo e carrinho possuem operações comerciais limitadas aos modelos documentados; pedidos/checkout/estoque não existem. Radix UI e Zustand permanecem opções para consumidor concreto.
 
 ## Decisões arquiteturais essenciais
 
