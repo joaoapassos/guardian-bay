@@ -100,3 +100,16 @@ it("ECMSG-80: defaults, PK/FK, quantidade, overflow, revision e RESTRICT", async
     client`DELETE FROM products WHERE id=${productId}`,
   ).rejects.toMatchObject({ code: expect.stringMatching(/^(23001|23503)$/) });
 });
+it("ECMSG-81: disponibilidade pública mínima, mutável e ausência fechada", async () => {
+  const { readAvailability } = await import("./read-availability");
+  expect(await readAvailability(productId)).toEqual({ inStock: false });
+  await client`UPDATE inventory SET available_quantity=3 WHERE product_id=${productId}`;
+  expect(await readAvailability(productId)).toEqual({ inStock: true });
+  await client`UPDATE products SET is_published=false WHERE id=${productId}`;
+  expect(await readAvailability(productId)).toBeNull();
+  await client`UPDATE products SET is_published=true WHERE id=${productId}`;
+  await client`DELETE FROM inventory WHERE product_id=${productId}`;
+  expect(await readAvailability(productId)).toEqual({ inStock: false });
+  await client`INSERT INTO inventory(product_id) VALUES (${productId})`;
+  expect(await readAvailability("' OR 1=1 --")).toBeNull();
+});
