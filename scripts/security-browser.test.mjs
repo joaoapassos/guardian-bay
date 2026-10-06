@@ -618,6 +618,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 for (const path of [
                   "/admin",
                   "/admin/orders",
+                  "/admin/audit",
                   `/admin/orders/${randomUUID()}`,
                 ])
                   assert.equal(
@@ -859,6 +860,27 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   ),
                   true,
                 );
+                // ECMSG-116: real administrative operation -> durable audit -> filtered UI.
+                await navigate(
+                  `/admin/audit?eventType=admin.product.created&targetId=${catalogProduct.id}`,
+                );
+                await waitFor(
+                  `[...document.querySelectorAll('main li')].some(li=>li.textContent.includes('admin.product.created') && li.textContent.includes("${catalogProduct.id}"))`,
+                  "administrative audit of product creation",
+                );
+                assert.equal(
+                  await evaluate(
+                    `document.querySelector('main').textContent.includes(${JSON.stringify(catalogUser.id)}) && !document.querySelector('main').textContent.includes('correlationId')`,
+                  ),
+                  true,
+                );
+                await navigate(
+                  `/admin/audit?eventType=order.completed&targetId=${snapshotOrder.id}`,
+                );
+                await waitFor(
+                  `[...document.querySelectorAll('main li')].some(li=>li.textContent.includes('order.completed') && li.textContent.includes('SUCCESS') && li.textContent.includes("${snapshotOrder.id}"))`,
+                  "commercial audit in real browser",
+                );
                 await client`UPDATE products SET name=${catalogName},amount=1200,is_published=true WHERE id=${catalogProduct.id}`;
                 await navigate("/admin/catalog");
                 await adminSubmit(stockLabel, { quantity: "2" }, false);
@@ -1007,6 +1029,8 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   secure.closeAllConnections();
                   await new Promise((done) => secure.close(done));
                 }
+                await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE email=${email})`;
+                await client`DELETE FROM abuse_budgets WHERE user_id IN (SELECT id FROM users WHERE email=${email})`;
                 await client`DELETE FROM users WHERE email=${email}`;
                 await client`DELETE FROM login_rate_limits WHERE key IN ${client(keys)}`;
                 await client.end();

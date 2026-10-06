@@ -593,3 +593,42 @@ it("ECMSG-109: mutation e audit atômicos; conflito não gera sucesso", async ()
     )[0],
   ).toEqual({ name: input.name, revision: category.revision + 1 });
 });
+
+it("ECMSG-116: cap administrativo não aceita actor/event/payload forjados", async () => {
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  request.token = (await createSession(userId)).token;
+  const [category] =
+    await client`SELECT name,revision FROM categories WHERE id=${categoryId}`;
+  const input = {
+    operation: "update-category",
+    id: categoryId,
+    revision: category.revision,
+    name: category.name,
+  };
+  const before = (
+    await client`SELECT count(*)::int AS count FROM audit_events WHERE actor_user_id=${userId}`
+  )[0].count;
+  for (const field of [
+    "actorUserId",
+    "eventType",
+    "outcome",
+    "payload",
+    "correlationId",
+    "targetId",
+  ])
+    expect(await manageCatalog({ ...input, [field]: "forged" })).toMatchObject({
+      code: "INVALID_INPUT",
+    });
+  await client`INSERT INTO abuse_budgets(user_id,operation,attempts,started_at,expires_at) VALUES (${userId},'admin.catalog',30,clock_timestamp(),clock_timestamp()+interval '1 minute')`;
+  expect(await manageCatalog(input)).toEqual({
+    success: false,
+    code: "RATE_LIMITED",
+  });
+  expect(
+    (
+      await client`SELECT count(*)::int AS count FROM audit_events WHERE actor_user_id=${userId}`
+    )[0].count,
+  ).toBe(before);
+  await client`UPDATE users SET role='customer' WHERE id=${userId}`;
+  expect(await manageCatalog(input)).toMatchObject({ code: "FORBIDDEN" });
+});

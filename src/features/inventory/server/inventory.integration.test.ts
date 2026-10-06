@@ -315,3 +315,31 @@ it("ECMSG-90: admin expirado durante inventory lock rollback", async () => {
     await lock.release();
   }
 });
+
+it("ECMSG-116: estoque e revisão sofrem rollback se audit falhar; cap sem efeito", async () => {
+  const { setInventoryQuantity } = await import("./set-inventory");
+  const writer = await import("@/lib/audit/server");
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  const spy = vi
+    .spyOn(writer, "writeAuditEvent")
+    .mockRejectedValueOnce(new Error("Synthetic audit failure"));
+  try {
+    await expect(
+      setInventoryQuantity({ productId, quantity: 10, revision: 1 }),
+    ).rejects.toThrow("Não foi possível atualizar o estoque.");
+  } finally {
+    spy.mockRestore();
+  }
+  expect(
+    (
+      await client`SELECT available_quantity,revision FROM inventory WHERE product_id=${productId}`
+    )[0],
+  ).toEqual({ available_quantity: 0, revision: 1 });
+  await client`UPDATE abuse_budgets SET attempts=30 WHERE user_id=${userId} AND operation='admin.inventory'`;
+  expect(
+    await setInventoryQuantity({ productId, quantity: 10, revision: 1 }),
+  ).toEqual({ success: false, code: "RATE_LIMITED" });
+  expect(
+    await client`SELECT id FROM audit_events WHERE actor_user_id=${userId} AND target_id=${productId} AND event_type='admin.inventory.updated' AND occurred_at>clock_timestamp()-interval '1 second'`,
+  ).toHaveLength(0);
+});
