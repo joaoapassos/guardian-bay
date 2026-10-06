@@ -1030,3 +1030,26 @@ Retenção planejada: auditoria 90 dias (simulação sem obrigação regulatóri
 ECMSG-111: abuse_budgets usa PK(userId, operation), janela fixa de 60 segundos, UPSERT condicionado e CHECK do cap. Sem FK para adquirir locks de identidade adicionais, sem IP e sem budget global novo. O chamador autenticado fornece o dono e é responsável por confirmar a reserva mesmo quando o savepoint comercial falha; integração às mutations ocorre na ECMSG-113.
 
 ECMSG-112: limites/slots de autenticação permanecem os anteriores. Somente a reserva que alcança o cap emite auth.abuse.threshold_reached, sem identificador/email/IP. Bloqueios seguintes não geram eventos. Append do limiar é best effort em transação posterior à reserva: falha não desfaz contagem; logs allowlist indicam falha operacional sem payload. Não se promete captura durável de todo limiar durante indisponibilidade da auditoria.
+
+### Retenção e integridade operacional (ECMSG-115)
+
+Auditoria tem retenção operacional de 90 dias nesta simulação; budgets autenticados de 60 segundos são descartáveis após expiry. Não existe scheduler: o operador deve executar e acompanhar a manutenção abaixo no banco correto, com acesso de DB restrito, backup e política de deployment. Repetir lotes somente sob supervisão, sem transação longa ou loop irrestrito. Isso não é uma API administrativa do browser. Não executar em bancos de outra finalidade.
+
+```sql
+-- Até 1000 eventos antigos por execução; preservar os últimos 90 dias.
+DELETE FROM audit_events WHERE id IN (
+  SELECT id FROM audit_events
+  WHERE occurred_at < CURRENT_TIMESTAMP - INTERVAL '90 days'
+  ORDER BY occurred_at, id LIMIT 1000
+);
+-- Até 1000 buckets expirados; PK estável e sem dado de IP/PII.
+DELETE FROM abuse_budgets WHERE (user_id, operation) IN (
+  SELECT user_id, operation FROM abuse_budgets
+  WHERE expires_at <= CURRENT_TIMESTAMP
+  ORDER BY expires_at, user_id, operation LIMIT 1000
+);
+```
+
+O budget de autenticação já remove até 100 chaves expiradas no início da janela global; não mistura essa política com retenção de audit. Índices de data, evento/data, ator/data e alvo/data atendem a consulta filtrada e limpeza; PK de budget evita crescimento por rotação de checkoutKey (no máximo três linhas por usuário). UUIDs históricos sem FK preservam evento depois de mudanças de identidade/recurso, mas tornam retenção de identificadores uma responsabilidade operacional explícita.
+
+Append-only significa ausência de update/delete nos caminhos da aplicação e nenhum writer público; não significa WORM ou imunidade a superusuário do DB. Admin da aplicação consulta eventos mínimos, não escolhe nomes livres. Falha do append obrigatório causa rollback do efeito; reserva de budget confirmada fora do savepoint comercial permanece, sem segunda conexão sob lock. Exceções operacionais seguem sanitizadas e logging allowlist best effort não é audit. Limiares anônimos podem perder registro quando o sink falha, mas não recuperam capacidade. Não há eventos por filtros inválidos, 404 ou bloqueio banal; leitura não se autoaudita.

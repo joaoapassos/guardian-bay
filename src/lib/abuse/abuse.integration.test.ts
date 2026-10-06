@@ -70,3 +70,24 @@ it("ECMSG-111: PK, limites e operação fechada no DB", async () => {
     client`UPDATE abuse_budgets SET expires_at=started_at WHERE user_id=${userId}`,
   ).rejects.toMatchObject({ code: "23514" });
 });
+
+it("ECMSG-115: budget administrativo é isolado e limitado sob concorrência", async () => {
+  const results = await Promise.all(
+    Array.from({ length: 45 }, () =>
+      getDb().transaction((tx) =>
+        reserveAbuseBudget(tx, userId, "admin.inventory"),
+      ),
+    ),
+  );
+  expect(results.filter(Boolean)).toHaveLength(30);
+  expect(
+    (
+      await client`SELECT attempts FROM abuse_budgets WHERE user_id=${userId} AND operation='admin.inventory'`
+    )[0].attempts,
+  ).toBe(30);
+  expect(
+    (
+      await client`SELECT attempts FROM abuse_budgets WHERE user_id=${userId} AND operation='checkout'`
+    )[0].attempts,
+  ).toBe(1);
+});

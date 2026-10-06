@@ -240,3 +240,37 @@ it("ECMSG-114: leitura própria exige admin atual, filtros limitados e DTO míni
     await client`DELETE FROM users WHERE id=${user.id}`;
   }
 });
+
+it("ECMSG-115: contrato inválido/consulta rejeitada não causa flood nem persiste segredo", async () => {
+  const { writeAuditEvent } = await import("./server");
+  const { readAudit } = await import("@/features/audit/server/read-audit");
+  const before = (
+    await client`SELECT count(*)::int AS count FROM audit_events WHERE actor_user_id=${actor}`
+  )[0].count;
+  const forged = {
+    eventType: "auth.login.succeeded",
+    outcome: "SUCCESS",
+    actorUserId: actor,
+    targetType: "user",
+    targetId: actor,
+    payload: "synthetic-forbidden-data",
+  };
+  for (let i = 0; i < 5; i++) {
+    await expect(
+      getDb().transaction((tx) =>
+        writeAuditEvent(tx, forged as Parameters<typeof writeAuditEvent>[1]),
+      ),
+    ).rejects.toThrow(/^Evento de auditoria inválido\.$/);
+    expect(await readAudit({ eventType: "client.free" })).toMatchObject({
+      code: "INVALID_INPUT",
+    });
+  }
+  expect(
+    (
+      await client`SELECT count(*)::int AS count FROM audit_events WHERE actor_user_id=${actor}`
+    )[0].count,
+  ).toBe(before);
+  const cols =
+    await client`SELECT column_name FROM information_schema.columns WHERE table_name='audit_events' AND table_schema='public'`;
+  expect(cols.map((row) => row.column_name)).not.toContain("payload");
+});
