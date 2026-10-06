@@ -51,6 +51,28 @@ O destino atual é `console.warn` server-side; falha do sink é absorvida e não
 
 HTTP loopback envia Origin HTTPS para testar a política de produção, mas não comprova TLS de deployment. O subteste Chromium, quando configurado, usa perfil descartável, verifica runtime/hydration sem exceptions ou erros de console, imagens/fontes locais e violações CSP ao tentar carregar imagem externa e frame. CSP permanece parcial. Assertions negativas exigem ausência de efeitos/cookie nos requests rejeitados e ausência de dados internos no retorno. Testes não atribuem a mocks garantias de transporte ou concorrência do banco.
 
+## Revisão da Epic 2 (ECMSG-31)
+
+A revisão desde a branch da Epic 1 preserva Server-first, `app → feature/server → db`, guards `server-only`, Actions finas e DTO mínimo. Não há Client Component próprio, regras críticas no browser, repository/ACL genérico ou operações comerciais antecipadas. O produto continua com somente `/` e `/_not-found`; Actions sem consumidor são removidas pelo build do Next.js. A suíte isolada importa essas Actions para comprovar suas boundaries quando consumidas, sem publicar uma rota de fixture.
+
+Os quatro SQLs versionados foram aplicados pelo CLI Drizzle em banco novo do cluster local de testes. O upgrade desde 0002 manteve usuário/sessão de fixture; catálogo PostgreSQL de colunas/constraints/índices coincidiu com a instalação do zero e snapshots. `db:generate` não gerou alterações e `drizzle-kit check` passou. Integração real cobre rejeições, FK/cascade, parametrização, concorrência e revogação entre resolução e query; autorização vale no snapshot da query, sem promessa de cancelar resposta já produzida após revogação.
+
+### Findings e pendências
+
+| Problema | Impacto / evidência | Decisão |
+| --- | --- | --- |
+| Sem deployment, origem confiável ou proteção volumétrica | Budget global pode ser consumido por atacante; TLS, acesso direto ao backend, privilégios do DB e coleta/retenção de logs não foram validados em produção | Não bloqueia a base local; bloqueia exposição pública até cumprir o contrato ECMSG-27 |
+| CSP parcial e ausência de MFA | Scripts/styles não são restringidos; token roubado é bearer até revogação/expiração | Risco residual documentado; CSP rigorosa deve acompanhar conteúdo dinâmico e MFA exige requisito próprio |
+| Sessões expiradas persistem até logout/remoção de usuário | Não autenticam, mas acumulam registros; índice de expiração já existe | Definir limpeza operacional no deployment; não bloqueia validação local |
+| `npm audit`: quatro moderados em `drizzle-kit` → `@esbuild-kit/esm-loader` → `@esbuild-kit/core-utils` → `esbuild@0.18.20` | Somente tooling dev. [GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99) afeta o servidor HTTP `serve` do esbuild; o loader instalado usa transform/transformSync, sem `serve`. Nenhum script do projeto expõe esse servidor. Impacto potencial é leitura de conteúdo servido por um site externo | Não bloqueante no caminho atual; Task futura para atualização compatível do tooling. Não aplicar o downgrade major sugerido pelo audit nem `audit fix` |
+| Peer opcional esbuild do Vite 8.3.2 fora do intervalo | `npm ls` informa `ELSPROBLEMS`; esbuild raiz 0.25.12 não satisfaz o peer opcional ^0.27/^0.28. Unitários usam Vite/Rolldown e passam; `npm ci --dry-run --ignore-scripts` aceita o lock | Não bloqueante nesta execução; revisar resolução do tooling antes de depender desse transform opcional. Sem alteração de dependência para silenciar diagnóstico |
+
+`npm audit --omit=dev` não encontrou vulnerabilidades. O audit completo retorna status não zero pelos quatro moderados triados, não por erro de conectividade. A revisão não afirma ausência de vulnerabilidades desconhecidas.
+
+Os scripts da skill `nextjs-security-scan` foram executados sobre cópia dos arquivos rastreados, sem ler `.env` real ou artefatos locais. Secret scan: 13 alertas — exemplo proibido em referência da skill, senhas sintéticas de fixtures e URL fictícia de teste do validador; nenhum secret real identificado. Pattern scan: 52 alertas de SQL template são tags parametrizadas de Postgres.js/Drizzle, não concatenação; um aviso de `allowedOrigins` não requer correção porque same-origin é deliberado e allowlist adicional ampliaria acesso. Triagem manual confirmou contexto e imports. Scanners não comprovam autorização sozinhos.
+
+Gates finais: `check`, integração, `test:security` com Chromium configurado e sem skips, `verify` e os três checks de diff. A matriz/threat model registra riscos parciais e superfícies ausentes; conclusão da base não equivale a autorização para deployment público.
+
 ## Precedência das instruções
 
 A ordem entre instruções do projeto é `AGENTS.md → arquitetura aprovada do Guardian Bay → regras de segurança → frontend-patterns e outras recomendações genéricas`. Exemplos genéricos não alteram as decisões específicas. A skill de frontend conserva seu repertório de composição, fetching e performance; aplique-o dentro dos limites abaixo. Essa precedência não dispensa os invariantes de segurança registrados no projeto.
@@ -574,19 +596,7 @@ Capture somente a operação que precisa de tratamento. `redirect()` e `notFound
 
 ### Logging server-side mínimo
 
-Nesta fase, não há logger compartilhado. Eventos de limite/falha operacional do login usam `console.warn` com allowlist definida na [política da boundary](#boundaries-e-requests-ecmsg-26). Não adicione logs à criação lazy do pool nem ao validador apenas para produzir eventos. Actions de autenticação/sessão preservam propagação das exceções controladas ao Next.js; não há histórico/auditoria completa de login.
-
-Um evento inesperado deve identificar `timestamp` (UTC/ISO), `event` estável, `operation` conhecido, classificação e categoria controlada do erro. Por exemplo conceitual, sem registrar o erro bruto:
-
-```ts
-console.error({
-  timestamp: new Date().toISOString(),
-  event: "operation.failed",
-  operation: "cart.updateQuantity",
-  classification: "unexpected",
-  errorCategory: "database", // categoria escolhida pelo código server
-});
-```
+A feature auth compartilha um logger server-only por allowlist conforme a [trilha mínima de segurança](#trilha-mínima-de-segurança-ecmsg-29). Registra limiares do login e falhas operacionais de sessão/leitura. Não adicione logs à criação lazy do pool nem ao validador apenas para produzir eventos. Actions de autenticação/sessão preservam propagação das exceções controladas ao Next.js; não há histórico/auditoria completa de login.
 
 Use `error` como `unknown` ao capturar. Não espalhe suas propriedades, nem serialize `message`, `cause`, `detail`, SQL ou parâmetros; até `name` pode ser arbitrário. Se registrar tipo/nome, mapeie tipos reconhecidos para nomes controlados, com fallback neutro. Nunca faça `console.error(error)`/`String(error)` como alternativa quando a classificação falhar. Campos de contexto também são allowlist, não um objeto arbitrário aceito por conveniência.
 
@@ -686,7 +696,7 @@ O primeiro arquivo é `src/lib/env/database-url.test.ts`: testa ausência/vazio/
 
 Mocks são permitidos em boundaries de integrações externas quando necessários, sem mockar a regra sob teste. Unitários puros não precisam de mocks. Não mocke Drizzle inteiro para afirmar que query/constraint/autorização funciona. `npm run test:integration`, com `vitest.integration.config.mts`, exige `TEST_DATABASE_URL` explícita, PostgreSQL local e banco `guardian_bay_test`; rejeita a mesma identificação de banco da configuração normal. Aplica migrations versionadas com o migrator Drizzle, cria fixtures com UUID e limpa somente essas fixtures, sem DROP/TRUNCATE. PostgreSQL e Argon2 são reais; headers/cookies de request são simulados para testar Actions. Isso não substitui validação HTTP real do Next.js para cookies/CSRF.
 
-Segurança entra nos testes normais junto da surface real: validação server-side; usuário A sem acesso/modificação ao recurso de B (IDOR/BOLA); preço/estoque/totais determinados pelo servidor; sessão ausente/inválida; estratégia CSRF; erros externos sem SQL, stack, secrets/connection string ou detalhes internos. Operações críticas devem testar concorrência quando houver risco, como duas compras do último item. Headers HTTP serão testados com aplicação iniciada em integração/E2E ou CI, sem duplicar strings da configuração em um teste artificial.
+Segurança entra nos testes normais junto da surface real: validação server-side; usuário A sem acesso/modificação ao recurso de B (IDOR/BOLA); preço/estoque/totais determinados pelo servidor; sessão ausente/inválida; estratégia CSRF; erros externos sem SQL, stack, secrets/connection string ou detalhes internos. Operações críticas devem testar concorrência quando houver risco, como duas compras do último item. Headers HTTP e recursos são testados contra o build real por `test:security`; o subteste Chromium configurável verifica enforcement e runtime.
 
 Não use secrets, tokens/sessões ou PII reais nem produção nos testes; fixtures de autenticação são sintéticas e isoladas. Preserve `.env*` ignorado com única exceção `.env.example`; integração exige configuração explícita, sem reutilizar implicitamente a conexão normal. Evite rede, relógio real, ordem de execução e estado global em unitários; controle aleatoriedade/tempo somente quando necessário. Priorize casos relevantes, sem percentual arbitrário de cobertura ou dependências extras para números. React Testing Library, jsdom, Playwright, MSW, coverage e CI ficam para consumidores concretos.
 
@@ -702,7 +712,7 @@ Referência: [guia do Vitest](https://vitest.dev/guide/). Os requisitos npm das 
 | Limites de confiança / operação sensível | Revisão `security-review` | Validação server-side, autenticação/autorização, ownership/IDOR, preço/estoque/totais, DTOs, erros, logs e secrets conforme a surface afetada |
 | Localização/dependências internas ou UI alterada | Revisão `architecture` / `frontend-patterns` pertinente | Respeita precedência do AGENTS.md; exemplos genéricos não autorizam mudanças incompatíveis |
 | Dependência ou superfície Next.js de risco alterada; antes de deployment quando pertinente | Auditoria complementar `nextjs-security-scan` / `npm audit` | Findings exigem triagem contextual; acesso ao registry e dados de advisories podem variar, portanto não integram automaticamente check/verify |
-| Persistência, fluxo crítico ou schema futuro | Integração/E2E/revisão de migration pertinentes quando existirem | Gates separados, com ambiente isolado e recursos necessários; não antecipados nesta Task |
+| Persistência, fluxo crítico ou schema futuro | Integração/E2E/revisão de migration pertinentes quando existirem | Gates separados; autenticação já usa PostgreSQL dedicado e harness HTTP em `test:security` |
 
 `check` executa `lint → typecheck → unitários` e para na primeira falha. `verify` só executa build se check passar e preserva o exit code de falha. Os checks de diff detectam erros de whitespace e marcadores de conflito introduzidos no patch; não validam semântica ou secrets. `git diff --check` isolado não verifica commits. Antes de merge, atualize a referência `origin/main` e use `git diff --check origin/main...HEAD`; o intervalo de três pontos compara o merge-base com `HEAD`.
 
