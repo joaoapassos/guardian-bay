@@ -178,3 +178,24 @@ it("ECMSG-87: estoque exige admin atual, revisão e contrato estrito", async () 
     setInventoryQuantityAction({ ...input, revision: 2 }),
   ).rejects.toThrow("Requisição inválida.");
 });
+
+it("ECMSG-88: admin × admin mesma revisão tem um sucesso e um conflito", async () => {
+  const { setInventoryQuantityAction } = await import(
+    "../actions/set-inventory.action"
+  );
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  const results = await Promise.all(
+    [10, 20].map((quantity) =>
+      setInventoryQuantityAction({ productId, quantity, revision: 1 }),
+    ),
+  );
+  expect(results.filter((r) => r.success)).toHaveLength(1);
+  expect(results.filter((r) => !r.success)).toEqual([
+    { success: false, code: "CONFLICT" },
+  ]);
+  expect(
+    (
+      await client`SELECT revision FROM inventory WHERE product_id=${productId}`
+    )[0].revision,
+  ).toBe(2);
+});
