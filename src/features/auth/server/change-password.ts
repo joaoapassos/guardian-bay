@@ -2,6 +2,7 @@ import "server-only";
 import { and, eq, sql } from "drizzle-orm";
 import { sessions } from "@/db/schema/sessions";
 import { users } from "@/db/schema/users";
+import { writeAuditEvent } from "@/lib/audit/server";
 import { changePasswordSchema } from "../schemas/change-password.schema";
 import { reserveLoginAttempt, withLoginHashSlot } from "./login-rate-limit";
 import { hashPassword, verifyPassword } from "./password";
@@ -58,6 +59,17 @@ export async function changePassword(input: unknown, token: unknown) {
     if (!changed)
       return { success: false as const, code: "UNAUTHENTICATED" as const };
     await tx.delete(sessions).where(eq(sessions.userId, identity.id));
+    for (const eventType of [
+      "auth.password.changed",
+      "auth.sessions.revoked",
+    ] as const)
+      await writeAuditEvent(tx, {
+        eventType,
+        outcome: "SUCCESS",
+        actorUserId: identity.id,
+        targetType: "user",
+        targetId: identity.id,
+      });
     return { success: true as const };
   }, "password-change");
   if (!result.admitted)

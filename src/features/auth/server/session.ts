@@ -5,6 +5,8 @@ import { getDb } from "@/db";
 import { sessions } from "@/db/schema/sessions";
 import { users } from "@/db/schema/users";
 
+import { writeAuditEvent } from "@/lib/audit/server";
+
 import { securityEvent } from "./security-event";
 
 export function tokenHash(token: unknown): string | null {
@@ -74,6 +76,16 @@ export async function createSession(
         .returning({ expiresAt: sessions.expiresAt });
       if (previousHash)
         await tx.delete(sessions).where(eq(sessions.tokenHash, previousHash));
+      // A verified login supplies the credential version; internal session
+      // fixtures/provisioning are not reported as successful login attempts.
+      if (expectedCredentialHash)
+        await writeAuditEvent(tx, {
+          eventType: "auth.login.succeeded",
+          outcome: "SUCCESS",
+          actorUserId: userId,
+          targetType: "user",
+          targetId: userId,
+        });
       return created;
     });
     return { token, expiresAt: session.expiresAt };
