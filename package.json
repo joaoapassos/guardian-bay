@@ -15,7 +15,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio --host=127.0.0.1",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "verify": "npm run check && npm run build"
   },
   "dependencies": {
     "drizzle-orm": "0.45.3",

@@ -30,18 +30,21 @@ A estratégia de carregamento, validação e acesso está na [arquitetura: vari�
 | `npm run lint` | Biome: valida formatter, lint e organização de imports, sem modificar arquivos |
 | `npm run format` | Biome: aplica formatação e modifica arquivos; não é quality gate de CI |
 | `npm run typecheck` | Gera tipos de rotas com `next typegen` pelo hook `pretypecheck`, depois executa `tsc --noEmit` |
-| `npm run check` | Executa lint, typecheck e testes unitários, sem autofix |
+| `npm run check` | Gate rápido: lint, typecheck e unitários, sem autofix ou serviços externos |
+| `npm run verify` | Gate completo: check seguido do build de produção |
 | `npm test` | Vitest em modo não interativo; adequado para CI |
 | `npm run test:watch` | Vitest em modo watch para desenvolvimento |
 | `npm run build` | Build de produção, incluindo verificação TypeScript do Next.js |
 | `npm run start` | Executa o build de produção existente |
 
-Para validar a base:
+Para toda mudança, execute `npm run check` e `git diff --check`. Antes de merge, execute:
 
 ```bash
-npm run check
-npm run build
+npm run verify
+git diff --check
 ```
+
+A [política de quality gates](docs/architecture/README.md#quality-gates-ecmsg-20) define verificações adicionais por risco e tratamento de falhas. Gate obrigatório falhou ou não foi executado: não mergear.
 
 O build atual usa Geist via `next/font/google` e precisa de acesso ao Google Fonts durante a compilação. `next typegen` e build geram arquivos em `.next/` e `next-env.d.ts`, ignorados pelo Git.
 

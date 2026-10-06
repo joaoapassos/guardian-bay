@@ -480,7 +480,46 @@ Não use secrets, tokens/sessões, PII ou produção nos testes. Preserve `.env*
 
 Referência: [guia oficial do Vitest](https://vitest.dev/guide/) e configuração `include`/`environment`, consultados na versão utilizada. A documentação da branch principal pode descrever requisitos futuros; os requisitos npm da versão instalada são a referência de compatibilidade.
 
-## Quality gate e escopo
+## Quality gates (ECMSG-20)
+
+| Momento / risco | Gate obrigatório | Ambiente e finalidade |
+| --- | --- | --- |
+| Toda mudança | `npm run check` + `git diff --check` | Gate rápido: Biome sem autofix → typecheck → unitários. Com dependências já instaladas, não exige PostgreSQL, rede, browser, Docker ou produção |
+| Antes de merge de qualquer mudança / integração da Epic; mudanças relevantes de runtime, configuração ou dependências durante desenvolvimento | `npm run verify` + `git diff --check` | `verify` agrega check → build Next.js de produção; não substitui revisão de segurança/arquitetura nem testes adicionais aplicáveis |
+| Limites de confiança / operação sensível | Revisão `security-review` | Validação server-side, autenticação/autorização, ownership/IDOR, preço/estoque/totais, DTOs, erros, logs e secrets conforme a surface afetada |
+| Localização/dependências internas ou UI alterada | Revisão `architecture` / `frontend-patterns` pertinente | Respeita precedência do AGENTS.md; exemplos genéricos não autorizam mudanças incompatíveis |
+| Dependência ou superfície Next.js de risco alterada; antes de deployment quando pertinente | Auditoria complementar `nextjs-security-scan` / `npm audit` | Findings exigem triagem contextual; acesso ao registry e dados de advisories podem variar, portanto não integram automaticamente check/verify |
+| Persistência, fluxo crítico ou schema futuro | Integração/E2E/revisão de migration pertinentes quando existirem | Gates separados, com ambiente isolado e recursos necessários; não antecipados nesta Task |
+
+`check` preserva `lint → typecheck → unitários` e para na primeira falha. `verify` preserva o exit code de falha e só executa build se check passar. Não há aliases equivalentes adicionais ou wrapper próprio. `git diff --check` verifica whitespace/conflitos de patch, não semântica nem secrets; antes do commit use também `git diff --cached --check`, e antes de integrar revise o diff contra a base da mudança (um working tree limpo sozinho não verifica o patch já commitado).
+
+Biome continua sendo o único linter/formatter. `npm run format` é ação explícita que modifica arquivos, nunca gate; não execute autofix para fabricar resultado verde. Typecheck mantém `strict`/`noEmit` e gera somente tipos/artefatos ignorados necessários (`next typegen`, tsbuildinfo), sem build de produção. Build não ignora erros via `ignoreBuildErrors` ou configuração equivalente.
+
+### Limites do build e dos testes
+
+O build detecta integração/compilação de produção que lint, tipos e unitários não cobrem. Hoje `next/font/google` pode baixar Geist de `fonts.googleapis.com`/`fonts.gstatic.com`; cache aquecido não prova funcionamento offline em máquina nova. O gate completo requer essa conectividade quando não houver cache válido. Falha de rede deve ser registrada como bloqueio ambiental e revalidada em ambiente adequado, sem modificar fontes/design nem desabilitar TLS/checks. Não declare build aprovado se ele não concluiu.
+
+A separação de testes é a da ECMSG-19: unitários entram em check; componentes poderão entrar se rápidos/determinísticos e independentes de infraestrutura; integração e E2E permanecem em comandos/configurações próprios. Falhas, skipped e zero testes não são equivalentes a sucesso de cobertura da mudança. Gate atual não precisa de `DATABASE_URL`, pois não importa DB e não há consumidor de banco no build das rotas atuais.
+
+Quando persistência existir, integração exigirá PostgreSQL real de teste, diferente de desenvolvimento/produção, com isolamento e limpeza previsíveis. Mudanças de schema exigirão migrations versionadas, geração/revisão consistente com o schema e análise explícita de alterações destrutivas. Fluxos críticos exigirão E2E pertinente, e headers HTTP serão inspecionados com aplicação iniciada. Não instalar banco, browsers ou gerar migrations apenas para materializar gates vazios.
+
+### Segurança e dependências
+
+[`security-review`](../../.agents/skills/security-review/SKILL.md) é a revisão contextual do Guardian Bay. [`nextjs-security-scan`](../../.agents/skills/nextjs-security-scan/SKILL.md), já versionada, complementa a detecção; não comprova ausência de vulnerabilidades ou substitui análise de autorização/boundaries. Precedência: AGENTS.md → arquitetura → regras específicas de segurança → recomendações genéricas. Valide recomendações Next.js contra a documentação instalada 16.3.8, não exemplos de outras versões.
+
+Não trate saída ou severidade sugerida pelo scanner como decisão automática de bloqueio. Analise evidência, severidade, pacote/arquivo afetado, produção vs tooling de desenvolvimento, reachability/exploitability, patch e impacto da correção. Ferramentas dev também podem ser exploráveis em build, workstation ou CI; devDependency não é dispensa automática. Um finding crítico explorável em código utilizado, exposição de secrets ou quebra comprovada de autorização bloqueia a mudança. Riscos relevantes sem mitigação aceitável também bloqueiam; ausência de análise não é justificativa de aprovação.
+
+`npm audit` é diagnóstico dependente de registry/advisories, não hard gate automático para qualquer finding ou status não zero. Classifique falha de conectividade separadamente de finding e registre triagem: caminho afetado, impacto, decisão e ação. Finding transitivo comprovadamente sem caminho explorável pode originar Task de análise/correção com justificativa registrada; não atualizar dependências fora da Task para obter green gate. Não execute `npm audit fix`, upgrades ou correções do scanner automaticamente. Esta Task define a política, não afirma ter realizado auditoria completa de dependências.
+
+Qualquer secret versionado é grave e bloqueia: `.env` real, token/API key, connection string, cookie/sessão ou chave privada. Preserve `.env*` ignorado com única exceção `.env.example`, revise arquivos rastreados/staged e o diff, incluindo novos arquivos. Ignore não protege arquivos já rastreados nem substitui inspeção; scanner pode perder secrets e produzir falsos positivos. Não copie valores em relatórios/logs. Se houver exposição real, contenha/remova e revogue/rotacione pela via segura conforme o incidente, não apenas silencie o finding.
+
+### Falhas, revisão e automação futura
+
+Gate obrigatório falhou ou não foi executado → não mergear. Corrija somente problemas em escopo; problemas externos devem ser relatados como **Problema → impacto → bloqueia ou não**, com Task separada quando apropriado. Falha ambiental de build não impede documentar gates, mas impede declarar o gate completo aprovado até revalidação. Não desative assertions, testes ou proteção de runtime para passar. Skills/revisões não são automatizadas cegamente nem garantias de scanners; registre verificações aplicáveis, resultados e limitações no review.
+
+Não há CI ou hooks configurados nesta fase. Uma futura pipeline apenas orquestrará instalação pelo lockfile, check, build e gates por risco em ambiente correspondente, preservando exit codes; não criará política paralela. Hooks locais/editor são opcionais futuros e não condição para executar os gates. Não se adicionam GitHub Actions, Husky/lint-staged/Lefthook, scanners ou ferramentas novas nesta Task.
+
+### Enforcement arquitetural existente
 
 Biome é formatter, linter principal e quality gate. É o mecanismo preferido para enforcement automatizado de boundaries quando possível, futuramente com restricted imports e overrides para limites como `Client × feature/server`, `Client × db`, `components × db`, `lib × features` e `db × features`, respeitando referências remotas de Actions. A configuração atual não impõe o mapa arquitetural: por enquanto, ele é verificado em revisão. O enforcement de imports não adiciona configuração extensa ou ESLint nesta fase.
 
