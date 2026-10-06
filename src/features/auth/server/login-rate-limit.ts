@@ -43,12 +43,19 @@ async function increment(
 // No client-controlled IP header. Global budget also bounds identifier rotation.
 export async function reserveLoginAttempt(
   email: unknown,
-  operation: "login" | "register" = "login",
+  operation: "login" | "register" | "password-change" = "login",
 ): Promise<boolean> {
   const input = emailSchema.safeParse(email);
   if (!input.success) return false;
-  const limit = operation === "register" ? 2 : 5;
-  const key = `${operation === "register" ? "reg" : "email"}:${createHash("sha256").update(input.data).digest("hex")}`;
+  const limit =
+    operation === "register" ? 2 : operation === "password-change" ? 3 : 5;
+  const prefix =
+    operation === "register"
+      ? "reg"
+      : operation === "password-change"
+        ? "pwd"
+        : "email";
+  const key = `${prefix}:${createHash("sha256").update(input.data).digest("hex")}`;
   try {
     const reservation = await getDb().transaction(async (tx) => {
       const global = await increment(tx, "global", 20, 60);
@@ -90,7 +97,7 @@ export async function reserveLoginAttempt(
 // Namespace 1195524428 is reserved for this feature; never supplied by callers.
 export async function withLoginHashSlot<T>(
   operation: (tx: Transaction) => Promise<T>,
-  eventOperation: "login" | "register" = "login",
+  eventOperation: "login" | "register" | "password-change" = "login",
 ) {
   try {
     return await getDb().transaction(async (tx) => {

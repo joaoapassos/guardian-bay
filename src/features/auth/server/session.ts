@@ -43,12 +43,27 @@ export async function recordSessionActivity(token: unknown) {
 }
 
 // Only privileged callers receive the raw token; the Action sends it as a cookie.
-export async function createSession(userId: string, previousToken?: string) {
+export async function createSession(
+  userId: string,
+  previousToken?: string,
+  expectedCredentialHash?: string,
+) {
   const token = randomBytes(32).toString("hex");
   const hash = tokenHash(token) as string;
   const previousHash = tokenHash(previousToken);
   try {
     const session = await getDb().transaction(async (tx) => {
+      // Serialize with password changes; a stale verification cannot log in.
+      const [user] = await tx
+        .select({ passwordHash: users.passwordHash })
+        .from(users)
+        .where(eq(users.id, userId))
+        .for("update");
+      if (
+        !user ||
+        (expectedCredentialHash && user.passwordHash !== expectedCredentialHash)
+      )
+        throw new Error();
       const [created] = await tx
         .insert(sessions)
         .values({

@@ -36,6 +36,13 @@
       "when": 1791268437663,
       "tag": "0004_registration_budget",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791269222431,
+      "tag": "0005_password_change_budget",
+      "breakpoints": true
     }
   ]
 }

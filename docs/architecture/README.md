@@ -12,9 +12,17 @@ Conta é a identidade persistida em `users`: UUID imutável, e-mail canônico ú
 
 Criação exige e-mail válido segundo o contrato existente e senha com a política de criação vigente; unicidade pertence ao PostgreSQL. Login verifica a credencial existente sem impor o mínimo de criação e não distingue publicamente conta inexistente de senha incorreta. Identidade não concede autorização. Sessões são registros separados, revogáveis e limitados por expiração absoluta/inatividade.
 
-A alteração de credencial prevista na Epic 3 exigirá identidade/sessão válida e senha atual; persistência da nova credencial e revogação de todas as sessões deverão ser atômicas, exigindo novo login. Cadastro não implica privilégios ou verificação de posse do e-mail. Os contratos públicos e limites de cadastro serão definidos na ECMSG-33, sem antecipar UI nesta etapa.
+A alteração de credencial exige identidade/sessão válida e senha atual; persistência da nova credencial e revogação de todas as sessões são atômicas, exigindo novo login. Cadastro não implica privilégios ou verificação de posse do e-mail.
 
 Guardian Bay não possui recuperação self-service de senha: não haverá link de reset, e-mail, OTP, pergunta secreta ou recovery code. Perda de acesso requer contato direto com administrador, por processo externo ainda não implementado. A ECMSG-38 formalizará os requisitos; não existe painel, role, reset privilegiado, senha padrão ou canal de contato configurado. Administração futura deverá verificar identidade e autorização, substituir a credencial sem conhecer a senha original e revogar sessões com auditoria.
+
+## Alteração de senha (ECMSG-37)
+
+`/account` compõe formulário Client mínimo; a Action valida objeto estrito com senha atual (política de autenticação) e nova senha (política de criação), exige mesma origem e resolve ownership pela sessão. Não recebe ID de usuário. Exige nova senha diferente da atual. Não há alteração sem confirmar a credencial atual.
+
+Três tentativas por conta/15 minutos em chave `pwd:` compartilham orçamento global e slots Argon2 com login/cadastro. Verificação e novo hash são sequenciais no mesmo slot. O servidor trava a identidade e a sessão, revalida expiração pelo relógio do banco após hashing e atualiza hash/revoga todas as sessões na mesma transação. Sucesso expira cookie e exige login novo; falha não altera credencial. Evento allowlisted registra mudança sem senha, hash, e-mail ou token.
+
+Criação de sessão trava a mesma identidade e confere que o hash verificado pelo login ainda é atual. Assim, login concorrente com senha antiga ou cria sessão antes da troca (revogada por ela), ou é rejeitado depois. Hash intermediário permanece exclusivamente entre módulos server-only e não compõe resposta pública.
 
 ## Cadastro (ECMSG-33)
 

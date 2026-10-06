@@ -15,6 +15,10 @@ export async function login(input: unknown) {
   if (!verification.admitted)
     return { success: false as const, code: "RATE_LIMITED" as const };
   return verification.value
-    ? { success: true as const, userId: verification.value }
+    ? {
+        success: true as const,
+        userId: verification.value.id,
+        credentialHash: verification.value.passwordHash,
+      }
     : { success: false as const, code: "INVALID_CREDENTIALS" as const };
 }

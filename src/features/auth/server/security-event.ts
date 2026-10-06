@@ -6,12 +6,13 @@ export function securityEvent(
   operation:
     | "login"
     | "register"
+    | "password-change"
     | "session-create"
     | "session-read"
     | "session-activity"
     | "logout"
     | "identity-read",
-  result: "LIMIT_REACHED" | "OPERATION_FAILED",
+  result: "LIMIT_REACHED" | "OPERATION_FAILED" | "CREDENTIAL_CHANGED",
 ) {
   try {
     console.warn({
