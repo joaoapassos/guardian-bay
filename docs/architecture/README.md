@@ -252,7 +252,7 @@ db         → lib
 
 **Motivação:** headers, proteção de página e scanners isolados não verificam as regras de uma operação.
 
-**Consequências:** cada superfície real exige análise contextual de autenticação/sessão, autorização e IDOR/BOLA, validação, injection, XSS, CSRF, concorrência, integridade e exposição de informação. A [security-review](../../.agents/skills/security-review/SKILL.md) orienta essa revisão; o scan é complementar. A [baseline HTTP](#baseline-de-segurança-http-ecmsg-18) preserva renderização estática com CSP parcial, que não restringe scripts/styles nem substitui esses controles.
+**Consequências:** cada superfície real exige análise contextual de autenticação/sessão, autorização e IDOR/BOLA, validação, injection, XSS, CSRF, concorrência, integridade e exposição de informação. A [security-review](../../.agents/skills/security-review/SKILL.md) orienta essa revisão; o scan é complementar. A [baseline HTTP](#baseline-de-segurança-http-ecmsg-18) mantém CSP parcial, que não restringe scripts/styles/conexões nem substitui esses controles. A composição depende da request pela leitura de sessão com `cookies()`; CSP rígida deve ser reavaliada conforme novas superfícies reais exigirem.
 
 ### Testes pela garantia e gates pelo risco
 
