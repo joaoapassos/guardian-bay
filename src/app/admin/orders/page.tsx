@@ -15,11 +15,52 @@ export default async function AdminOrdersPage({
       </main>
     );
   const pageLink = (page: number) =>
-    `/admin/orders?${new URLSearchParams({ page: String(page), limit: String(result.query.limit), sort: result.query.sort })}`;
+    `/admin/orders?${new URLSearchParams({ page: String(page), limit: String(result.query.limit), sort: result.query.sort, status: result.query.status, orderId: result.query.orderId })}`;
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 space-y-6 px-6 py-12">
       <h1 className="text-3xl font-semibold">Pedidos administrativos</h1>
       <p>Consulta de snapshots. Não há edição administrativa de pedidos.</p>
+      <form
+        action="/admin/orders"
+        method="get"
+        className="flex flex-wrap gap-4"
+      >
+        <label>
+          Status{" "}
+          <select name="status" defaultValue={result.query.status}>
+            <option value="">Todos</option>
+            <option value="PAID">Aprovado</option>
+            <option value="PAYMENT_FAILED">Recusado</option>
+            <option value="PENDING_PAYMENT">Pendente</option>
+          </select>
+        </label>
+        <label>
+          ID exato{" "}
+          <input
+            name="orderId"
+            maxLength={36}
+            defaultValue={result.query.orderId}
+          />
+        </label>
+        <label>
+          Ordem{" "}
+          <select name="sort" defaultValue={result.query.sort}>
+            <option value="created-desc">Mais recentes</option>
+            <option value="created-asc">Mais antigos</option>
+          </select>
+        </label>
+        <label>
+          Por página{" "}
+          <input
+            name="limit"
+            type="number"
+            min={1}
+            max={50}
+            defaultValue={result.query.limit}
+          />
+        </label>
+        <button type="submit">Filtrar pedidos</button>
+      </form>
       {result.orders.length === 0 ? (
         <p>Nenhum pedido nesta página.</p>
       ) : (

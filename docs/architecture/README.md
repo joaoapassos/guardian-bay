@@ -984,3 +984,7 @@ Pedidos administrativos serão inicialmente read-only, com DTO mínimo de identi
 ### Política administrativa de pedidos (ECMSG-99)
 
 Pedidos no backoffice são read-only. O pagamento acadêmico é síncrono e resolve PENDING_PAYMENT para PAID/PAYMENT_FAILED dentro da transação; não há estado operacional que justifique intervenção administrativa. Não existem Actions para mark-paid, cancel, refund, reprocessamento, delete ou edição de snapshot/itens/totais. A única Action de Orders continua sendo a confirmação de checkout do próprio usuário. Admin consulta snapshot persistido, sem reconstruí-lo pelo catálogo atual; DTO não inclui comprador ou checkoutKey. Mudança futura exige requisito de domínio e revisão específica, não status arbitrário vindo do browser.
+
+### Filtros administrativos (ECMSG-100)
+
+Pedidos aceitam somente status conhecido, orderId UUID exato, created-desc/created-asc, página 1–1.000 e limite 1–50 (20 padrão). Sort mapeia explicitamente para colunas, com UUID como desempate; filtros são Zod estritos e queries parametrizadas, sem busca por identidade/e-mail. Catálogo reutiliza busca literal por nome (100 caracteres), categoria UUID e página limitada, acrescentando publicação all/published/draft. Navegação preserva filtros em searchParams não confiáveis; formulário reinicia página. Leituras privilegiadas verificam admin atual na própria transação, revalidam sessão e não usam cache compartilhado.

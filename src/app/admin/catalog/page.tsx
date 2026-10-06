@@ -11,9 +11,45 @@ export default async function AdminCatalogPage({
 }: PageProps<"/admin/catalog">) {
   const result = await readAdminCatalog(await searchParams);
   if (!result) notFound();
+  const pageLink = (page: number) =>
+    `/admin/catalog?${new URLSearchParams({ page: String(page), query: result.query.query, category: result.query.category ?? "", publication: result.query.publication })}`;
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 space-y-8 px-6 py-12">
       <h1 className="text-3xl font-semibold">Administrar catálogo</h1>
+      <form
+        action="/admin/catalog"
+        method="get"
+        className="flex flex-wrap gap-4"
+      >
+        <label>
+          Nome{" "}
+          <input
+            name="query"
+            maxLength={100}
+            defaultValue={result.query.query}
+          />
+        </label>
+        <label>
+          Categoria{" "}
+          <select name="category" defaultValue={result.query.category ?? ""}>
+            <option value="">Todas</option>
+            {result.categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Publicação{" "}
+          <select name="publication" defaultValue={result.query.publication}>
+            <option value="all">Todos</option>
+            <option value="published">Publicados</option>
+            <option value="draft">Rascunhos</option>
+          </select>
+        </label>
+        <button type="submit">Filtrar catálogo</button>
+      </form>
       <section className="space-y-4">
         <h2 className="text-2xl font-semibold">Categorias</h2>
         <h3 className="font-semibold">Nova categoria</h3>
@@ -68,10 +104,10 @@ export default async function AdminCatalogPage({
       </section>
       <nav aria-label="Paginação administrativa" className="flex gap-6">
         {result.page > 1 && (
-          <Link href={`/admin/catalog?page=${result.page - 1}`}>Anterior</Link>
+          <Link href={pageLink(result.page - 1)}>Anterior</Link>
         )}
         {result.hasNext && result.page < 1000 && (
-          <Link href={`/admin/catalog?page=${result.page + 1}`}>Próxima</Link>
+          <Link href={pageLink(result.page + 1)}>Próxima</Link>
         )}
       </nav>
     </main>

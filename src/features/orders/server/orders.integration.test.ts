@@ -1097,3 +1097,41 @@ it("ECMSG-99: leituras administrativas preservam estado e snapshot, rejeitando i
     await client`UPDATE users SET role='customer' WHERE id=${userId}`;
   }
 });
+
+it("ECMSG-100: filtros administrativos usam status/ID exato e paginação estável", async () => {
+  const { adminOrderList } = await import("./admin-order-list");
+  const [paid] =
+    await client`INSERT INTO orders(user_id,checkout_key,total_amount,status) VALUES (${otherId},${randomUUID()},1099,'PAID') RETURNING id`;
+  await client`INSERT INTO orders(user_id,checkout_key,total_amount,status) VALUES (${otherId},${randomUUID()},1099,'PAYMENT_FAILED')`;
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  try {
+    const result = await adminOrderList({
+      orderId: paid.id,
+      status: "PAID",
+      sort: "created-asc",
+      limit: "1",
+    });
+    expect(result.success && result.orders.map((row) => row.orderId)).toEqual([
+      paid.id,
+    ]);
+    const none = await adminOrderList({
+      orderId: paid.id,
+      status: "PAYMENT_FAILED",
+    });
+    expect(none.success && none.orders).toEqual([]);
+    const first = await adminOrderList({ limit: "1", sort: "created-desc" });
+    const second = await adminOrderList({
+      limit: "1",
+      sort: "created-desc",
+      page: "2",
+    });
+    expect(first.success && first.hasNext).toBe(true);
+    expect(
+      first.success &&
+        second.success &&
+        first.orders[0].orderId !== second.orders[0].orderId,
+    ).toBe(true);
+  } finally {
+    await client`UPDATE users SET role='customer' WHERE id=${userId}`;
+  }
+});
