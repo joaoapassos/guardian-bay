@@ -234,7 +234,7 @@ features/cart/actions/update-quantity.action.ts
 
 A Action permanece fina. Cada operação sensível verifica novamente validação, autenticação, autorização e ownership. Os checks podem ser delegados à implementação server, mas devem ocorrer em cada execução antes do acesso/efeito protegido. Um botão oculto, página autorizada, rota protegida, hidden input ou `.bind()` não substitui esses checks. Verifique ownership/permissões dos IDs para impedir IDOR/BOLA.
 
-O retorno também é boundary: prefira `{ success: true }` ou contrato específico mínimo necessário à UI. Não retorne entidades completas por conveniência. Erros não expõem stack traces, SQL, secrets, detalhes internos ou informações sensíveis; a estratégia completa de erros será refinada na Task correspondente.
+O retorno também é boundary: prefira `{ success: true }` ou contrato específico mínimo necessário à UI. Não retorne entidades completas por conveniência. Erros não expõem stack traces, SQL, secrets, detalhes internos ou informações sensíveis; a política de classificação, tradução e logging está na seção [Tratamento de erros e observabilidade](#tratamento-de-erros-e-observabilidade-ecmsg-17).
 
 ### Route Handlers e Proxy
 
@@ -323,6 +323,90 @@ Ainda não existem tabelas ou migrations. Portanto, `schema/` e `drizzle/` só s
 Para verificar o carregamento da configuração sem banco nem migrations, use uma URL fictícia formalmente válida em ambiente temporário e `npx drizzle-kit check`. Esse comando verifica histórico de migrations, não conectividade ou integridade de um banco; com histórico ausente, não comprova migrations reais. Não execute migrate/studio com placeholders. Uma conexão real requer PostgreSQL e `DATABASE_URL` utilizável e deve ser validada localmente, sem endpoint público.
 
 Referências oficiais consultadas: [PostgreSQL](https://orm.drizzle.team/docs/get-started-postgresql), [config](https://orm.drizzle.team/docs/drizzle-config-file), [generate](https://orm.drizzle.team/docs/drizzle-kit-generate), [migrate](https://orm.drizzle.team/docs/drizzle-kit-migrate), [check](https://orm.drizzle.team/docs/drizzle-kit-check) e [lifecycle Postgres.js](https://github.com/porsager/postgres#the-connection-pool). A documentação foi consultada no repositório oficial quando o site estava bloqueado; as opções foram confirmadas na CLI instalada.
+
+## Tratamento de erros e observabilidade (ECMSG-17)
+
+### Estado e classificação
+
+O scaffold tem somente erros de configuração em `lib/env/database-url.ts`, sem logs da aplicação, Actions, handlers ou queries de domínio. Essas exceções informam apenas o nome da configuração; não retornam valores nem causas originais. Configuração inválida é falha operacional, não input inválido do usuário: uma futura boundary não deve traduzi-la em 400 ou mostrar seu nome interno ao Client.
+
+| Classe | Significado | Tratamento |
+| --- | --- | --- |
+| Esperado | Resultado conhecido da operação: input inválido, ausência legítima de recurso, autenticação necessária, autorização negada, conflito ou regra de negócio rejeitada | Resultado explícito definido pela feature, com código estável e dados mínimos; a boundary projeta mensagem externa controlada |
+| Inesperado | Bug, falha desconhecida de DB/infraestrutura/integração ou configuração indisponível | Exceção interna; a boundary registra contexto server-side seguro e apresenta falha genérica |
+
+A classificação depende da operação, não apenas do tipo da exceção ou de um status de serviço externo. Não crie hierarquia de classes nem catálogo global de códigos hipotéticos. Códigos de negócio e contratos de resultado surgem na feature que os consome e não conhecem HTTP, `Response`, `NextResponse` ou UI.
+
+```text
+Client → boundary pública → feature/server → infraestrutura
+Esperado:   feature/server → resultado conhecido → boundary → resposta controlada
+Inesperado: infra/feature → exceção → boundary → log seguro + resposta genérica
+```
+
+### Tradução nas boundaries
+
+**Server Actions:** falhas esperadas retornam resultado discriminado mínimo, por exemplo `{ success: false, error: { code: "INVALID_QUANTITY", message: "Quantidade inválida." } }`, somente quando esse caso real existir. Falhas inesperadas são capturadas ao redor da operação, registradas no servidor e retornam mensagem fixa como `Não foi possível concluir a operação. Tente novamente.`; nunca `error.message` ou objeto `Error`. Não transforme falha em sucesso nem sugira que uma operação foi revertida sem evidência. Em mutations com resultado incerto, a UX de retry depende da segurança/idempotência da operação.
+
+**Route Handlers:** a tradução para status é exclusiva da boundary HTTP. Use 400 para input inválido, 401 para autenticação necessária, 403 para autorização negada, 404 para ausência legítima, 409 para conflito, 429 quando houver rate limit real e 500 para falha inesperada. Respostas continuam mínimas e controladas; `error.tsx` não trata erros do handler. Não envie SQL, stack, cause, códigos/objetos brutos de bibliotecas ou detalhes de infraestrutura em JSON.
+
+**Server Components:** resultados conhecidos permitem composição de UI segura; ausência legítima pode usar `notFound()`. Falhas inesperadas são observadas no ponto server que conhece a operação e seguem para a boundary de renderização adequada. Não capture indiscriminadamente todo render para transformar erro em 404 ou coleção vazia. Se houver tradução antes do render, preserve a indicação de falha sem copiar detalhes internos para props.
+
+Capture somente a operação que precisa de tratamento. `redirect()` e `notFound()` lançam exceções de controle do Next.js: mantenha essas chamadas fora do `try/catch` de falhas operacionais e não as registre como bugs. Não implemente um wrapper genérico que capture toda Action/render/handler. A documentação instalada confirma o comportamento de controle de `redirect()` e a interrupção do segmento por `notFound()`.
+
+**DB e integrações:** não traduza globalmente códigos PostgreSQL para erro de negócio. Uma unique violation só vira um resultado esperado quando a feature identificar a constraint e sua semântica, sem revelar o nome interno da constraint. Outros erros propagam internamente até o responsável pela boundary; não faça logging duplicado em cada camada. O fluxo DB/DTO da ECMSG-16 permanece intacto.
+
+**Validação e autenticação:** quando Zod for usado, projete somente campos e mensagens necessários ao formulário; não serialize `ZodError`, payload recebido ou paths internos automaticamente. Mantenha unauthenticated e forbidden distintos internamente. Se a threat model exigir impedir enumeração, a boundary pode apresentar um recurso de outro usuário como inexistente, com resposta consistente; essa decisão é específica da operação, não regra para esconder toda falha.
+
+### Logging server-side mínimo
+
+Nesta fase, não há consumidor que justifique logger compartilhado. Use `console.error`, `console.warn` ou `console.info` no código server com objeto construído por allowlist quando a primeira operação exigir logging. Não adicione logs à criação lazy do pool nem ao validador apenas para produzir eventos. Sem operação pública atual, esta Task define a política; não comprova observabilidade de workflows ainda inexistentes.
+
+Um evento inesperado deve identificar `timestamp` (UTC/ISO), `event` estável, `operation` conhecido, classificação e categoria controlada do erro. Por exemplo conceitual, sem registrar o erro bruto:
+
+```ts
+console.error({
+  timestamp: new Date().toISOString(),
+  event: "operation.failed",
+  operation: "cart.updateQuantity",
+  classification: "unexpected",
+  errorCategory: "database", // categoria escolhida pelo código server
+});
+```
+
+Use `error` como `unknown` ao capturar. Não espalhe suas propriedades, nem serialize `message`, `cause`, `detail`, SQL ou parâmetros; até `name` pode ser arbitrário. Se registrar tipo/nome, mapeie tipos reconhecidos para nomes controlados, com fallback neutro. Nunca faça `console.error(error)`/`String(error)` como alternativa quando a classificação falhar. Campos de contexto também são allowlist, não um objeto arbitrário aceito por conveniência.
+
+Falhas esperadas comuns não precisam de `error` logs. Use `warn` somente quando houver evento operacional/de segurança concreto a investigar, e `info` para evento útil definido pela operação, sem ruído de toda leitura. Registre uma falha inesperada uma vez no ponto que conhece a operação; múltiplos eventos precisam representar etapas distintas. Logging não deve substituir a resposta segura nem iniciar efeitos de domínio.
+
+Em produção, mantenha contexto operacional e categoria mesmo sem stack. Em desenvolvimento, detalhes técnicos/stack só são admissíveis após revisão explícita e sanitização; stack de biblioteca pode conter SQL, valores, URLs e caminhos. Não libere dumps automaticamente por `NODE_ENV`. Não envie stack ao Client. Logs nativos do framework/driver são outra superfície a revisar no deployment; a política da aplicação não promete sanitizar automaticamente logs emitidos por terceiros.
+
+### Secrets, PII e correlação
+
+Nunca registre senha/hash, cookies de sessão, tokens, Authorization/CSRF, `DATABASE_URL`, secrets/connection strings, cartão ou informação sensível de pagamento. Não serialize `Request`, todos os headers, `process.env`, payload de autenticação ou entidade completa de usuário. Não registre URL completa, query string ou input do usuário como nome de operação. Allowlist é o padrão; uma blacklist de palavras não garante sanitização.
+
+Nome, email, endereço e telefone ficam fora dos logs por padrão. Identificadores como `userId`/`orderId` também podem identificar pessoas: registre-os apenas com necessidade operacional concreta, valor validado e mínimo. A futura configuração de armazenamento deve definir acesso e retenção; não crie infraestrutura externa agora.
+
+Quando houver contexto útil, `requestId`/`operationId` pode ser gerado no servidor ou validado na entrada (formato e comprimento delimitados). Nunca reflita header arbitrário, use identificador como autorização ou trate correlação como prova de identidade. A boundary pode enviar uma referência opaca de suporte se o mesmo identificador estiver associado ao evento server. O `digest` nativo do Next.js é correlação de erro, não request ID nem garantia de unicidade por operação. Sem workflows atuais, não implemente IDs globais, middleware, AsyncLocalStorage ou tracing distribuído.
+
+### Boundaries de UI e instrumentação do Next.js 16.3.8
+
+| Recurso | Quando usar e limite |
+| --- | --- |
+| `error.tsx` | Quando um segmento precisar de fallback/recuperação de render. É Client, recebe `error` e `retry`; não captura o layout/template do mesmo segmento, nem substitui tratamento de Actions/handlers |
+| `global-error.tsx` | Quando houver UX definida para falha do root layout/template. É Client e fornece seu próprio `html`/`body`; não depende do layout quebrado |
+| `not-found.tsx` / `notFound()` | UI de ausência legítima. Falha de DB não é ausência. Streaming pode resultar em status 200 com UI de not-found; não use essa UI para definir status de uma API |
+| `instrumentation.ts` | `register` roda na inicialização; `onRequestError` observa erros server capturados pelo Next.js. Introduzir somente com necessidade real e seleção explícita de campos, sem copiar request/headers/error bruto dos exemplos genéricos |
+
+Na documentação instalada, erros server encaminhados às boundaries client têm mensagem genérica/digest em produção; desenvolvimento expõe mais detalhes para debugging. Não use isso como garantia para retornos explícitos de Actions/handlers nem renderize `error.message` como política de UX. Ambiente de desenvolvimento não deve receber dados/credenciais de produção nem ficar exposto publicamente. Erros originados no Client podem manter sua mensagem original. Boundaries de render não capturam normalmente event handlers ou async fora do render; os consumidores tratam esses resultados explicitamente.
+
+O guia desta versão usa `retry()` para recuperar e buscar novamente o segmento; `reset()` permanece para limpar estado sem refetch quando houver razão concreta. Nenhum desses arquivos de UI é criado no scaffold sem design ou operação que o justifique. Não copie exemplos locais com logging bruto de Error para o projeto.
+
+Não adicione OpenTelemetry, Sentry, Datadog, collectors, métricas de negócio ou SaaS nesta Task. Avalie coleta externa quando houver deployment e requisitos reais, revisando campos, acesso, retenção e duplicação de eventos antes da integração.
+
+### Critérios para a primeira operação real
+
+Verifique resultado esperado com mensagem/campos públicos controlados; falha inesperada de DB/integração com resposta genérica e evento server contextualizado; ausência de secrets/PII mesmo em objetos de erro com `cause`/propriedades extras; sem conversão de falha interna em 404; exceções de navegação preservadas. Quando houver correlação, teste validação e associação entre log/resposta. Esses testes pertencem ao consumidor que tornar o fluxo concreto, sem endpoints fictícios para demonstrá-lo.
+
+Referências locais consultadas: `01-app/01-getting-started/10-error-handling.md`, `05-server-and-client-components.md`, `15-route-handlers.md`, `01-app/02-guides/server-actions.md` e `01-app/03-api-reference/03-file-conventions/{error,not-found,instrumentation}.md`, sob `node_modules/next/dist/docs/`.
 
 ## Quality gate e escopo
 
