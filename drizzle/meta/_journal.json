@@ -85,6 +85,13 @@
       "when": 1791307057262,
       "tag": "0011_inventory_domain",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791326226366,
+      "tag": "0012_audit_events",
+      "breakpoints": true
     }
   ]
 }
