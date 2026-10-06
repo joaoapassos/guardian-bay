@@ -43,6 +43,13 @@
       "when": 1791269222431,
       "tag": "0005_password_change_budget",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791272273273,
+      "tag": "0006_catalog_domain",
+      "breakpoints": true
     }
   ]
 }
