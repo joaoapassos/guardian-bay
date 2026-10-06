@@ -1057,3 +1057,43 @@ it("ECMSG-98: detalhe administrativo exige role atual e usa snapshot mínimo", a
     await client`UPDATE users SET role='customer' WHERE id=${userId}`;
   }
 });
+
+it("ECMSG-99: leituras administrativas preservam estado e snapshot, rejeitando intenção de alteração", async () => {
+  const { adminOrderList } = await import("./admin-order-list");
+  const { adminOrderDetail } = await import("./admin-order-detail");
+  const [order] =
+    await client`INSERT INTO orders(user_id,checkout_key,total_amount,status) VALUES (${otherId},${randomUUID()},1099,'PAYMENT_FAILED') RETURNING id`;
+  await client`INSERT INTO order_items(order_id,product_id,product_name,quantity,unit_amount,subtotal_amount) VALUES (${order.id},${productId},'Immutable snapshot',1,1099,1099)`;
+  const before =
+    await client`SELECT status,total_amount,checkout_key FROM orders WHERE id=${order.id}`;
+  const items =
+    await client`SELECT * FROM order_items WHERE order_id=${order.id}`;
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  try {
+    expect((await adminOrderList()).success).toBe(true);
+    expect((await adminOrderDetail(order.id)).success).toBe(true);
+    expect(
+      await adminOrderList({ operation: "mark-paid", total: 1 }),
+    ).toMatchObject({ code: "INVALID_INPUT" });
+    expect(
+      await adminOrderDetail({ orderId: order.id, status: "PAID" }),
+    ).toMatchObject({ code: "NOT_FOUND" });
+    const actions = await import("../actions/checkout.action");
+    expect(Object.keys(actions)).toEqual(["checkoutAction"]);
+    expect(
+      await actions.checkoutAction({
+        checkoutKey: randomUUID(),
+        orderId: order.id,
+        status: "PAID",
+      }),
+    ).toMatchObject({ code: "INVALID_INPUT" });
+    expect(
+      await client`SELECT status,total_amount,checkout_key FROM orders WHERE id=${order.id}`,
+    ).toEqual(before);
+    expect(
+      await client`SELECT * FROM order_items WHERE order_id=${order.id}`,
+    ).toEqual(items);
+  } finally {
+    await client`UPDATE users SET role='customer' WHERE id=${userId}`;
+  }
+});
