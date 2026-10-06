@@ -6,6 +6,16 @@ Este documento registra as decisões aprovadas. O [AGENTS.md](../../AGENTS.md) e
 
 O [threat model inicial](threat-model.md) identifica atores, ativos, entradas externas, trust boundaries e ameaças que orientam a Epic 2.
 
+## Conta e ciclo de vida (ECMSG-32)
+
+Conta é a identidade persistida em `users`: UUID imutável, e-mail canônico único, hash Argon2id da credencial e instante de criação. Não há perfil, papel administrativo, verificação de e-mail ou coluna de status. Toda conta persistida é utilizável; não existem estados pending/active/suspended/deleted/verified/locked. Limites temporários de tentativas não mudam o estado da conta.
+
+Criação exige e-mail válido segundo o contrato existente e senha com a política de criação vigente; unicidade pertence ao PostgreSQL. Login verifica a credencial existente sem impor o mínimo de criação e não distingue publicamente conta inexistente de senha incorreta. Identidade não concede autorização. Sessões são registros separados, revogáveis e limitados por expiração absoluta/inatividade.
+
+A alteração de credencial prevista na Epic 3 exigirá identidade/sessão válida e senha atual; persistência da nova credencial e revogação de todas as sessões deverão ser atômicas, exigindo novo login. Cadastro não implica privilégios ou verificação de posse do e-mail. Os contratos públicos e limites de cadastro serão definidos na ECMSG-33, sem antecipar UI nesta etapa.
+
+Guardian Bay não possui recuperação self-service de senha: não haverá link de reset, e-mail, OTP, pergunta secreta ou recovery code. Perda de acesso requer contato direto com administrador, por processo externo ainda não implementado. A ECMSG-38 formalizará os requisitos; não existe painel, role, reset privilegiado, senha padrão ou canal de contato configurado. Administração futura deverá verificar identidade e autorização, substituir a credencial sem conhecer a senha original e revogar sessões com auditoria.
+
 ## Contrato de entrada e proteção contra abuso (ECMSG-27)
 
 Não há deployment definido. O link do scaffold para Vercel não configura hospedagem, proxy ou origem confiável. Atualmente `X-Forwarded-For`, `X-Real-IP` e `Forwarded` não identificam o caller; os limites de login funcionam sem eles.
