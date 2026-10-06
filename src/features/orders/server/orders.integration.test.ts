@@ -540,3 +540,95 @@ it("ECMSG-76: checkout serializa add/update/remove sem misturar snapshots", asyn
     }
   }
 });
+it("ECMSG-77: snapshot máximo persiste bigint exato sem truncar; FK histórica não depende do produto", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const { orderDetail } = await import("./order-detail");
+  const fixture =
+    await client`INSERT INTO products(name,category_id,amount,is_published) SELECT 'Maximum snapshot',${categoryId},2147483647,true FROM generate_series(1,100) RETURNING id`;
+  try {
+    for (const product of fixture)
+      await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${product.id},99)`;
+    const created = await checkoutAction({ checkoutKey: randomUUID() });
+    expect(created).toMatchObject({ success: true, status: "PAYMENT_FAILED" });
+    if (!created.success) throw new Error("Maximum checkout failed");
+    expect(
+      (
+        await client`SELECT total_amount FROM orders WHERE id=${created.orderId}`
+      )[0].total_amount,
+    ).toBe("21260088105300");
+    const detail = await orderDetail(created.orderId);
+    expect(detail).toMatchObject({
+      success: true,
+      order: { total: { amount: 21260088105300 } },
+    });
+    if (detail.success) expect(detail.order.items).toHaveLength(100);
+    // Operational deletion only in isolated DB proves historical references survive.
+    await client`DELETE FROM cart_items WHERE user_id=${userId}`;
+    await client`DELETE FROM products WHERE id IN ${client(fixture.map((row) => row.id))}`;
+    expect(await orderDetail(created.orderId)).toEqual(detail);
+  } finally {
+    await client`DELETE FROM cart_items WHERE user_id=${userId}`;
+    await client`DELETE FROM products WHERE id IN ${client(fixture.map((row) => row.id))}`;
+  }
+});
+it("ECMSG-77: item indisponível bloqueia conjunto inteiro; nunca cria pedido parcial", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const [privateProduct] =
+    await client`INSERT INTO products(name,category_id,amount) VALUES ('Unavailable snapshot',${categoryId},1) RETURNING id`;
+  try {
+    await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId}),(${userId},${privateProduct.id})`;
+    expect(await checkoutAction({ checkoutKey: randomUUID() })).toEqual({
+      success: false,
+      code: "UNAVAILABLE",
+    });
+    expect(
+      await client`SELECT id FROM orders WHERE user_id=${userId}`,
+    ).toHaveLength(0);
+    expect(
+      await client`SELECT product_id FROM cart_items WHERE user_id=${userId}`,
+    ).toHaveLength(2);
+  } finally {
+    await client`DELETE FROM cart_items WHERE user_id=${userId}`;
+    await client`DELETE FROM products WHERE id=${privateProduct.id}`;
+  }
+});
+it("ECMSG-77: constraints de snapshot impedem currency, preço, nome e produto duplicado", async () => {
+  const [order] =
+    await client`INSERT INTO orders(user_id,checkout_key,total_amount) VALUES (${userId},${randomUUID()},1) RETURNING id`;
+  await client`INSERT INTO order_items(order_id,product_id,product_name,quantity,unit_amount,subtotal_amount) VALUES (${order.id},${productId},'Snapshot',1,1,1)`;
+  await expect(
+    client`INSERT INTO order_items(order_id,product_id,product_name,quantity,unit_amount,subtotal_amount) VALUES (${order.id},${productId},'Duplicate',1,1,1)`,
+  ).rejects.toMatchObject({ code: "23505" });
+  await expect(
+    client`UPDATE order_items SET currency='USD' WHERE order_id=${order.id}`,
+  ).rejects.toMatchObject({ code: "23514" });
+  await expect(
+    client`UPDATE order_items SET unit_amount=0,subtotal_amount=0 WHERE order_id=${order.id}`,
+  ).rejects.toMatchObject({ code: "23514" });
+  await expect(
+    client`UPDATE order_items SET product_name='' WHERE order_id=${order.id}`,
+  ).rejects.toMatchObject({ code: "23514" });
+});
+it("ECMSG-77: falha interna não expõe Error/cause/payload nem duplica logs", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const fail = vi
+    .spyOn(getDb(), "transaction")
+    .mockRejectedValueOnce(
+      new Error("DATABASE_URL private; SQL; session token"),
+    );
+  try {
+    const error = await checkoutAction({ checkoutKey: randomUUID() }).catch(
+      (error) => error,
+    );
+    expect(error.message).toBe("Não foi possível concluir o checkout.");
+    expect(error).not.toHaveProperty("cause");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(warn.mock.calls)).not.toMatch(
+      /DATABASE_URL|SQL|token|checkoutKey|private/,
+    );
+  } finally {
+    fail.mockRestore();
+    warn.mockRestore();
+  }
+});

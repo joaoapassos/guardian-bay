@@ -746,6 +746,84 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "document.querySelector('main').textContent.includes('24,00') && document.querySelector('input[name=quantity]').defaultValue==='2'",
                   "current catalogue price, no snapshot",
                 );
+                // ECMSG-77: real checkout, current prices, frozen history and cart finalization.
+                await navigate("/checkout");
+                await waitFor(
+                  "!!document.querySelector('form[aria-label=\"Confirmar checkout\"]')",
+                  "checkout preview ready",
+                );
+                await client`UPDATE products SET amount=1250 WHERE id=${catalogProduct.id}`;
+                await evaluate(
+                  "document.querySelector('form[aria-label=\"Confirmar checkout\"]').requestSubmit()",
+                );
+                await waitFor(
+                  "/^\\/orders\\/[0-9a-f-]+$/.test(location.pathname) && document.querySelector('main').textContent.includes('Pagamento simulado aprovado')",
+                  "checkout confirmation navigates to order",
+                );
+                const detailPath = await evaluate("location.pathname");
+                const [snapshotOrder] =
+                  await client`SELECT id,total_amount FROM orders WHERE user_id=${catalogUser.id}`;
+                assert.equal(snapshotOrder.total_amount, "2500");
+                assert.equal(
+                  (
+                    await client`SELECT count(*)::int n FROM cart_items WHERE user_id=${catalogUser.id}`
+                  )[0].n,
+                  0,
+                );
+                await client`UPDATE products SET name='Later browser name',amount=9999,is_published=false WHERE id=${catalogProduct.id}`;
+                await navigate(detailPath);
+                await waitFor(
+                  "document.querySelector('main').textContent.includes('25,00')",
+                  "frozen snapshot remains after catalog change",
+                );
+                assert.equal(
+                  await evaluate(
+                    `document.querySelector('main').textContent.includes(${JSON.stringify(catalogName)}) && window.cartXss===undefined`,
+                  ),
+                  true,
+                );
+                await navigate("/orders");
+                await waitFor(
+                  "document.querySelector('main').textContent.includes('25,00')",
+                  "private order history",
+                );
+                await client`UPDATE products SET name=${catalogName},amount=1200,is_published=true WHERE id=${catalogProduct.id}`;
+                await navigate(`/products/${catalogProduct.id}`);
+                await evaluate(
+                  "[...document.querySelectorAll('button')].find(b=>b.textContent==='Adicionar ao carrinho').click()",
+                );
+                await waitFor(
+                  "[...document.querySelectorAll('output')].some(o=>o.textContent.includes('Produto adicionado ao carrinho.'))",
+                  "new cart after paid order",
+                );
+                await navigate("/cart");
+                await evaluate(
+                  "document.querySelector('input[name=quantity]').value='2'; document.querySelector('input[name=quantity]').form.requestSubmit()",
+                );
+                await waitFor(
+                  "document.querySelector('input[name=quantity]').defaultValue==='2'",
+                  "new cart quantity restored for depublication flow",
+                );
+                await navigate("/checkout");
+                await waitFor(
+                  "!!document.querySelector('form[aria-label=\"Confirmar checkout\"]')",
+                  "second checkout preview",
+                );
+                await client`UPDATE products SET amount=1000000 WHERE id=${catalogProduct.id}`;
+                await evaluate(
+                  "document.querySelector('form[aria-label=\"Confirmar checkout\"]').requestSubmit()",
+                );
+                await waitFor(
+                  "location.pathname.startsWith('/orders/') && document.querySelector('main').textContent.includes('Pagamento simulado recusado')",
+                  "simulated decline feedback",
+                );
+                assert.equal(
+                  (
+                    await client`SELECT quantity FROM cart_items WHERE user_id=${catalogUser.id}`
+                  )[0].quantity,
+                  2,
+                );
+                await client`UPDATE products SET amount=1200 WHERE id=${catalogProduct.id}`;
                 await navigate("/admin/catalog");
                 acceptCatalogDialog = false;
                 await adminSubmit(editLabel, { isPublished: false }, false);
@@ -817,6 +895,8 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "identity workflows must not have hydration errors",
                 );
               } finally {
+                await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (SELECT id FROM users WHERE email=${email}))`;
+                await client`DELETE FROM orders WHERE user_id IN (SELECT id FROM users WHERE email=${email})`;
                 if (catalogCategoryId) {
                   await client`DELETE FROM cart_items WHERE product_id IN (SELECT id FROM products WHERE category_id=${catalogCategoryId})`;
                   await client`DELETE FROM products WHERE category_id=${catalogCategoryId}`;
