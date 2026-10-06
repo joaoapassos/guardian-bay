@@ -32,13 +32,15 @@ export function InventoryForm({
             setMessage(
               result.success
                 ? "Estoque atualizado."
-                : result.code === "CONFLICT"
-                  ? "O estoque mudou. Recarregue antes de editar."
-                  : result.code === "FORBIDDEN"
-                    ? "Acesso administrativo negado. Entre novamente."
-                    : result.code === "INVALID_INPUT"
-                      ? "Informe uma quantidade inteira válida."
-                      : "Não foi possível atualizar o estoque.",
+                : result.code === "RATE_LIMITED"
+                  ? "Muitas operações. Aguarde e tente novamente."
+                  : result.code === "CONFLICT"
+                    ? "O estoque mudou. Recarregue antes de editar."
+                    : result.code === "FORBIDDEN"
+                      ? "Acesso administrativo negado. Entre novamente."
+                      : result.code === "INVALID_INPUT"
+                        ? "Informe uma quantidade inteira válida."
+                        : "Não foi possível atualizar o estoque.",
             );
           } catch {
             setMessage("Não foi possível atualizar o estoque.");

@@ -11,6 +11,7 @@ import { sessions } from "@/db/schema/sessions";
 import { users } from "@/db/schema/users";
 import { tokenHash } from "@/features/auth/server/session";
 import { sessionCookiePolicy } from "@/features/auth/server/session-cookie";
+import { reserveAbuseBudget } from "@/lib/abuse/server";
 import { writeAuditEvent } from "@/lib/audit/server";
 import { checkoutSchema } from "../schemas/checkout";
 import { simulatePayment } from "../simulated-payment";
@@ -28,7 +29,8 @@ export async function createOrder(input: unknown) {
   if (!hash)
     return { success: false as const, code: "UNAUTHENTICATED" as const };
   try {
-    return await getDb().transaction(async (tx) => {
+    let failure: unknown;
+    const result = await getDb().transaction(async (tx) => {
       const [candidate] = await tx
         .select({ id: sessions.userId })
         .from(sessions)
@@ -68,161 +70,183 @@ export async function createOrder(input: unknown) {
         )
         .limit(1);
       if (existing) return { success: true as const, ...existing };
-      const items = await tx
-        .select({
-          productId: cartItems.productId,
-          quantity: cartItems.quantity,
-        })
-        .from(cartItems)
-        .where(eq(cartItems.userId, user.id))
-        .orderBy(cartItems.productId)
-        .limit(101)
-        .for("update");
-      if (!items.length)
-        return { success: false as const, code: "EMPTY_CART" as const };
-      const current = await tx
-        .select({
-          productId: products.id,
-          productName: products.name,
-          amount: products.amount,
-          currency: products.currency,
-          published: products.isPublished,
-        })
-        .from(products)
-        .where(
-          inArray(
-            products.id,
-            items.map((item) => item.productId),
-          ),
-        )
-        .orderBy(products.id)
-        .for("share");
-      const stocks = await tx
-        .select({
-          productId: inventory.productId,
-          quantity: inventory.availableQuantity,
-          revision: inventory.revision,
-        })
-        .from(inventory)
-        .where(
-          inArray(
-            inventory.productId,
-            items.map((item) => item.productId),
-          ),
-        )
-        .orderBy(inventory.productId)
-        .for("update");
-      // Locked rows are re-read after any catalog wait; preview is never authority.
-      if (
-        !(
-          await tx
-            .select({ id: sessions.userId })
-            .from(sessions)
-            .where(valid())
-            .limit(1)
-        ).length
-      )
-        throw expired;
-      if (current.length !== items.length)
-        return { success: false as const, code: "UNAVAILABLE" as const };
-      const checked = checkoutCandidate(
-        current.map((product) => ({
-          ...product,
-          availableQuantity:
-            stocks.find((stock) => stock.productId === product.productId)
-              ?.quantity ?? 0,
-          quantity:
-            items.find((item) => item.productId === product.productId)
-              ?.quantity ?? null,
-        })),
-      );
-      if (!checked.success) return checked;
-      const [order] = await tx
-        .insert(orders)
-        .values({
-          userId: user.id,
-          checkoutKey: parsed.data.checkoutKey,
-          totalAmount: checked.snapshot.total.amount,
-        })
-        .returning({ orderId: orders.id, status: orders.status });
-      await tx.insert(orderItems).values(
-        checked.snapshot.items.map((item) => ({
-          ...item,
-          orderId: order.orderId,
-        })),
-      );
-      if (
-        !(
-          await tx
-            .select({ id: sessions.userId })
-            .from(sessions)
-            .where(valid())
-            .limit(1)
-        ).length
-      )
-        throw expired;
-      const status = simulatePayment({
-        status: order.status,
-        totalAmount: checked.snapshot.total.amount,
-      });
-      await tx
-        .update(orders)
-        .set({ status })
-        .where(
-          and(
-            eq(orders.id, order.orderId),
-            eq(orders.userId, user.id),
-            eq(orders.status, "PENDING_PAYMENT"),
-          ),
-        );
-      if (status === "PAID") {
-        for (const item of checked.snapshot.items) {
-          const changed = await tx
-            .update(inventory)
-            .set({
-              availableQuantity: sql`${inventory.availableQuantity} - ${item.quantity}`,
-              revision: sql`${inventory.revision} + 1`,
+      if (!(await reserveAbuseBudget(tx, user.id, "checkout")))
+        return { success: false as const, code: "RATE_LIMITED" as const };
+      // Savepoint uses the same connection: reserve persists on business rollback.
+      return tx
+        .transaction(async (tx) => {
+          if (
+            !(
+              await tx
+                .select({ id: sessions.userId })
+                .from(sessions)
+                .where(valid())
+                .limit(1)
+            ).length
+          )
+            throw expired;
+          const items = await tx
+            .select({
+              productId: cartItems.productId,
+              quantity: cartItems.quantity,
             })
+            .from(cartItems)
+            .where(eq(cartItems.userId, user.id))
+            .orderBy(cartItems.productId)
+            .limit(101)
+            .for("update");
+          if (!items.length)
+            return { success: false as const, code: "EMPTY_CART" as const };
+          const current = await tx
+            .select({
+              productId: products.id,
+              productName: products.name,
+              amount: products.amount,
+              currency: products.currency,
+              published: products.isPublished,
+            })
+            .from(products)
             .where(
-              and(
-                eq(inventory.productId, item.productId),
-                sql`${inventory.availableQuantity} >= ${item.quantity}`,
-                sql`${inventory.revision} < 2147483647`,
+              inArray(
+                products.id,
+                items.map((item) => item.productId),
               ),
             )
-            .returning({ productId: inventory.productId });
-          if (!changed.length) throw inventoryConflict;
-        }
-        // Identity lock serializes cart mutations; delete only snapshot products.
-        await tx.delete(cartItems).where(
-          and(
-            eq(cartItems.userId, user.id),
-            inArray(
-              cartItems.productId,
-              checked.snapshot.items.map((item) => item.productId),
-            ),
-          ),
-        );
-      }
-      if (
-        !(
+            .orderBy(products.id)
+            .for("share");
+          const stocks = await tx
+            .select({
+              productId: inventory.productId,
+              quantity: inventory.availableQuantity,
+              revision: inventory.revision,
+            })
+            .from(inventory)
+            .where(
+              inArray(
+                inventory.productId,
+                items.map((item) => item.productId),
+              ),
+            )
+            .orderBy(inventory.productId)
+            .for("update");
+          // Locked rows are re-read after any catalog wait; preview is never authority.
+          if (
+            !(
+              await tx
+                .select({ id: sessions.userId })
+                .from(sessions)
+                .where(valid())
+                .limit(1)
+            ).length
+          )
+            throw expired;
+          if (current.length !== items.length)
+            return { success: false as const, code: "UNAVAILABLE" as const };
+          const checked = checkoutCandidate(
+            current.map((product) => ({
+              ...product,
+              availableQuantity:
+                stocks.find((stock) => stock.productId === product.productId)
+                  ?.quantity ?? 0,
+              quantity:
+                items.find((item) => item.productId === product.productId)
+                  ?.quantity ?? null,
+            })),
+          );
+          if (!checked.success) return checked;
+          const [order] = await tx
+            .insert(orders)
+            .values({
+              userId: user.id,
+              checkoutKey: parsed.data.checkoutKey,
+              totalAmount: checked.snapshot.total.amount,
+            })
+            .returning({ orderId: orders.id, status: orders.status });
+          await tx.insert(orderItems).values(
+            checked.snapshot.items.map((item) => ({
+              ...item,
+              orderId: order.orderId,
+            })),
+          );
+          if (
+            !(
+              await tx
+                .select({ id: sessions.userId })
+                .from(sessions)
+                .where(valid())
+                .limit(1)
+            ).length
+          )
+            throw expired;
+          const status = simulatePayment({
+            status: order.status,
+            totalAmount: checked.snapshot.total.amount,
+          });
           await tx
-            .select({ id: sessions.userId })
-            .from(sessions)
-            .where(valid())
-            .limit(1)
-        ).length
-      )
-        throw expired;
-      await writeAuditEvent(tx, {
-        eventType: "order.completed",
-        outcome: status === "PAID" ? "SUCCESS" : "FAILED",
-        actorUserId: user.id,
-        targetType: "order",
-        targetId: order.orderId,
-      });
-      return { success: true as const, orderId: order.orderId, status };
+            .update(orders)
+            .set({ status })
+            .where(
+              and(
+                eq(orders.id, order.orderId),
+                eq(orders.userId, user.id),
+                eq(orders.status, "PENDING_PAYMENT"),
+              ),
+            );
+          if (status === "PAID") {
+            for (const item of checked.snapshot.items) {
+              const changed = await tx
+                .update(inventory)
+                .set({
+                  availableQuantity: sql`${inventory.availableQuantity} - ${item.quantity}`,
+                  revision: sql`${inventory.revision} + 1`,
+                })
+                .where(
+                  and(
+                    eq(inventory.productId, item.productId),
+                    sql`${inventory.availableQuantity} >= ${item.quantity}`,
+                    sql`${inventory.revision} < 2147483647`,
+                  ),
+                )
+                .returning({ productId: inventory.productId });
+              if (!changed.length) throw inventoryConflict;
+            }
+            // Identity lock serializes cart mutations; delete only snapshot products.
+            await tx.delete(cartItems).where(
+              and(
+                eq(cartItems.userId, user.id),
+                inArray(
+                  cartItems.productId,
+                  checked.snapshot.items.map((item) => item.productId),
+                ),
+              ),
+            );
+          }
+          if (
+            !(
+              await tx
+                .select({ id: sessions.userId })
+                .from(sessions)
+                .where(valid())
+                .limit(1)
+            ).length
+          )
+            throw expired;
+          await writeAuditEvent(tx, {
+            eventType: "order.completed",
+            outcome: status === "PAID" ? "SUCCESS" : "FAILED",
+            actorUserId: user.id,
+            targetType: "order",
+            targetId: order.orderId,
+          });
+          return { success: true as const, orderId: order.orderId, status };
+        })
+        .catch((error) => {
+          failure = error;
+          return null;
+        });
     });
+    if (result === null) throw failure;
+    return result;
   } catch (error) {
     if (error === expired)
       return { success: false as const, code: "UNAUTHENTICATED" as const };

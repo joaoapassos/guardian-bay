@@ -5,6 +5,7 @@ import { getDb } from "@/db";
 import { inventory } from "@/db/schema/inventory";
 import { products } from "@/db/schema/products";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
+import { reserveAbuseBudget } from "@/lib/abuse/server";
 import { writeAuditEvent } from "@/lib/audit/server";
 import { setInventorySchema } from "../schemas/set-inventory";
 
@@ -14,45 +15,59 @@ export async function setInventoryQuantity(input: unknown) {
   if (!parsed.success)
     return { success: false as const, code: "INVALID_INPUT" as const };
   try {
-    return await getDb().transaction(async (tx) => {
+    let failure: unknown;
+    const result = await getDb().transaction(async (tx) => {
       const auth = await requireAuthenticatedAdmin(tx);
       if (!auth.success)
         return { success: false as const, code: "FORBIDDEN" as const };
-      const { productId, quantity, revision } = parsed.data;
-      const [product] = await tx
-        .select({ id: products.id })
-        .from(products)
-        .where(eq(products.id, productId))
-        .for("share");
-      if (!product)
-        return { success: false as const, code: "CONFLICT" as const };
-      const changed = await tx
-        .update(inventory)
-        .set({
-          availableQuantity: quantity,
-          revision: sql`${inventory.revision} + 1`,
+      if (!(await reserveAbuseBudget(tx, auth.identity.id, "admin.inventory")))
+        return { success: false as const, code: "RATE_LIMITED" as const };
+      // Savepoint uses the same connection: reserve persists on business rollback.
+      return tx
+        .transaction(async (tx) => {
+          if (!(await requireAuthenticatedAdmin(tx)).success) throw expired;
+          const { productId, quantity, revision } = parsed.data;
+          const [product] = await tx
+            .select({ id: products.id })
+            .from(products)
+            .where(eq(products.id, productId))
+            .for("share");
+          if (!product)
+            return { success: false as const, code: "CONFLICT" as const };
+          const changed = await tx
+            .update(inventory)
+            .set({
+              availableQuantity: quantity,
+              revision: sql`${inventory.revision} + 1`,
+            })
+            .where(
+              and(
+                eq(inventory.productId, productId),
+                eq(inventory.revision, revision),
+                sql`${inventory.revision} < 2147483647`,
+              ),
+            )
+            .returning({ productId: inventory.productId });
+          if (!(await requireAuthenticatedAdmin(tx)).success) throw expired;
+          if (changed.length)
+            await writeAuditEvent(tx, {
+              eventType: "admin.inventory.updated",
+              outcome: "SUCCESS",
+              actorUserId: auth.identity.id,
+              targetType: "inventory",
+              targetId: productId,
+            });
+          return changed.length
+            ? { success: true as const }
+            : { success: false as const, code: "CONFLICT" as const };
         })
-        .where(
-          and(
-            eq(inventory.productId, productId),
-            eq(inventory.revision, revision),
-            sql`${inventory.revision} < 2147483647`,
-          ),
-        )
-        .returning({ productId: inventory.productId });
-      if (!(await requireAuthenticatedAdmin(tx)).success) throw expired;
-      if (changed.length)
-        await writeAuditEvent(tx, {
-          eventType: "admin.inventory.updated",
-          outcome: "SUCCESS",
-          actorUserId: auth.identity.id,
-          targetType: "inventory",
-          targetId: productId,
+        .catch((error) => {
+          failure = error;
+          return null;
         });
-      return changed.length
-        ? { success: true as const }
-        : { success: false as const, code: "CONFLICT" as const };
     });
+    if (result === null) throw failure;
+    return result;
   } catch (error) {
     if (error === expired)
       return { success: false as const, code: "FORBIDDEN" as const };

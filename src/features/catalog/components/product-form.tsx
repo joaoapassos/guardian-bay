@@ -50,13 +50,15 @@ export function ProductForm({
       setMessage(
         result.success
           ? "Produto salvo."
-          : result.code === "CONFLICT"
-            ? "O produto mudou. Atualize a página antes de editar."
-            : result.code === "FORBIDDEN"
-              ? "Acesso administrativo negado. Entre novamente."
-              : result.code === "INVALID_INPUT"
-                ? "Confira os campos do produto."
-                : "Não foi possível salvar o produto.",
+          : result.code === "RATE_LIMITED"
+            ? "Muitas operações. Aguarde e tente novamente."
+            : result.code === "CONFLICT"
+              ? "O produto mudou. Atualize a página antes de editar."
+              : result.code === "FORBIDDEN"
+                ? "Acesso administrativo negado. Entre novamente."
+                : result.code === "INVALID_INPUT"
+                  ? "Confira os campos do produto."
+                  : "Não foi possível salvar o produto.",
       );
       if (result.success) router.refresh();
     } catch {

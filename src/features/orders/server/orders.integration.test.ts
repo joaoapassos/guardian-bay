@@ -59,6 +59,7 @@ beforeAll(async () => {
   await client`INSERT INTO inventory(product_id,available_quantity) VALUES (${productId},99)`;
 });
 beforeEach(async () => {
+  await client`DELETE FROM abuse_budgets WHERE user_id IN (${userId},${otherId})`;
   await client`DELETE FROM audit_events WHERE actor_user_id IN (${userId},${otherId})`;
   await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (${userId},${otherId}))`;
   await client`DELETE FROM orders WHERE user_id IN (${userId},${otherId})`;
@@ -72,6 +73,7 @@ beforeEach(async () => {
   });
 });
 afterAll(async () => {
+  await client`DELETE FROM abuse_budgets WHERE user_id=ANY(ARRAY[${userId}::uuid,${otherId}::uuid])`;
   await client`DELETE FROM audit_events WHERE actor_user_id IN (${userId},${otherId})`;
   await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (${userId},${otherId}))`;
   await client`DELETE FROM orders WHERE user_id IN (${userId},${otherId})`;
@@ -1254,4 +1256,54 @@ it("ECMSG-110: evento final único por intenção paga/recusada e rollback integ
   expect(
     await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`,
   ).toHaveLength(1);
+});
+
+it("ECMSG-113: cap rejeita intenção nova mas retry retorna pedido sem consumir budget", async () => {
+  const { createOrder } = await import("./create-order");
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},1)`;
+  const key = randomUUID();
+  const order = await createOrder({ checkoutKey: key });
+  expect(order.success).toBe(true);
+  await client`UPDATE abuse_budgets SET attempts=5 WHERE user_id=${userId} AND operation='checkout'`;
+  expect(await createOrder({ checkoutKey: randomUUID() })).toEqual({
+    success: false,
+    code: "RATE_LIMITED",
+  });
+  expect(await createOrder({ checkoutKey: key })).toEqual(order);
+  expect(
+    (
+      await client`SELECT attempts FROM abuse_budgets WHERE user_id=${userId} AND operation='checkout'`
+    )[0].attempts,
+  ).toBe(5);
+  expect(
+    (
+      await client`SELECT count(*)::int AS count FROM audit_events WHERE actor_user_id=${userId} AND event_type='order.completed'`
+    )[0].count,
+  ).toBe(1);
+});
+it("ECMSG-113: falha do audit desfaz negócio mas confirma reserva", async () => {
+  const { createOrder } = await import("./create-order");
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},1)`;
+  const writer = await import("@/lib/audit/server");
+  const spy = vi
+    .spyOn(writer, "writeAuditEvent")
+    .mockRejectedValueOnce(new Error("Synthetic sink failure"));
+  try {
+    await expect(createOrder({ checkoutKey: randomUUID() })).rejects.toThrow();
+  } finally {
+    spy.mockRestore();
+  }
+  expect(
+    (
+      await client`SELECT attempts FROM abuse_budgets WHERE user_id=${userId} AND operation='checkout'`
+    )[0].attempts,
+  ).toBe(1);
+  expect(
+    await client`SELECT id FROM orders WHERE user_id=${userId}`,
+  ).toHaveLength(0);
+  expect(
+    (
+      await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`
+    )[0].available_quantity,
+  ).toBe(99);
 });

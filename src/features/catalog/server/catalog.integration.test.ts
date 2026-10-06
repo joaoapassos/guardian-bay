@@ -2,7 +2,15 @@ import { randomUUID } from "node:crypto";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { getDb } from "@/db";
 import { hashPassword } from "@/features/auth/server/password";
 import { createSession, revokeSession } from "@/features/auth/server/session";
@@ -53,6 +61,9 @@ beforeAll(async () => {
   const [user] =
     await client`INSERT INTO users(email,password_hash) VALUES (${`${suffix}@catalog.example.test`},${passwordHash}) RETURNING id`;
   userId = user.id;
+});
+beforeEach(async () => {
+  await client`DELETE FROM abuse_budgets WHERE user_id=${userId}`;
 });
 describe("listagem pública", () => {
   it("não revela rascunhos e mantém paginação/DTO limitado", async () => {
@@ -113,6 +124,7 @@ describe("listagem pública", () => {
   });
 });
 afterAll(async () => {
+  await client`DELETE FROM abuse_budgets WHERE user_id=${userId}`;
   await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE id=${userId})`;
   await client`DELETE FROM users WHERE id=${userId}`;
   await client`DELETE FROM inventory WHERE product_id IN (SELECT id FROM products WHERE category_id=${categoryId})`;
