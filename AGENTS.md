@@ -34,3 +34,4 @@ Workflows complementares em `.agents/skills/<skill>/SKILL.md`:
 - [architecture](.agents/skills/architecture/SKILL.md): ao planejar ou revisar localização de código e dependências.
 - [security-review](.agents/skills/security-review/SKILL.md): ao revisar operações sensíveis ou alterações que cruzem limites de confiança.
 - [frontend-patterns](.agents/skills/frontend-patterns/SKILL.md): boas práticas de frontend subordinadas às decisões específicas do projeto.
+- [nextjs-security-scan](.agents/skills/nextjs-security-scan/SKILL.md): auditoria complementar de segurança do projeto Next.js, incluindo secrets, dependências vulneráveis, XSS, injection e configurações inseguras; não substitui as regras específicas de `security-review` nem a arquitetura do Guardian Bay.
