@@ -1172,4 +1172,50 @@ describe("ECMSG-37: troca de senha e revogação atômica", () => {
       "Requisição inválida.",
     );
   });
+  it("senha idêntica não revoga sessão; replay após troca não repete efeito", async () => {
+    const session = await createSession(id);
+    request.token = session.token;
+    expect(
+      await changePasswordAction({
+        currentPassword: password,
+        newPassword: password,
+      }),
+    ).toEqual({ success: false, code: "INVALID_CREDENTIALS" });
+    expect(await resolveSession(session.token)).not.toBeNull();
+    expect(await changePasswordAction(input())).toEqual({ success: true });
+    request.token = session.token;
+    expect(await changePasswordAction(input())).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+  });
+  it("evento de troca contém só allowlist; falha de logger não impede efeito", async () => {
+    request.token = (await createSession(id)).token;
+    const logger = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await changePasswordAction(input())).toEqual({ success: true });
+    const events = logger.mock.calls.map(([event]) => event);
+    const changed = events.filter(
+      (event) => event.result === "CREDENTIAL_CHANGED",
+    );
+    expect(changed).toHaveLength(1);
+    expect(Object.keys(changed[0]).sort()).toEqual([
+      "correlationId",
+      "event",
+      "operation",
+      "result",
+      "timestamp",
+    ]);
+    for (const secret of [password, nextPassword, passwordHash, email])
+      expect(JSON.stringify(events)).not.toContain(secret);
+    logger.mockImplementation(() => {
+      throw new Error("synthetic logging failure");
+    });
+    request.token = (await createSession(id)).token;
+    expect(
+      await changePasswordAction({
+        currentPassword: nextPassword,
+        newPassword: password,
+      }),
+    ).toEqual({ success: true });
+  });
 });

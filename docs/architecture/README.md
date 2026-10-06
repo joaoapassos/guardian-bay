@@ -16,6 +16,14 @@ A alteração de credencial exige identidade/sessão válida e senha atual; pers
 
 Guardian Bay não possui recuperação self-service de senha: não haverá link de reset, e-mail, OTP, pergunta secreta ou recovery code. Perda de acesso requer contato direto com administrador, por processo externo ainda não implementado. A ECMSG-38 formalizará os requisitos; não existe painel, role, reset privilegiado, senha padrão ou canal de contato configurado. Administração futura deverá verificar identidade e autorização, substituir a credencial sem conhecer a senha original e revogar sessões com auditoria.
 
+## Proteção dos fluxos de identidade (ECMSG-39)
+
+As cinco Actions existentes (cadastro, login, logout, leitura autorizada e alteração de senha) exigem Origin/Host conforme a política same-origin, validam campos/argumentos permitidos e devolvem resultados mínimos. Cadastro e login não confirmam existência de conta; cadastro duplicado executa hash e não sobrescreve credencial. Não se promete tempo constante absoluto, pois banco, concorrência e rede também afetam duração.
+
+Limites por operação são deliberadamente distintos: login 5, cadastro 2 e alteração de senha 3 por identificador/15 minutos, com orçamento global de 20/minuto e dois slots compartilhados. Não há IP confiável: limites internos não substituem proteção de entrada no deployment. Mutations repetidas continuam exigindo sessão/credencial atuais; logout é idempotente, login rotaciona e mudança de senha revoga todas as sessões. Leitura de conta só projeta e-mail próprio, sem mutation durante render.
+
+Os formulários usam texto escapado pelo React, schemas públicos sem implementação privilegiada e nenhuma persistência Client de sessão/senha. CSP permanece parcial, sem relaxamento para os formulários. Eventos são allowlisted e best effort; registro de mudança de credencial não contém identidade, senha ou sessão e uma falha de logging não altera o resultado. Recuperação administrativa não tem endpoint na aplicação.
+
 ## Recuperação administrativa (ECMSG-38)
 
 Perda de acesso exige contato com administrador e processo administrativo externo ao fluxo atual. A página de login informa essa decisão sem inventar canal de atendimento. Não há recuperação self-service, e-mail, token/link de reset, OTP, código de recuperação, pergunta secreta, senha padrão ou backdoor.
