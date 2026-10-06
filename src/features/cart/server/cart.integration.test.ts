@@ -119,9 +119,17 @@ describe("ECMSG-56: leitura autorizada", () => {
       code: "UNAUTHENTICATED",
     });
     request.token = (await createSession(userId)).token;
-    expect(await readCart()).toEqual({ success: true, items: [] });
+    expect(await readCart()).toEqual({
+      success: true,
+      items: [],
+      total: { amount: 0, currency: "BRL", formatted: "R$ 0,00" },
+    });
     await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${otherId},${productId},2)`;
-    expect(await readCart()).toEqual({ success: true, items: [] });
+    expect(await readCart()).toEqual({
+      success: true,
+      items: [],
+      total: { amount: 0, currency: "BRL", formatted: "R$ 0,00" },
+    });
     await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},3)`;
     const result = await readCart();
     expect(result).toMatchObject({
@@ -143,6 +151,7 @@ describe("ECMSG-56: leitura autorizada", () => {
         "available",
         "price",
         "image",
+        "subtotal",
       ]);
     await client`UPDATE products SET is_published=false WHERE id=${productId}`;
     expect(await readCart()).toMatchObject({
