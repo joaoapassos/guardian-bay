@@ -981,3 +981,36 @@ it("ECMSG-90: defesa condicionada do decremento retorna conflito e rollback", as
     );
   }
 });
+
+it("ECMSG-97: listagem administrativa nega visitante/customer e projeta pedidos de outros donos", async () => {
+  const { adminOrderList } = await import("./admin-order-list");
+  request.token = undefined;
+  expect(await adminOrderList()).toMatchObject({ success: false });
+  request.token = (await createSession(userId)).token;
+  expect(await adminOrderList()).toMatchObject({
+    success: false,
+    code: "FORBIDDEN",
+  });
+  const [order] =
+    await client`INSERT INTO orders(user_id,checkout_key,total_amount,status) VALUES (${otherId},${randomUUID()},1099,'PAID') RETURNING id`;
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  try {
+    const result = await adminOrderList({ limit: "1", sort: "created-desc" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.orders).toHaveLength(1);
+      expect(result.orders[0].orderId).toBe(order.id);
+      expect(Object.keys(result.orders[0]).sort()).toEqual([
+        "createdAt",
+        "orderId",
+        "status",
+        "total",
+      ]);
+    }
+    expect(await adminOrderList({ limit: "51" })).toMatchObject({
+      code: "INVALID_INPUT",
+    });
+  } finally {
+    await client`UPDATE users SET role='customer' WHERE id=${userId}`;
+  }
+});
