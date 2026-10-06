@@ -7,6 +7,10 @@ import { getDb } from "@/db";
 import { hashPassword } from "@/features/auth/server/password";
 import { createSession } from "@/features/auth/server/session";
 import { addToCartAction } from "../actions/add-to-cart.action";
+import {
+  removeCartItemAction,
+  updateCartItemAction,
+} from "../actions/cart-item.action";
 import { readCart } from "./read-cart";
 
 vi.mock("server-only", () => ({}));
@@ -202,5 +206,66 @@ describe("ECMSG-57: adição server-authoritative", () => {
       code: "LIMIT_REACHED",
     });
     await client`DELETE FROM cart_items WHERE user_id=${userId}`;
+  });
+});
+
+describe("ECMSG-58: atualização e remoção", () => {
+  it("ownership, quantidade explícita e item indisponível removível", async () => {
+    request.token = (await createSession(userId)).token;
+    await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${otherId},${productId},2)`;
+    expect(await updateCartItemAction({ productId, quantity: 3 })).toEqual({
+      success: false,
+      code: "CONFLICT",
+    });
+    expect(await removeCartItemAction({ productId })).toEqual({
+      success: true,
+    });
+    const [other] =
+      await client`SELECT quantity FROM cart_items WHERE user_id=${otherId}`;
+    expect(other.quantity).toBe(2);
+    await addToCartAction({ productId, quantity: 1 });
+    expect(await updateCartItemAction({ productId, quantity: 0 })).toEqual({
+      success: false,
+      code: "INVALID_INPUT",
+    });
+    await client`UPDATE products SET is_published=false WHERE id=${productId}`;
+    expect(await updateCartItemAction({ productId, quantity: 2 })).toEqual({
+      success: false,
+      code: "UNAVAILABLE",
+    });
+    expect(await removeCartItemAction({ productId })).toEqual({
+      success: true,
+    });
+    expect(await removeCartItemAction({ productId })).toEqual({
+      success: true,
+    });
+    await client`UPDATE products SET is_published=true WHERE id=${productId}`;
+    await client`DELETE FROM cart_items WHERE user_id=${otherId}`;
+  });
+  it("update/update, update/remove e remove/remove não recriam nem corrompem", async () => {
+    await addToCartAction({ productId, quantity: 1 });
+    expect(
+      await Promise.all([
+        updateCartItemAction({ productId, quantity: 5 }),
+        updateCartItemAction({ productId, quantity: 6 }),
+      ]),
+    ).toEqual([{ success: true }, { success: true }]);
+    const [row] =
+      await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`;
+    expect([5, 6]).toContain(row.quantity);
+    const pair = await Promise.all([
+      updateCartItemAction({ productId, quantity: 7 }),
+      removeCartItemAction({ productId }),
+    ]);
+    expect(pair[1]).toEqual({ success: true });
+    expect(
+      await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`,
+    ).toHaveLength(0);
+    expect(
+      await Promise.all([
+        removeCartItemAction({ productId }),
+        removeCartItemAction({ productId }),
+      ]),
+    ).toEqual([{ success: true }, { success: true }]);
   });
 });
