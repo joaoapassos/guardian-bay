@@ -663,6 +663,14 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "catalog through administrative navigation",
                 );
                 const adminSubmit = async (label, values, feedback = true) => {
+                  // Page completion is not hydration completion. requestSubmit
+                  // before React attaches its handler can perform a native GET instead.
+                  // Synchronize the harness with the installed React handler;
+                  // never retry a mutation or weaken its resulting assertions.
+                  await waitFor(
+                    `(() => { const form=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(label)}); return !!form && Object.keys(form).some(key=>key.startsWith('__reactProps$') && (typeof form[key]?.onSubmit==='function' || typeof form[key]?.action==='function')); })()`,
+                    `hydrated admin form ${label}`,
+                  );
                   await evaluate(
                     `(() => { const form=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(label)}); for(const [name,value] of Object.entries(${JSON.stringify(values)})) { const input=form.elements.namedItem(name); if(input.type==='checkbox') input.checked=value; else input.value=value; input.dispatchEvent(new Event('change',{bubbles:true})); } form.requestSubmit(); })()`,
                   );
