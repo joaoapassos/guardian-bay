@@ -54,6 +54,7 @@ beforeAll(async () => {
   await client`INSERT INTO inventory(product_id) VALUES (${productId})`;
 });
 beforeEach(async () => {
+  await client`UPDATE users SET role='customer' WHERE id IN (${userId},${otherId})`;
   await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (${userId},${otherId}))`;
   await client`DELETE FROM orders WHERE user_id IN (${userId},${otherId})`;
   await client`DELETE FROM cart_items WHERE user_id IN (${userId},${otherId})`;
@@ -133,4 +134,47 @@ it("ECMSG-82: catálogo mantém publicado sem estoque e não expõe revision", a
   expect(detail).not.toHaveProperty("stockQuantity");
   await client`UPDATE products SET is_published=false WHERE id=${productId}`;
   expect(await readProduct(productId)).toBeNull();
+});
+
+it("ECMSG-87: estoque exige admin atual, revisão e contrato estrito", async () => {
+  const { setInventoryQuantityAction } = await import(
+    "../actions/set-inventory.action"
+  );
+  const { readAdminCatalog } = await import(
+    "@/features/catalog/server/read-admin-catalog"
+  );
+  const input = { productId, quantity: 10, revision: 1 };
+  request.token = undefined;
+  expect(await setInventoryQuantityAction(input)).toEqual({
+    success: false,
+    code: "FORBIDDEN",
+  });
+  request.token = (await createSession(userId)).token;
+  expect(await readAdminCatalog({})).toBeNull();
+  expect(await setInventoryQuantityAction(input)).toEqual({
+    success: false,
+    code: "FORBIDDEN",
+  });
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  expect(await setInventoryQuantityAction({ ...input, userId })).toEqual({
+    success: false,
+    code: "INVALID_INPUT",
+  });
+  expect(await setInventoryQuantityAction(input)).toEqual({ success: true });
+  expect(await setInventoryQuantityAction(input)).toEqual({
+    success: false,
+    code: "CONFLICT",
+  });
+  expect(
+    (
+      await client`SELECT available_quantity,revision FROM inventory WHERE product_id=${productId}`
+    )[0],
+  ).toEqual({ available_quantity: 10, revision: 2 });
+  request.headers = new Headers({
+    host: "localhost:3000",
+    origin: "https://attacker.test",
+  });
+  await expect(
+    setInventoryQuantityAction({ ...input, revision: 2 }),
+  ).rejects.toThrow("Requisição inválida.");
 });
