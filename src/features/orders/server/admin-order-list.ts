@@ -1,5 +1,5 @@
 import "server-only";
-import { asc, desc } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { orders } from "@/db/schema/orders";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
@@ -24,6 +24,14 @@ export async function adminOrderList(input: unknown = {}) {
           amount: orders.totalAmount,
         })
         .from(orders)
+        .where(
+          and(
+            query.data.status
+              ? eq(orders.status, query.data.status)
+              : undefined,
+            query.data.orderId ? eq(orders.id, query.data.orderId) : undefined,
+          ),
+        )
         .orderBy(direction(orders.createdAt), direction(orders.id))
         .limit(query.data.limit + 1)
         .offset((query.data.page - 1) * query.data.limit);

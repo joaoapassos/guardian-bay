@@ -513,3 +513,22 @@ it("ECMSG-93: guard administrativo consulta role atual, sem autoridade do layout
   await client`UPDATE users SET role='customer' WHERE id=${userId}`;
   expect((await requireAuthenticatedAdmin()).success).toBe(false);
 });
+
+it("ECMSG-100: busca administrativa literal e filtros limitados", async () => {
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  request.token = (await createSession(userId)).token;
+  for (const query of ["%", "_", "' OR 1=1 --"]) {
+    const result = await readAdminCatalog({ query, category: categoryId });
+    expect(result).not.toBeNull();
+    expect(
+      result?.products.every((product) => product.name.includes(query)),
+    ).toBe(true);
+  }
+  for (const input of [
+    { query: "a".repeat(101) },
+    { page: "1001" },
+    { publication: "all OR true" },
+    { sort: "raw" },
+  ])
+    expect(await readAdminCatalog(input)).toBeNull();
+});
