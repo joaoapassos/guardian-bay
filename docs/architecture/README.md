@@ -20,6 +20,8 @@ Produto/categoria possuem revisão inteira positiva para detectar edição conco
 
 ## Revisão da Epic 3 (ECMSG-41)
 
+O catálogo público em `/products` lê pelo server da feature, com publicação restrita no SQL e DTO de id/nome/categoria/preço. Paginação usa 20 itens por padrão, máximo 50 e página máxima 1.000, ordenação estável por UUID e uma linha extra para detectar próxima página. `connection()` exclui a leitura de prerender/cache estático; queries Drizzle não usam cache persistente. Estados vazio, input inválido, loading e falha operacional têm apresentação controlada.
+
 As rotas `/`, `/login`, `/register` e `/account` usam composição Server; somente formulários e botão de logout são Client. RHF/Zod cuidam de UX e contratos, sem importar DB/credenciais/sessão privilegiada. As cinco Actions validam entradas/origem e delegam às operações server-only. Conta expõe somente e-mail próprio; hashes intermediários do login e tokens não integram DTOs públicos. Não há Zustand, roles/admin, recuperação self-service ou operações comerciais.
 
 Cadastro não autentica nem sobrescreve credencial existente. Login rotaciona, e mudança de senha exige senha atual, atualiza hash e revoga todas as sessões atomicamente. Locks da identidade e conferência do hash verificado impedem criação de sessão com credencial obsoleta após troca concorrente. Ownership, expiração e revogação são verificados na operação; redirect/navegação não concedem autoridade. A correção de reset dos campos foi comprovada pelo browser ao repetir o formulário após senha atual incorreta.

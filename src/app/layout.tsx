@@ -37,6 +37,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               Guardian Bay
             </Link>
             <div className="flex items-center gap-5">
+              <Link href="/products">Produtos</Link>
               {identity ? (
                 <>
                   <Link href="/account">Conta</Link>
