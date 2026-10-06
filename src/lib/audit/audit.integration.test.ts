@@ -60,3 +60,41 @@ it("ECMSG-106: defaults, UUIDs históricos sem FK, allowlists e nulidade coerent
     client`INSERT INTO audit_events(event_type,outcome,correlation_id) VALUES ('auth.abuse.threshold_reached','THRESHOLD_REACHED','not-a-uuid')`,
   ).rejects.toMatchObject({ code: "22P02" });
 });
+
+it("ECMSG-107: writer usa transação do chamador e rollback não deixa evento", async () => {
+  const { writeAuditEvent } = await import("./server");
+  const before = (
+    await client`SELECT count(*)::int AS count FROM audit_events WHERE actor_user_id=${actor}`
+  )[0].count;
+  await expect(
+    getDb().transaction(async (tx) => {
+      await writeAuditEvent(tx, {
+        eventType: "order.completed",
+        outcome: "SUCCESS",
+        actorUserId: actor,
+        targetType: "order",
+        targetId: randomUUID(),
+      });
+      throw new Error("Synthetic rollback");
+    }),
+  ).rejects.toThrow("Synthetic rollback");
+  expect(
+    (
+      await client`SELECT count(*)::int AS count FROM audit_events WHERE actor_user_id=${actor}`
+    )[0].count,
+  ).toBe(before);
+  await getDb().transaction((tx) =>
+    writeAuditEvent(tx, {
+      eventType: "order.completed",
+      outcome: "FAILED",
+      actorUserId: actor,
+      targetType: "order",
+      targetId: randomUUID(),
+    }),
+  );
+  expect(
+    (
+      await client`SELECT count(*)::int AS count FROM audit_events WHERE actor_user_id=${actor}`
+    )[0].count,
+  ).toBe(before + 1);
+});
