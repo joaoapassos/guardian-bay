@@ -4,6 +4,8 @@ Sistema: E-commerce seguro · Epic 1: Fundação e arquitetura.
 
 Este documento registra as decisões aprovadas. O [AGENTS.md](../../AGENTS.md) estabelece invariantes; as [skills](../../.agents/skills/) descrevem procedimentos para aplicá-las.
 
+O [threat model inicial](threat-model.md) identifica atores, ativos, entradas externas, trust boundaries e ameaças que orientam a Epic 2.
+
 ## Precedência das instruções
 
 A ordem entre instruções do projeto é `AGENTS.md → arquitetura aprovada do Guardian Bay → regras de segurança → frontend-patterns e outras recomendações genéricas`. Exemplos genéricos não alteram as decisões específicas. A skill de frontend conserva seu repertório de composição, fetching e performance; aplique-o dentro dos limites abaixo. Essa precedência não dispensa os invariantes de segurança registrados no projeto.
