@@ -16,6 +16,12 @@ A alteração de credencial exige identidade/sessão válida e senha atual; pers
 
 Guardian Bay não possui recuperação self-service de senha: não haverá link de reset, e-mail, OTP, pergunta secreta ou recovery code. Perda de acesso requer contato direto com administrador, por processo externo ainda não implementado. A ECMSG-38 formalizará os requisitos; não existe painel, role, reset privilegiado, senha padrão ou canal de contato configurado. Administração futura deverá verificar identidade e autorização, substituir a credencial sem conhecer a senha original e revogar sessões com auditoria.
 
+## Recuperação administrativa (ECMSG-38)
+
+Perda de acesso exige contato com administrador e processo administrativo externo ao fluxo atual. A página de login informa essa decisão sem inventar canal de atendimento. Não há recuperação self-service, e-mail, token/link de reset, OTP, código de recuperação, pergunta secreta, senha padrão ou backdoor.
+
+Não existe painel, papel administrativo ou Action de reset nesta Epic. Uma implementação futura deverá definir autenticação forte do administrador, autorização, auditoria, revogação de sessões e nova credencial temporária ou processo equivalente. Recuperação substitui a credencial; ninguém pode ler ou recuperar a senha original. Conhecer o e-mail não prova identidade nem autoriza substituição de senha.
+
 ## Alteração de senha (ECMSG-37)
 
 `/account` compõe formulário Client mínimo; a Action valida objeto estrito com senha atual (política de autenticação) e nova senha (política de criação), exige mesma origem e resolve ownership pela sessão. Não recebe ID de usuário. Exige nova senha diferente da atual. Não há alteração sem confirmar a credencial atual.

@@ -53,6 +53,8 @@ O diagrama inclui persistência de autenticação/sessão e operações futuras 
 
 ## Ameaças prioritárias
 
+Recuperação self-service não é uma superfície existente. Perda de acesso requer contato administrativo externo, ainda sem operação privilegiada na aplicação. Futura substituição administrativa de credencial exige autenticação forte, autorização, auditoria e revogação de sessões; conhecer o e-mail não é prova de identidade. Consulte a [política de recuperação](README.md#recuperação-administrativa-ecmsg-38).
+
 Usamos [STRIDE](https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats) como classificação: **S** identidade falsa, **T** adulteração, **R** repúdio, **I** exposição de informação, **D** indisponibilidade e **E** elevação de privilégio. A classificação abaixo vale para o escopo atual; controles parciais não equivalem a eliminação da ameaça. Superfícies futuras devem ser reavaliadas quando implementadas.
 
 | Ameaça / STRIDE | Estado | Controle e risco residual |
