@@ -11,7 +11,8 @@ export default async function CheckoutPage() {
   if (!preview.success && preview.code === "UNAUTHENTICATED")
     redirect("/login");
   const cart =
-    !preview.success && preview.code === "UNAVAILABLE"
+    !preview.success &&
+    (preview.code === "UNAVAILABLE" || preview.code === "OUT_OF_STOCK")
       ? await readCart()
       : null;
   return (
@@ -47,7 +48,9 @@ export default async function CheckoutPage() {
           <p role="alert" className="mt-6">
             {preview.code === "EMPTY_CART"
               ? "Seu carrinho está vazio."
-              : "Produto indisponível. Corrija o carrinho antes de confirmar; não há checkout parcial."}
+              : preview.code === "OUT_OF_STOCK"
+                ? "Estoque insuficiente. Corrija o carrinho; não há checkout parcial."
+                : "Produto indisponível. Corrija o carrinho antes de confirmar; não há checkout parcial."}
           </p>
           {cart?.success && (
             <ul>

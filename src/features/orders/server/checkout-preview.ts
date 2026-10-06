@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
 import { cartItems } from "@/db/schema/cart-items";
+import { inventory } from "@/db/schema/inventory";
 import { products } from "@/db/schema/products";
 import { sessions } from "@/db/schema/sessions";
 import { sessionValidity, tokenHash } from "@/features/auth/server/session";
@@ -18,12 +19,20 @@ export function checkoutCandidate(
     amount: number | null;
     currency: string | null;
     published: boolean | null;
+    availableQuantity: number | null;
   }[],
 ) {
   if (!rows.some((row) => row.productId))
     return { success: false as const, code: "EMPTY_CART" as const };
   if (rows.some((row) => !row.published))
     return { success: false as const, code: "UNAVAILABLE" as const };
+  if (
+    rows.some(
+      (row) =>
+        row.quantity === null || (row.availableQuantity ?? 0) < row.quantity,
+    )
+  )
+    return { success: false as const, code: "OUT_OF_STOCK" as const };
   return {
     success: true as const,
     snapshot: createOrderSnapshot(
@@ -51,10 +60,12 @@ export async function checkoutPreview() {
         amount: products.amount,
         currency: products.currency,
         published: products.isPublished,
+        availableQuantity: inventory.availableQuantity,
       })
       .from(sessions)
       .leftJoin(cartItems, eq(cartItems.userId, sessions.userId))
       .leftJoin(products, eq(products.id, cartItems.productId))
+      .leftJoin(inventory, eq(inventory.productId, products.id))
       .where(and(eq(sessions.tokenHash, hash), sessionValidity()))
       .orderBy(cartItems.productId)
       .limit(101);
