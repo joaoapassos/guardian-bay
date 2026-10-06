@@ -4,6 +4,7 @@ import { CategoryForm } from "@/features/catalog/components/category-form";
 import { ProductForm } from "@/features/catalog/components/product-form";
 import { readAdminCatalog } from "@/features/catalog/server/read-admin-catalog";
 import { InventoryForm } from "@/features/inventory/components/inventory-form";
+import { moneyDto } from "@/lib/money/price";
 
 export default async function AdminCatalogPage({
   searchParams,
@@ -15,6 +16,7 @@ export default async function AdminCatalogPage({
       <h1 className="text-3xl font-semibold">Administrar catálogo</h1>
       <section className="space-y-4">
         <h2 className="text-2xl font-semibold">Categorias</h2>
+        <h3 className="font-semibold">Nova categoria</h3>
         <CategoryForm />
         {result.categories.map((category) => (
           <CategoryForm
@@ -25,11 +27,26 @@ export default async function AdminCatalogPage({
       </section>
       <section className="space-y-4">
         <h2 className="text-2xl font-semibold">Produtos</h2>
+        <h3 className="font-semibold">Novo produto</h3>
         <ProductForm categories={result.categories} />
+        {result.products.length === 0 && <p>Nenhum produto nesta página.</p>}
         {result.products.map((product) => (
           <div
+            className="space-y-4 rounded border p-4"
             key={`${product.id}:${product.revision}:${product.inventoryRevision}`}
           >
+            <h3 className="text-xl font-semibold">{product.name}</h3>
+            <p>
+              {product.isPublished ? "Publicado" : "Rascunho"} ·{" "}
+              {moneyDto(product.amount).formatted} · Categoria:{" "}
+              {result.categories.find(
+                (category) => category.id === product.categoryId,
+              )?.name ?? "Categoria fora desta seleção"}
+            </p>
+            <p>
+              Revisão de catálogo: {product.revision}. Alterações concorrentes
+              exigem recarregar.
+            </p>
             <ProductForm
               key={`${product.id}:${product.revision}`}
               product={product}
