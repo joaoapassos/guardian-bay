@@ -6,6 +6,12 @@ import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { getDb } from "@/db";
 
 vi.mock("server-only", () => ({}));
+const request = vi.hoisted(() => ({ token: undefined as string | undefined }));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: () => (request.token ? { value: request.token } : undefined),
+  }),
+}));
 const value = process.env.TEST_DATABASE_URL;
 if (!value) throw new Error("TEST_DATABASE_URL é obrigatória.");
 const url = new URL(value);
@@ -181,5 +187,56 @@ it("ECMSG-112: limiar único, sem evento por bloqueio; falha do audit não devol
     ).toBe(5);
   } finally {
     await client`DELETE FROM login_rate_limits WHERE key='global' OR key=${key}`;
+  }
+});
+
+it("ECMSG-114: leitura própria exige admin atual, filtros limitados e DTO mínimo", async () => {
+  const { readAudit } = await import("@/features/audit/server/read-audit");
+  const { createSession } = await import("@/features/auth/server/session");
+  const { hashPassword } = await import("@/features/auth/server/password");
+  request.token = undefined;
+  expect(await readAudit()).toMatchObject({
+    success: false,
+    code: "UNAUTHENTICATED",
+  });
+  const hash = await hashPassword("Audit admin integration passphrase");
+  const [user] =
+    await client`INSERT INTO users(email,password_hash) VALUES (${`${randomUUID()}@audit.example.test`},${hash}) RETURNING id`;
+  try {
+    request.token = (await createSession(user.id)).token;
+    expect(await readAudit()).toMatchObject({ code: "FORBIDDEN" });
+    await client`UPDATE users SET role='admin' WHERE id=${user.id}`;
+    const result = await readAudit({
+      actorUserId: actor,
+      limit: "1",
+      sort: "oldest",
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error("Expected audit read");
+    expect(result.events).toHaveLength(1);
+    expect(result.hasNext).toBe(true);
+    expect(Object.keys(result.events[0]).sort()).toEqual([
+      "actorUserId",
+      "eventId",
+      "eventType",
+      "occurredAt",
+      "outcome",
+      "targetId",
+      "targetType",
+    ]);
+    for (const input of [
+      { page: "1001" },
+      { limit: "51" },
+      { sort: "SQL DESC" },
+      { actorUserId: "' OR 1=1 --" },
+      { metadata: "free" },
+      { eventType: "free.event" },
+    ])
+      expect(await readAudit(input)).toMatchObject({ code: "INVALID_INPUT" });
+    await client`UPDATE users SET role='customer' WHERE id=${user.id}`;
+    expect(await readAudit()).toMatchObject({ code: "FORBIDDEN" });
+  } finally {
+    request.token = undefined;
+    await client`DELETE FROM users WHERE id=${user.id}`;
   }
 });

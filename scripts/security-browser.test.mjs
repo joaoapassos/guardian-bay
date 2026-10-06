@@ -652,7 +652,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   await evaluate(
                     "[...document.querySelectorAll('nav[aria-label=Backoffice] a')].map(a=>a.textContent).join('|')",
                   ),
-                  "Visão geral|Catálogo|Pedidos",
+                  "Visão geral|Catálogo|Pedidos|Auditoria",
                 );
                 await evaluate(
                   "document.querySelector('nav[aria-label=Backoffice] a[href=\"/admin/catalog\"]').click()",
