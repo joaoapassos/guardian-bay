@@ -4,6 +4,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/db";
+import { listProducts } from "./list-products";
 
 vi.mock("server-only", () => ({}));
 const value = process.env.TEST_DATABASE_URL;
@@ -27,6 +28,42 @@ beforeAll(async () => {
   const [category] =
     await client`INSERT INTO categories(name) VALUES (${`Fixture ${suffix}`}) RETURNING id`;
   categoryId = category.id;
+});
+describe("listagem pública", () => {
+  it("não revela rascunhos e mantém paginação/DTO limitado", async () => {
+    const [fixture] =
+      await client`INSERT INTO products(name,category_id,amount) VALUES ('Produto',${categoryId},1099) RETURNING id`;
+    const productId = fixture.id;
+    await client`UPDATE products SET is_published=false WHERE id=${productId}`;
+    const hidden = await listProducts({});
+    expect(
+      hidden.success && hidden.products.some((p) => p.id === productId),
+    ).toBe(false);
+    await client`UPDATE products SET is_published=true WHERE id=${productId}`;
+    const visible = await listProducts({});
+    expect(
+      visible.success && visible.products.find((p) => p.id === productId),
+    ).toMatchObject({
+      name: "Produto",
+      price: { amount: 1099, currency: "BRL" },
+    });
+    const limited = await listProducts({ limit: "1" });
+    expect(limited.success && limited.products.length).toBeLessThanOrEqual(1);
+    if (visible.success)
+      expect(
+        Object.keys(visible.products.find((p) => p.id === productId) ?? {}),
+      ).toEqual(["id", "name", "category", "price"]);
+    for (const input of [
+      { page: "0" },
+      { page: "1001" },
+      { limit: "51" },
+      { role: "admin" },
+    ])
+      expect(await listProducts(input)).toMatchObject({
+        success: false,
+        code: "INVALID_INPUT",
+      });
+  });
 });
 afterAll(async () => {
   await client`DELETE FROM products WHERE category_id=${categoryId}`;
