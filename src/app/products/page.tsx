@@ -79,8 +79,8 @@ export default async function ProductsPage({
                   key={product.id}
                   className="rounded border border-zinc-300 p-5"
                 >
+                  <ProductImage image={product.image} />
                   <h2 className="text-xl font-semibold">
-                    <ProductImage image={product.image} />
                     <Link href={`/products/${product.id}`}>{product.name}</Link>
                   </h2>
                   <p>{product.category}</p>

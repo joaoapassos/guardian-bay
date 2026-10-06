@@ -328,3 +328,111 @@ describe("operações administrativas reais (ECMSG-49)", () => {
     }
   });
 });
+
+describe("revisão concorrente de segurança (ECMSG-51)", () => {
+  it("rollback se a sessão expirar durante espera pelo produto", async () => {
+    const session = await createSession(userId);
+    request.token = session.token;
+    const [product] =
+      await client`INSERT INTO products(name,category_id,amount) VALUES ('Concurrent security',${categoryId},1099) RETURNING id`;
+    const blocker = postgres(value, { max: 1, onnotice: () => {} });
+    const logging = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let unlock!: () => void;
+    const release = new Promise<void>((done) => {
+      unlock = done;
+    });
+    let locked!: () => void;
+    const acquired = new Promise<void>((done) => {
+      locked = done;
+    });
+    const holding = blocker.begin(async (tx) => {
+      await tx`SELECT id FROM products WHERE id=${product.id} FOR UPDATE`;
+      locked();
+      await release;
+    });
+    try {
+      await acquired;
+      await client`UPDATE sessions SET expires_at=clock_timestamp()+interval '1 second' WHERE user_id=${userId}`;
+      const pending = manageCatalog({
+        operation: "update-product",
+        id: product.id,
+        revision: 1,
+        name: "Unauthorized expired update",
+        description: "",
+        categoryId,
+        amount: 1200,
+        currency: "BRL",
+        isPublished: true,
+      });
+      await new Promise((done) => setTimeout(done, 1200));
+      unlock();
+      await holding;
+      expect(await pending).toEqual({
+        success: false,
+        code: "OPERATION_FAILED",
+      });
+      const [stored] =
+        await client`SELECT name,amount,revision,is_published FROM products WHERE id=${product.id}`;
+      expect(stored).toMatchObject({
+        name: "Concurrent security",
+        amount: 1099,
+        revision: 1,
+        is_published: false,
+      });
+    } finally {
+      unlock();
+      await holding;
+      await blocker.end();
+      logging.mockRestore();
+      request.token = undefined;
+    }
+  });
+  it("não autoriza sessão revogada enquanto a identidade está bloqueada", async () => {
+    request.token = (await createSession(userId)).token;
+    const blocker = postgres(value, { max: 1, onnotice: () => {} });
+    let unlock!: () => void;
+    const release = new Promise<void>((done) => {
+      unlock = done;
+    });
+    let locked!: () => void;
+    const acquired = new Promise<void>((done) => {
+      locked = done;
+    });
+    const holding = blocker.begin(async (tx) => {
+      await tx`SELECT id FROM users WHERE id=${userId} FOR UPDATE`;
+      locked();
+      await release;
+    });
+    try {
+      await acquired;
+      const pending = manageCatalog({
+        operation: "create-category",
+        name: `Revoked ${suffix}`,
+      });
+      // Wait for an actual lock wait, not an assumed scheduling order.
+      let waiting = false;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const [row] =
+          await client`SELECT count(*)::integer AS count FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'`;
+        if (row.count > 0) {
+          waiting = true;
+          break;
+        }
+        await new Promise((done) => setTimeout(done, 10));
+      }
+      expect(waiting).toBe(true);
+      await revokeSession(request.token);
+      unlock();
+      await holding;
+      expect(await pending).toEqual({ success: false, code: "FORBIDDEN" });
+      expect(
+        await client`SELECT id FROM categories WHERE name=${`Revoked ${suffix}`}`,
+      ).toHaveLength(0);
+    } finally {
+      unlock();
+      await holding;
+      await blocker.end();
+      request.token = undefined;
+    }
+  });
+});
