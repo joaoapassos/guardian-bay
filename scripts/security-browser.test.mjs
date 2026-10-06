@@ -67,9 +67,26 @@ test("production HTTP headers and scaffold resources", async (t) => {
         );
       assert.ok(resources.some((resource) => resource.endsWith(".js")));
       assert.ok(resources.some((resource) => resource.endsWith(".css")));
-      assert.ok(resources.some((resource) => resource.endsWith(".woff2")));
-      for (const resource of new Set(resources))
-        assert.equal((await fetch(base + resource)).status, 200, resource);
+      const fonts = new Set(
+        resources.filter((resource) => resource.endsWith(".woff2")),
+      );
+      for (const resource of new Set(resources)) {
+        const response = await fetch(base + resource);
+        assert.equal(response.status, 200, resource);
+        if (resource.endsWith(".css")) {
+          const css = await response.text();
+          for (const match of css.matchAll(
+            /url\(["']?([^\s)"']+\.woff2)["']?\)/g,
+          ))
+            fonts.add(new URL(match[1], base + resource).pathname);
+        }
+      }
+      assert.ok(
+        fonts.size > 0,
+        "font resources must be referenced by HTML or CSS",
+      );
+      for (const font of fonts)
+        assert.equal((await fetch(base + font)).status, 200, font);
     }
     await t.test(
       "Chromium runtime and CSP enforcement",
