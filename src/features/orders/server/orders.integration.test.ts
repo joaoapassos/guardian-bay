@@ -284,3 +284,48 @@ it("ECMSG-74: histórico privado, DTO mínimo e paginação limitada", async () 
     code: "INVALID_INPUT",
   });
 });
+it("ECMSG-75: detalhes usam snapshot, ownership na query e DTO mínimo", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const { orderDetail } = await import("./order-detail");
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2)`;
+  const created = await checkoutAction({ checkoutKey: randomUUID() });
+  if (!created.success) throw new Error("Fixture checkout failed");
+  const before = await orderDetail(created.orderId);
+  expect(before).toMatchObject({
+    success: true,
+    order: {
+      total: { amount: 2198 },
+      items: [{ productName: "Order fixture", price: { amount: 1099 } }],
+    },
+  });
+  await client`UPDATE products SET name='Later name',amount=9999,is_published=false WHERE id=${productId}`;
+  expect(await orderDetail(created.orderId)).toEqual(before);
+  if (before.success) {
+    expect(Object.keys(before.order)).toEqual([
+      "orderId",
+      "status",
+      "createdAt",
+      "total",
+      "items",
+    ]);
+    expect(Object.keys(before.order.items[0])).toEqual([
+      "productName",
+      "quantity",
+      "price",
+      "subtotal",
+    ]);
+  }
+  request.token = (await createSession(otherId)).token;
+  expect(await orderDetail(created.orderId)).toEqual({
+    success: false,
+    code: "NOT_FOUND",
+  });
+  expect(await orderDetail(randomUUID())).toEqual({
+    success: false,
+    code: "NOT_FOUND",
+  });
+  expect(await orderDetail("' OR 1=1 --")).toEqual({
+    success: false,
+    code: "NOT_FOUND",
+  });
+});
