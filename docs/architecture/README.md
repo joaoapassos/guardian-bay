@@ -14,7 +14,7 @@ Uma categoria plana tem UUID e nome de 1–80 caracteres após trim, único sem 
 
 `isPublished` booleano, inicialmente false, basta: false cobre rascunho e produto retirado do público, sem workflow adicional. Toda consulta pública deve restringir `isPublished = true` no SQL; inexistente e não publicado têm resposta pública equivalente. Não haverá delete físico na UI; FK de categoria é restritiva, sem cascade destrutivo sobre produtos.
 
-Preço é inteiro positivo entre 1 e 2.147.483.647 centavos, BRL, representável em PostgreSQL integer e com segurança em JavaScript. Zero/gratuidade não é requisito. Dinero será o consumidor monetário; nunca persistir float ou tratar preço reenviado pelo cliente como autoridade. Futuras compras deverão reler o valor no servidor.
+Preço é inteiro positivo entre 1 e 2.147.483.647 centavos, BRL, representável em PostgreSQL integer e com segurança em JavaScript. Zero/gratuidade não é requisito. `lib/money/price.ts` valida o contrato estrito e usa Dinero.js 2.0.2 com BRL/escala 2. O DTO contém amount, currency e formatted; a apresentação usa a representação decimal exata do Dinero e Intl, sem cálculo monetário decimal ou arredondamento de entradas fracionárias. Nunca persistir float ou tratar preço reenviado pelo cliente como autoridade. Futuras compras deverão reler o valor no servidor.
 
 Produto/categoria possuem revisão inteira positiva para detectar edição concorrente, sem timestamps sem consumidor. Imagens serão introduzidas com a política específica da ECMSG-50; não há upload ou origem externa antecipados. Escritas administrativas exigirão capacidade persistida e sessão atual, nunca role ou ownership vindos do cliente. Modelagem é decisão aprovada, não implementação existente até as Tasks correspondentes.
 
