@@ -668,3 +668,51 @@ it("ECMSG-84: insuficiência/ausência rejeita conjunto sem criar pedido", async
   ).toEqual([{ quantity: 3 }]);
   await client`INSERT INTO inventory(product_id) VALUES (${productId})`;
 });
+
+it("ECMSG-85: PAID consome uma vez, failed preserva e revisão saturada rollback", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  await client`UPDATE inventory SET available_quantity=5 WHERE product_id=${productId}`;
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2)`;
+  const checkoutKey = randomUUID();
+  const paid = await checkoutAction({ checkoutKey });
+  expect(paid).toMatchObject({ success: true, status: "PAID" });
+  expect(
+    (
+      await client`SELECT available_quantity,revision FROM inventory WHERE product_id=${productId}`
+    )[0],
+  ).toEqual({ available_quantity: 3, revision: 2 });
+  expect(await checkoutAction({ checkoutKey })).toEqual(paid);
+  expect(
+    (
+      await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`
+    )[0].available_quantity,
+  ).toBe(3);
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2)`;
+  await client`UPDATE products SET amount=1000000 WHERE id=${productId}`;
+  expect(await checkoutAction({ checkoutKey: randomUUID() })).toMatchObject({
+    success: true,
+    status: "PAYMENT_FAILED",
+  });
+  expect(
+    (
+      await client`SELECT available_quantity,revision FROM inventory WHERE product_id=${productId}`
+    )[0],
+  ).toEqual({ available_quantity: 3, revision: 2 });
+  expect(
+    await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`,
+  ).toEqual([{ quantity: 2 }]);
+  await client`UPDATE products SET amount=1099 WHERE id=${productId}`;
+  await client`UPDATE inventory SET revision=2147483647 WHERE product_id=${productId}`;
+  expect(await checkoutAction({ checkoutKey: randomUUID() })).toEqual({
+    success: false,
+    code: "CONFLICT",
+  });
+  expect(
+    await client`SELECT id FROM orders WHERE user_id=${userId}`,
+  ).toHaveLength(2);
+  expect(
+    (
+      await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`
+    )[0].available_quantity,
+  ).toBe(3);
+});

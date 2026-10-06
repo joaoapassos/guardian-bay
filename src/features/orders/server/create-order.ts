@@ -17,6 +17,7 @@ import { checkoutCandidate } from "./checkout-preview";
 import { orderFailure } from "./order-event";
 
 const expired = Symbol("session-expired");
+const inventoryConflict = Symbol("inventory-conflict");
 export async function createOrder(input: unknown) {
   const parsed = checkoutSchema.safeParse(input);
   if (!parsed.success)
@@ -174,6 +175,23 @@ export async function createOrder(input: unknown) {
           ),
         );
       if (status === "PAID") {
+        for (const item of checked.snapshot.items) {
+          const changed = await tx
+            .update(inventory)
+            .set({
+              availableQuantity: sql`${inventory.availableQuantity} - ${item.quantity}`,
+              revision: sql`${inventory.revision} + 1`,
+            })
+            .where(
+              and(
+                eq(inventory.productId, item.productId),
+                sql`${inventory.availableQuantity} >= ${item.quantity}`,
+                sql`${inventory.revision} < 2147483647`,
+              ),
+            )
+            .returning({ productId: inventory.productId });
+          if (!changed.length) throw inventoryConflict;
+        }
         // Identity lock serializes cart mutations; delete only snapshot products.
         await tx.delete(cartItems).where(
           and(
@@ -200,6 +218,8 @@ export async function createOrder(input: unknown) {
   } catch (error) {
     if (error === expired)
       return { success: false as const, code: "UNAUTHENTICATED" as const };
+    if (error === inventoryConflict)
+      return { success: false as const, code: "CONFLICT" as const };
     orderFailure("create");
     throw new Error("Não foi possível concluir o checkout.");
   }
