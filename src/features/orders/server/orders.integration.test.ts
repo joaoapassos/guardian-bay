@@ -884,3 +884,100 @@ it.each([
     await client`UPDATE users SET role='customer' WHERE id=${otherId}`;
   }
 });
+it("ECMSG-90: item insuficiente bloqueia todos e preserva estoque/carrinho", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const [second] =
+    await client`INSERT INTO products(name,category_id,amount,is_published) VALUES ('Insufficient stock',${categoryId},100,true) RETURNING id`;
+  await client`INSERT INTO inventory(product_id) VALUES (${second.id})`;
+  try {
+    await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId}),(${userId},${second.id})`;
+    expect(await checkoutAction({ checkoutKey: randomUUID() })).toEqual({
+      success: false,
+      code: "OUT_OF_STOCK",
+    });
+    expect(
+      await client`SELECT id FROM orders WHERE user_id=${userId}`,
+    ).toHaveLength(0);
+    expect(
+      await client`SELECT product_id FROM cart_items WHERE user_id=${userId}`,
+    ).toHaveLength(2);
+    expect(
+      (
+        await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`
+      )[0].available_quantity,
+    ).toBe(99);
+  } finally {
+    await client`DELETE FROM cart_items WHERE product_id=${second.id}`;
+    await client`DELETE FROM inventory WHERE product_id=${second.id}`;
+    await client`DELETE FROM products WHERE id=${second.id}`;
+  }
+});
+it("ECMSG-90: pagamento recusado concorrente libera unidades para compra elegível", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const tokens = [
+    (await createSession(userId)).token,
+    (await createSession(otherId)).token,
+  ];
+  await client`UPDATE products SET amount=500000 WHERE id=${productId}`;
+  await client`UPDATE inventory SET available_quantity=2 WHERE product_id=${productId}`;
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2),(${otherId},${productId},1)`;
+  const lock = await holdOrderLock(
+    (tx) =>
+      tx`SELECT product_id FROM inventory WHERE product_id=${productId} FOR UPDATE`,
+  );
+  try {
+    const refused = requestContext.run({ token: tokens[0] }, () =>
+      checkoutAction({ checkoutKey: randomUUID() }),
+    );
+    await waitForOrderLock("inventory");
+    const approved = requestContext.run({ token: tokens[1] }, () =>
+      checkoutAction({ checkoutKey: randomUUID() }),
+    );
+    await waitForOrderLock("inventory", 2);
+    await lock.release();
+    expect(await refused).toMatchObject({
+      success: true,
+      status: "PAYMENT_FAILED",
+    });
+    expect(await approved).toMatchObject({ success: true, status: "PAID" });
+    expect(
+      (
+        await client`SELECT available_quantity,revision FROM inventory WHERE product_id=${productId}`
+      )[0],
+    ).toEqual({ available_quantity: 1, revision: 2 });
+    expect(
+      await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`,
+    ).toEqual([{ quantity: 2 }]);
+  } finally {
+    await lock.release();
+  }
+});
+it("ECMSG-90: defesa condicionada do decremento retorna conflito e rollback", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
+  // A test-only trigger simulates a privileged change after validation, before consumption.
+  await client.unsafe(`CREATE FUNCTION pg_temp.inventory_guard_test() RETURNS trigger LANGUAGE plpgsql AS $$
+ BEGIN UPDATE inventory SET available_quantity=0 WHERE product_id IN (SELECT product_id FROM cart_items WHERE user_id=NEW.user_id); RETURN NEW; END $$;
+ CREATE TRIGGER inventory_guard_test BEFORE INSERT ON orders FOR EACH ROW EXECUTE FUNCTION pg_temp.inventory_guard_test();`);
+  try {
+    expect(await checkoutAction({ checkoutKey: randomUUID() })).toEqual({
+      success: false,
+      code: "CONFLICT",
+    });
+    expect(
+      await client`SELECT id FROM orders WHERE user_id=${userId}`,
+    ).toHaveLength(0);
+    expect(
+      (
+        await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`
+      )[0].available_quantity,
+    ).toBe(99);
+    expect(
+      await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`,
+    ).toEqual([{ quantity: 1 }]);
+  } finally {
+    await client.unsafe(
+      "DROP TRIGGER inventory_guard_test ON orders; DROP FUNCTION pg_temp.inventory_guard_test();",
+    );
+  }
+});

@@ -738,3 +738,24 @@ it("ECMSG-83: estoque limita quantidade resultante e não reserva", async () => 
   });
   expect(await removeCartItemAction({ productId })).toEqual({ success: true });
 });
+it("ECMSG-90: estoque/revisão forjados não autorizam add/update", async () => {
+  for (const key of [
+    "availableQuantity",
+    "inStock",
+    "inventoryRevision",
+    "revision",
+  ]) {
+    expect(
+      await addToCartAction({ productId, quantity: 1, [key]: 99 }),
+    ).toEqual({ success: false, code: "INVALID_INPUT" });
+    expect(
+      await updateCartItemAction({ productId, quantity: 1, [key]: 99 }),
+    ).toEqual({ success: false, code: "INVALID_INPUT" });
+  }
+  await client`DELETE FROM inventory WHERE product_id=${productId}`;
+  expect(await addToCartAction({ productId, quantity: 1 })).toEqual({
+    success: false,
+    code: "OUT_OF_STOCK",
+  });
+  await client`INSERT INTO inventory(product_id) VALUES (${productId})`;
+});

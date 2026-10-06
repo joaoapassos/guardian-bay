@@ -78,8 +78,10 @@ import { readIdentityAction } from "@/features/auth/actions/read-identity.action
 import { getAuthenticatedIdentity } from "@/features/auth/server/session-cookie";
 import { manageCatalogAction } from "@/features/catalog/actions/manage-catalog.action";
 import { checkoutAction } from "@/features/orders/actions/checkout.action";
+import { setInventoryQuantityAction } from "@/features/inventory/actions/set-inventory.action";
 import { addToCartAction } from "@/features/cart/actions/add-to-cart.action";
 import { updateCartItemAction, removeCartItemAction } from "@/features/cart/actions/cart-item.action";
+async function stock(form:FormData) {"use server"; const input:Record<string,unknown>=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_"))); if("quantity" in input) input.quantity=Number(input.quantity);if("revision" in input) input.revision=Number(input.revision);const result=await setInventoryQuantityAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
 async function checkout(form:FormData) {"use server"; const input=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_"))); const result=await checkoutAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
 function cartInput(form: FormData) {
  const input: Record<string,unknown> = Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));
@@ -134,7 +136,7 @@ export default async function Probe() {
     <form action={logout}/><form action={read}><input name="userId"/></form>
     <form action={register}><input name="email"/><input name="password"/></form>
     <form action={changePassword}><input name="currentPassword"/><input name="newPassword"/></form>
-    <form action={catalog}/><form action={cartAdd}/><form action={cartUpdate}/><form action={cartRemove}/><form action={checkout}/>
+    <form action={catalog}/><form action={cartAdd}/><form action={cartUpdate}/><form action={cartRemove}/><form action={checkout}/><form action={stock}/>
   </main>;
 }
 `,
@@ -180,7 +182,7 @@ export default async function Probe() {
       const actions = [...html.matchAll(/name="(\$ACTION_ID_[^"]+)"/g)].map(
         (match) => match[1],
       );
-      assert.equal(actions.length, 10);
+      assert.equal(actions.length, 11);
       const budget = async () =>
         (
           await client`SELECT attempts FROM login_rate_limits WHERE key='global'`
@@ -208,12 +210,144 @@ export default async function Probe() {
         );
       const credentials = { email, password };
       await t.test(
+        "inventory Action: admin, strict contract, Origin/Host, body and revision",
+        async () => {
+          const [category] =
+            await client`INSERT INTO categories(name) VALUES (${`Inventory HTTP ${randomUUID()}`}) RETURNING id`;
+          const [product] =
+            await client`INSERT INTO products(name,category_id,amount) VALUES ('Inventory HTTP',${category.id},1) RETURNING id`;
+          await client`INSERT INTO inventory(product_id) VALUES (${product.id})`;
+          const raw = randomBytes(32).toString("hex");
+          const hashed = createHash("sha256").update(raw).digest("hex");
+          const cookie = `__Host-guardian-session=${raw}`;
+          await client`INSERT INTO sessions(token_hash,user_id,expires_at) VALUES (${hashed},${user.id},now()+interval '1 hour')`;
+          const input = {
+            productId: product.id,
+            quantity: "10",
+            revision: "1",
+          };
+          try {
+            assert.deepEqual(result(await post(10, input)), {
+              success: false,
+              code: "FORBIDDEN",
+            });
+            assert.deepEqual(result(await post(10, input, {}, cookie)), {
+              success: false,
+              code: "FORBIDDEN",
+            });
+            await client`UPDATE users SET role='admin' WHERE id=${user.id}`;
+            for (const origin of [
+              "",
+              "null",
+              "https://attacker.test",
+              "http://127.0.0.1:3108",
+            ]) {
+              const response = await post(10, input, { origin }, cookie);
+              assert.ok(response.status >= 400);
+              const text = await response.text();
+              assert.ok(!text.includes(raw) && !text.includes(value));
+            }
+            const form = new FormData();
+            form.set(actions[10], "");
+            for (const [k, v] of Object.entries(input)) form.set(k, v);
+            const encoded = new Request(base, { method: "POST", body: form });
+            const body = Buffer.from(await encoded.arrayBuffer());
+            const status = await new Promise((resolve, reject) => {
+              const outgoing = httpRequest(
+                base,
+                {
+                  method: "POST",
+                  headers: {
+                    host: "attacker.test",
+                    origin: "https://127.0.0.1:3108",
+                    cookie,
+                    "content-type": encoded.headers.get("content-type"),
+                    "content-length": body.length,
+                  },
+                },
+                (response) => {
+                  response.resume();
+                  response.on("end", () => resolve(response.statusCode));
+                },
+              );
+              outgoing.on("error", reject);
+              outgoing.end(body);
+            });
+            assert.ok(status >= 400);
+            assert.ok(
+              (
+                await post(
+                  10,
+                  { ...input, padding: "x".repeat(20000) },
+                  {},
+                  cookie,
+                )
+              ).status >= 400,
+            );
+            for (const key of [
+              "userId",
+              "role",
+              "price",
+              "currency",
+              "status",
+              "paymentStatus",
+              "orderId",
+              "stockDelta",
+              "inventoryId",
+              "availableQuantity",
+              "inStock",
+            ])
+              assert.deepEqual(
+                result(await post(10, { ...input, [key]: "1" }, {}, cookie)),
+                { success: false, code: "INVALID_INPUT" },
+              );
+            for (const quantity of [
+              "-1",
+              "0.5",
+              "NaN",
+              "Infinity",
+              "2147483648",
+              "invalid",
+            ])
+              assert.deepEqual(
+                result(await post(10, { ...input, quantity }, {}, cookie)),
+                { success: false, code: "INVALID_INPUT" },
+              );
+            assert.deepEqual(result(await post(10, input, {}, cookie)), {
+              success: true,
+            });
+            assert.deepEqual(result(await post(10, input, {}, cookie)), {
+              success: false,
+              code: "CONFLICT",
+            });
+            assert.deepEqual(
+              (
+                await client`SELECT available_quantity,revision FROM inventory WHERE product_id=${product.id}`
+              )[0],
+              { available_quantity: 10, revision: 2 },
+            );
+            await client`UPDATE users SET role='customer' WHERE id=${user.id}`;
+            assert.deepEqual(
+              result(await post(10, { ...input, revision: "2" }, {}, cookie)),
+              { success: false, code: "FORBIDDEN" },
+            );
+          } finally {
+            await client`UPDATE users SET role='customer' WHERE id=${user.id}`;
+            await client`DELETE FROM sessions WHERE token_hash=${hashed}`;
+            await client`DELETE FROM inventory WHERE product_id=${product.id}`;
+            await client`DELETE FROM products WHERE id=${product.id}`;
+            await client`DELETE FROM categories WHERE id=${category.id}`;
+          }
+        },
+      );
+      await t.test(
         "checkout Action: real HTTP, ownership, body, commercial authority and idempotency",
         async () => {
           const [category] =
             await client`INSERT INTO categories(name) VALUES (${`Checkout HTTP ${randomUUID()}`}) RETURNING id`;
           const [product] =
             await client`INSERT INTO products(name,category_id,amount,is_published) VALUES ('Checkout HTTP',${category.id},1099,true) RETURNING id`;
+          await client`INSERT INTO inventory(product_id,available_quantity) VALUES (${product.id},99)`;
           const raw = randomBytes(32).toString("hex");
           const tokenHash = createHash("sha256").update(raw).digest("hex");
           const cookie = `__Host-guardian-session=${raw}`;
@@ -273,6 +407,9 @@ export default async function Probe() {
             });
             assert.ok(spoofedStatus >= 400);
             for (const key of [
+              "availableQuantity",
+              "inStock",
+              "inventoryRevision",
               "userId",
               "items",
               "unitPrice",
@@ -311,6 +448,18 @@ export default async function Probe() {
               { success: false, code: "UNAVAILABLE" },
             );
             await client`UPDATE products SET is_published=true WHERE id=${product.id}`;
+            await client`UPDATE inventory SET available_quantity=1 WHERE product_id=${product.id}`;
+            assert.deepEqual(
+              result(await post(9, { checkoutKey }, {}, cookie)),
+              { success: false, code: "OUT_OF_STOCK" },
+            );
+            assert.equal(
+              (
+                await client`SELECT count(*)::int n FROM orders WHERE user_id=${user.id}`
+              )[0].n,
+              0,
+            );
+            await client`UPDATE inventory SET available_quantity=2 WHERE product_id=${product.id}`;
             const pair = await Promise.all([
               post(9, { checkoutKey }, {}, cookie),
               post(9, { checkoutKey }, {}, cookie),
@@ -318,6 +467,12 @@ export default async function Probe() {
             const paid = result(pair[0]);
             assert.deepEqual(paid, result(pair[1]));
             assert.equal(paid.status, "PAID");
+            assert.equal(
+              (
+                await client`SELECT available_quantity FROM inventory WHERE product_id=${product.id}`
+              )[0].available_quantity,
+              0,
+            );
             assert.equal(paid.success, true);
             assert.deepEqual(Object.keys(paid).sort(), [
               "orderId",
@@ -341,6 +496,12 @@ export default async function Probe() {
               )[0].n,
               1,
             );
+            assert.equal(
+              (
+                await client`SELECT available_quantity FROM inventory WHERE product_id=${product.id}`
+              )[0].available_quantity,
+              0,
+            );
             await client`DELETE FROM sessions WHERE token_hash=${tokenHash}`;
             assert.deepEqual(
               result(await post(9, { checkoutKey }, {}, cookie)),
@@ -351,6 +512,7 @@ export default async function Probe() {
             await client`DELETE FROM orders WHERE user_id=${user.id}`;
             await client`DELETE FROM cart_items WHERE user_id=${user.id} AND product_id=${product.id}`;
             await client`DELETE FROM sessions WHERE token_hash=${tokenHash}`;
+            await client`DELETE FROM inventory WHERE product_id=${product.id}`;
             await client`DELETE FROM products WHERE id=${product.id}`;
             await client`DELETE FROM categories WHERE id=${category.id}`;
           }
@@ -365,6 +527,7 @@ export default async function Probe() {
             await client`INSERT INTO products(name,category_id,amount,is_published) VALUES ('HTTP cart',${category.id},1099,true) RETURNING id`;
           const [other] =
             await client`INSERT INTO users(email,password_hash) VALUES (${`${randomUUID()}@cart-http.example.test`},${passwordHash}) RETURNING id`;
+          await client`INSERT INTO inventory(product_id,available_quantity) VALUES (${product.id},99)`;
           const raw = randomBytes(32).toString("hex");
           const cookie = `__Host-guardian-session=${raw}`;
           await client`INSERT INTO sessions(token_hash,user_id,expires_at) VALUES (${createHash("sha256").update(raw).digest("hex")},${user.id},now()+interval '1 hour')`;
@@ -397,6 +560,9 @@ export default async function Probe() {
               );
               assert.ok(oversized.status >= 400);
               for (const key of [
+                "availableQuantity",
+                "inStock",
+                "inventoryRevision",
                 "userId",
                 "cartId",
                 "ownerId",
@@ -505,6 +671,7 @@ export default async function Probe() {
           } finally {
             await client`DELETE FROM cart_items WHERE product_id=${product.id}`;
             await client`DELETE FROM sessions WHERE token_hash=${createHash("sha256").update(raw).digest("hex")}`;
+            await client`DELETE FROM inventory WHERE product_id=${product.id}`;
             await client`DELETE FROM products WHERE id=${product.id}`;
             await client`DELETE FROM categories WHERE id=${category.id}`;
             await client`DELETE FROM users WHERE id=${other.id}`;
@@ -758,6 +925,7 @@ export default async function Probe() {
         await closed;
       }
       if (catalogCategoryId) {
+        await client`DELETE FROM inventory WHERE product_id IN (SELECT id FROM products WHERE category_id=${catalogCategoryId})`;
         await client`DELETE FROM products WHERE category_id=${catalogCategoryId}`;
         await client`DELETE FROM categories WHERE id=${catalogCategoryId}`;
       }
