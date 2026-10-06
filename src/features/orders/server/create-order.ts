@@ -11,6 +11,7 @@ import { sessions } from "@/db/schema/sessions";
 import { users } from "@/db/schema/users";
 import { tokenHash } from "@/features/auth/server/session";
 import { sessionCookiePolicy } from "@/features/auth/server/session-cookie";
+import { writeAuditEvent } from "@/lib/audit/server";
 import { checkoutSchema } from "../schemas/checkout";
 import { simulatePayment } from "../simulated-payment";
 import { checkoutCandidate } from "./checkout-preview";
@@ -213,6 +214,13 @@ export async function createOrder(input: unknown) {
         ).length
       )
         throw expired;
+      await writeAuditEvent(tx, {
+        eventType: "order.completed",
+        outcome: status === "PAID" ? "SUCCESS" : "FAILED",
+        actorUserId: user.id,
+        targetType: "order",
+        targetId: order.orderId,
+      });
       return { success: true as const, orderId: order.orderId, status };
     });
   } catch (error) {

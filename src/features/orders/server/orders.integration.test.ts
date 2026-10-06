@@ -59,6 +59,7 @@ beforeAll(async () => {
   await client`INSERT INTO inventory(product_id,available_quantity) VALUES (${productId},99)`;
 });
 beforeEach(async () => {
+  await client`DELETE FROM audit_events WHERE actor_user_id IN (${userId},${otherId})`;
   await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (${userId},${otherId}))`;
   await client`DELETE FROM orders WHERE user_id IN (${userId},${otherId})`;
   await client`DELETE FROM cart_items WHERE user_id IN (${userId},${otherId})`;
@@ -71,6 +72,7 @@ beforeEach(async () => {
   });
 });
 afterAll(async () => {
+  await client`DELETE FROM audit_events WHERE actor_user_id IN (${userId},${otherId})`;
   await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (${userId},${otherId}))`;
   await client`DELETE FROM orders WHERE user_id IN (${userId},${otherId})`;
   await client`DELETE FROM cart_items WHERE user_id IN (${userId},${otherId})`;
@@ -1201,4 +1203,55 @@ it("ECMSG-102: expiração aguardando lock bloqueia leitura administrativa", asy
     await lock.release();
     await client`UPDATE users SET role='customer' WHERE id=${userId}`;
   }
+});
+
+it("ECMSG-110: evento final único por intenção paga/recusada e rollback integral", async () => {
+  const { createOrder } = await import("./create-order");
+  for (const amount of [1099, 1000000]) {
+    await client`UPDATE products SET amount=${amount} WHERE id=${productId}`;
+    await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},1) ON CONFLICT(user_id,product_id) DO UPDATE SET quantity=1`;
+    const key = randomUUID();
+    const order = await createOrder({ checkoutKey: key });
+    expect(order).toMatchObject({
+      success: true,
+      status: amount === 1099 ? "PAID" : "PAYMENT_FAILED",
+    });
+    expect(await createOrder({ checkoutKey: key })).toEqual(order);
+    if (!order.success) throw new Error("Expected order");
+    const events =
+      await client`SELECT event_type,outcome FROM audit_events WHERE target_id=${order.orderId}`;
+    expect(events).toEqual([
+      {
+        event_type: "order.completed",
+        outcome: amount === 1099 ? "SUCCESS" : "FAILED",
+      },
+    ]);
+  }
+  await client`UPDATE products SET amount=1099 WHERE id=${productId}`;
+  const before = (
+    await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`
+  )[0].available_quantity;
+  const writer = await import("@/lib/audit/server");
+  const spy = vi
+    .spyOn(writer, "writeAuditEvent")
+    .mockRejectedValueOnce(new Error("Synthetic sink failure"));
+  const key = randomUUID();
+  try {
+    await expect(createOrder({ checkoutKey: key })).rejects.toThrow(
+      "Não foi possível concluir o checkout.",
+    );
+  } finally {
+    spy.mockRestore();
+  }
+  expect(
+    await client`SELECT id FROM orders WHERE user_id=${userId} AND checkout_key=${key}`,
+  ).toHaveLength(0);
+  expect(
+    (
+      await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`
+    )[0].available_quantity,
+  ).toBe(before);
+  expect(
+    await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`,
+  ).toHaveLength(1);
 });
