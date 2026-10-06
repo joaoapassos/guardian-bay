@@ -146,3 +146,7 @@ Inventory é ativo atual, separado do catálogo: productId PK/FK RESTRICT, quant
 | Reserva, depósitos, ledger, logística, gateway real e guest checkout | Não aplicável | Nenhuma dessas superfícies existe; pagamento acadêmico não movimenta dinheiro |
 
 Evidências: 106 unitários, 146 PostgreSQL 18, 10 HTTP/Chromium sem skips e sete mutantes rejeitados/restaurados. Ver [revisão da Epic 7](README.md#revisão-da-epic-7-ecmsg-91). Preservam-se riscos de token bearer, e-mail não verificado, quatro advisories moderados de tooling e compatibilidade da assertion RESTRICT no PostgreSQL 17; não há mudança de segurança para produzir gates verdes.
+
+## Backoffice: requisitos da Epic 8 (ECMSG-92)
+
+Superfície privilegiada planejada: dashboard, composição de catálogo/estoque e leitura administrativa paginada de pedidos/snapshot. Cada operação deverá verificar sessão e role atuais, independentemente do layout; UUID não concede autorização e filtros permanecem inputs não confiáveis. DTO mínimo não deverá expor comprador, sessão ou checkoutKey. A implementação e as evidências serão registradas ao concluir a Epic; não se afirma ainda mitigação das novas leituras administrativas.
