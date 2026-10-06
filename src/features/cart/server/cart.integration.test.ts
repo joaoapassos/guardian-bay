@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/db";
 import { hashPassword } from "@/features/auth/server/password";
 import { createSession } from "@/features/auth/server/session";
+import { addToCartAction } from "../actions/add-to-cart.action";
 import { readCart } from "./read-cart";
 
 vi.mock("server-only", () => ({}));
@@ -146,5 +147,60 @@ describe("ECMSG-56: leitura autorizada", () => {
     });
     await client`UPDATE products SET is_published=true WHERE id=${productId}`;
     await client`DELETE FROM cart_items WHERE user_id IN (${userId},${otherId})`;
+  });
+});
+
+describe("ECMSG-57: adição server-authoritative", () => {
+  it("autenticação, input estrito, publicação e autoridade forjada", async () => {
+    request.token = undefined;
+    expect(await addToCartAction({ productId, quantity: 1 })).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+    request.token = (await createSession(userId)).token;
+    for (const input of [
+      { productId: "invalid", quantity: 1 },
+      { productId, quantity: 0 },
+      { productId, quantity: 100 },
+      { productId, quantity: 1.5 },
+      { productId, quantity: 1, price: 1 },
+      { productId, quantity: 1, userId: otherId },
+    ])
+      expect(await addToCartAction(input)).toEqual({
+        success: false,
+        code: "INVALID_INPUT",
+      });
+    expect(await addToCartAction({ productId, quantity: 1 }, "extra")).toEqual({
+      success: false,
+      code: "INVALID_INPUT",
+    });
+    await client`UPDATE products SET is_published=false WHERE id=${productId}`;
+    expect(await addToCartAction({ productId, quantity: 1 })).toEqual({
+      success: false,
+      code: "UNAVAILABLE",
+    });
+    expect(
+      await addToCartAction({ productId: randomUUID(), quantity: 1 }),
+    ).toEqual({ success: false, code: "UNAVAILABLE" });
+    await client`UPDATE products SET is_published=true WHERE id=${productId}`;
+  });
+  it("UPSERT concorrente incrementa sem duplicação e respeita limite", async () => {
+    expect(
+      await Promise.all([
+        addToCartAction({ productId, quantity: 1 }),
+        addToCartAction({ productId, quantity: 1 }),
+      ]),
+    ).toEqual([{ success: true }, { success: true }]);
+    const [row] =
+      await client`SELECT quantity FROM cart_items WHERE user_id=${userId} AND product_id=${productId}`;
+    expect(row.quantity).toBe(2);
+    expect(await addToCartAction({ productId, quantity: 97 })).toEqual({
+      success: true,
+    });
+    expect(await addToCartAction({ productId, quantity: 1 })).toEqual({
+      success: false,
+      code: "LIMIT_REACHED",
+    });
+    await client`DELETE FROM cart_items WHERE user_id=${userId}`;
   });
 });
