@@ -6,6 +6,18 @@ Este documento registra as decisões aprovadas. O [AGENTS.md](../../AGENTS.md) e
 
 O [threat model](threat-model.md) identifica atores, ativos, entradas externas, trust boundaries e ameaças dos fluxos existentes.
 
+## Modelo do catálogo (ECMSG-42)
+
+Catálogo define o que é vendido e apresentado; não gerencia inventory, carrinho, pedidos, estoque ou total de compra. Produto tem UUID gerado pelo servidor/banco, nome plain text de 1–120 caracteres após trim, descrição plain text de até 2.000 caracteres, categoria obrigatória, preço inteiro em centavos e moeda explícita BRL. URLs usam UUID, sem slug ou compatibilidade de renomeação de slug. Nomes de produto não precisam ser únicos.
+
+Uma categoria plana tem UUID e nome de 1–80 caracteres após trim, único sem distinção de maiúsculas segundo `lower` do PostgreSQL. Uma categoria pode conter vários produtos; cada produto pertence a exatamente uma categoria. Não há hierarquia ou estado de categoria: publicabilidade pertence ao produto.
+
+`isPublished` booleano, inicialmente false, basta: false cobre rascunho e produto retirado do público, sem workflow adicional. Toda consulta pública deve restringir `isPublished = true` no SQL; inexistente e não publicado têm resposta pública equivalente. Não haverá delete físico na UI; FK de categoria é restritiva, sem cascade destrutivo sobre produtos.
+
+Preço é inteiro positivo entre 1 e 2.147.483.647 centavos, BRL, representável em PostgreSQL integer e com segurança em JavaScript. Zero/gratuidade não é requisito. Dinero será o consumidor monetário; nunca persistir float ou tratar preço reenviado pelo cliente como autoridade. Futuras compras deverão reler o valor no servidor.
+
+Produto/categoria possuem revisão inteira positiva para detectar edição concorrente, sem timestamps sem consumidor. Imagens serão introduzidas com a política específica da ECMSG-50; não há upload ou origem externa antecipados. Escritas administrativas exigirão capacidade persistida e sessão atual, nunca role ou ownership vindos do cliente. Modelagem é decisão aprovada, não implementação existente até as Tasks correspondentes.
+
 ## Revisão da Epic 3 (ECMSG-41)
 
 As rotas `/`, `/login`, `/register` e `/account` usam composição Server; somente formulários e botão de logout são Client. RHF/Zod cuidam de UX e contratos, sem importar DB/credenciais/sessão privilegiada. As cinco Actions validam entradas/origem e delegam às operações server-only. Conta expõe somente e-mail próprio; hashes intermediários do login e tokens não integram DTOs públicos. Não há Zustand, roles/admin, recuperação self-service ou operações comerciais.
