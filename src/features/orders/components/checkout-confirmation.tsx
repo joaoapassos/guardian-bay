@@ -20,15 +20,17 @@ export function CheckoutConfirmation({ checkoutKey }: { checkoutKey: string }) {
             if (result.success) router.push(`/orders/${result.orderId}`);
             else
               setMessage(
-                result.code === "UNAUTHENTICATED"
-                  ? "Sessão expirada. Entre novamente."
-                  : result.code === "EMPTY_CART"
-                    ? "O carrinho está vazio. Volte ao catálogo."
-                    : result.code === "OUT_OF_STOCK"
-                      ? "Estoque insuficiente. Revise o carrinho."
-                      : result.code === "UNAVAILABLE"
-                        ? "Um produto está indisponível. Corrija o carrinho."
-                        : "Confirmação inválida. Recarregue o checkout.",
+                result.code === "RATE_LIMITED"
+                  ? "Muitas confirmações. Aguarde e tente novamente."
+                  : result.code === "UNAUTHENTICATED"
+                    ? "Sessão expirada. Entre novamente."
+                    : result.code === "EMPTY_CART"
+                      ? "O carrinho está vazio. Volte ao catálogo."
+                      : result.code === "OUT_OF_STOCK"
+                        ? "Estoque insuficiente. Revise o carrinho."
+                        : result.code === "UNAVAILABLE"
+                          ? "Um produto está indisponível. Corrija o carrinho."
+                          : "Confirmação inválida. Recarregue o checkout.",
               );
           } catch {
             setMessage(

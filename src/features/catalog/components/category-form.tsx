@@ -38,13 +38,15 @@ export function CategoryForm({
           setMessage(
             result.success
               ? "Categoria salva."
-              : result.code === "CONFLICT"
-                ? "A categoria mudou. Atualize a página antes de editar."
-                : result.code === "FORBIDDEN"
-                  ? "Acesso administrativo negado. Entre novamente."
-                  : result.code === "INVALID_INPUT"
-                    ? "Confira o nome da categoria."
-                    : "Não foi possível salvar a categoria.",
+              : result.code === "RATE_LIMITED"
+                ? "Muitas operações. Aguarde e tente novamente."
+                : result.code === "CONFLICT"
+                  ? "A categoria mudou. Atualize a página antes de editar."
+                  : result.code === "FORBIDDEN"
+                    ? "Acesso administrativo negado. Entre novamente."
+                    : result.code === "INVALID_INPUT"
+                      ? "Confira o nome da categoria."
+                      : "Não foi possível salvar a categoria.",
           );
           if (result.success) router.refresh();
         } catch {

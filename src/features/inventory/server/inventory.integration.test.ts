@@ -54,6 +54,7 @@ beforeAll(async () => {
   await client`INSERT INTO inventory(product_id) VALUES (${productId})`;
 });
 beforeEach(async () => {
+  await client`DELETE FROM abuse_budgets WHERE user_id IN (${userId},${otherId})`;
   await client`UPDATE users SET role='customer' WHERE id IN (${userId},${otherId})`;
   await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (${userId},${otherId}))`;
   await client`DELETE FROM orders WHERE user_id IN (${userId},${otherId})`;
@@ -67,6 +68,7 @@ beforeEach(async () => {
   });
 });
 afterAll(async () => {
+  await client`DELETE FROM abuse_budgets WHERE user_id=ANY(ARRAY[${userId}::uuid,${otherId}::uuid])`;
   await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (${userId},${otherId}))`;
   await client`DELETE FROM orders WHERE user_id IN (${userId},${otherId})`;
   await client`DELETE FROM cart_items WHERE user_id IN (${userId},${otherId})`;
