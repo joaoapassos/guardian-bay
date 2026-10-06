@@ -9,6 +9,7 @@ import { sessionValidity, tokenHash } from "@/features/auth/server/session";
 import { sessionCookiePolicy } from "@/features/auth/server/session-cookie";
 import { productImage } from "@/features/catalog/images";
 import { priceDto } from "@/lib/money/price";
+import { calculateCart } from "../cart-money";
 
 export async function readCart() {
   const store = await cookies();
@@ -49,5 +50,5 @@ export async function readCart() {
       },
     ];
   });
-  return { success: true as const, items };
+  return { success: true as const, ...calculateCart(items) };
 }
