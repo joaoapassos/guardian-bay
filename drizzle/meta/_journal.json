@@ -15,6 +15,13 @@
       "when": 1791259788533,
       "tag": "0001_authentication_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791262087069,
+      "tag": "0002_session_idle_timeout",
+      "breakpoints": true
     }
   ]
 }

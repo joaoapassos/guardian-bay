@@ -1,9 +1,39 @@
 import { describe, expect, it } from "vitest";
 import {
+  authenticationCredentialSchema,
+  authenticationPasswordSchema,
   credentialSchema,
   emailSchema,
   passwordSchema,
 } from "./credential.schema";
+
+describe("authentication versus credential creation", () => {
+  it("accepts an existing short password without weakening creation", () => {
+    expect(
+      authenticationCredentialSchema.parse({
+        email: " PERSON@EXAMPLE.TEST ",
+        password: "old",
+      }),
+    ).toEqual({ email: "person@example.test", password: "old" });
+    expect(
+      credentialSchema.safeParse({
+        email: "person@example.test",
+        password: "old",
+      }).success,
+    ).toBe(false);
+  });
+  it.each([
+    undefined,
+    123,
+    "",
+    "a".repeat(129),
+    "😀".repeat(129),
+    "x".repeat(100000),
+    "bad\ud800",
+  ])("rejects unsafe authentication input", (value) => {
+    expect(authenticationPasswordSchema.safeParse(value).success).toBe(false);
+  });
+});
 
 describe("identity and credential inputs", () => {
   it("normalizes only surrounding whitespace and email case", () => {

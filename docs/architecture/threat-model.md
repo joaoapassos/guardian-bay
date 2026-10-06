@@ -58,7 +58,7 @@ Usamos [STRIDE](https://learn.microsoft.com/en-us/azure/security/develop/threat-
 | Ameaça / STRIDE | Cenário e impacto | Controle esperado e evidência a exigir |
 | --- | --- | --- |
 | Sessão/autenticação — S/E | Forjar, fixar, roubar ou reutilizar sessão permite agir como outro usuário | Token aleatório, hash persistido, nova sessão por login, expiração/revogação server-side e cookie protegido; integração verifica ausência/invalidade/expiração/replay revogado. Token bruto roubado continua bearer até expiração/revogação |
-| Autorização/IDOR/BOLA — E/I/T | Usuário A troca um ID para ler/alterar pedido de B ou envia um papel privilegiado | Permissão e ownership na operação e em cada query/mutation protegida; testes A × B e de acesso privilegiado, sem confiar na página |
+| Autorização/IDOR/BOLA — E/I/T | Usuário A troca um ID para ler/alterar recurso de B ou envia um papel privilegiado | Leitura da própria identidade exige sessão e ownership na query; testes PostgreSQL A × B e payload adulterado. Operações comerciais futuras devem repetir o padrão na própria operação, sem confiar na página |
 | Valores críticos — T | Alterar preço, desconto, estoque, total ou status de pagamento produz pedido inconsistente | Cliente envia ID + intenção; servidor consulta fontes confiáveis, calcula valores monetários e valida transições. Testar payload adulterado |
 | Entrada maliciosa — T/D | Quantidade negativa, tipo/campo inesperado ou payload excessivo viola regras ou consome recursos | Validação server-side de contrato, limites e campos aceitos junto da boundary, seguida de regras de domínio; rejeições seguras |
 | XSS — T/I/E | Conteúdo externo refletido/persistido ou URL perigosa executa código no browser e permite ações indevidas | Render seguro por contexto, validação de URLs e sanitização somente quando conteúdo rico exigir. Testar a superfície real; CSP atual é parcial e não restringe scripts/styles |
@@ -72,12 +72,12 @@ Usamos [STRIDE](https://learn.microsoft.com/en-us/azure/security/develop/threat-
 
 ## Controles atuais e candidatos da Epic 2
 
-Controles observáveis: guards `server-only` em DB/configuração/credenciais/sessão, Argon2id e contratos Zod, resposta equivalente e hash sintético para falhas de login, sessão revogável com hash do token, cookie HttpOnly/Secure em produção e validação de Origin/Host para login/logout; configuração privada validada, pool lazy, `.env*` ignorado com exceção do template, baseline HTTP e gates de lint/tipos/unitários/build e integração PostgreSQL isolada. Eles não demonstram segurança dos fluxos comerciais ainda ausentes. Consulte [autenticação](README.md#autenticação-e-sessões-ecmsg-24), [erros](README.md#tratamento-de-erros-e-observabilidade-ecmsg-17) e [testes](README.md#testes-ecmsg-19) para os limites.
+Controles observáveis: guards `server-only` em DB/configuração/credenciais/sessão/autorização, Argon2id e contratos distintos de criação/login, resposta equivalente e hash sintético para falhas de login, sessão revogável com expiração absoluta/idle, cookie HttpOnly/Secure em produção e validação de Origin/Host nas Actions; leitura da própria identidade com deny by default e ownership/sessão revalidados na query; configuração privada validada, pool lazy, `.env*` ignorado com exceção do template, baseline HTTP e gates de lint/tipos/unitários/build e integração PostgreSQL isolada. Eles não demonstram segurança dos fluxos comerciais ainda ausentes. Consulte [autenticação](README.md#autenticação-e-sessões-ecmsg-24), [autorização](README.md#autorização-server-side-ecmsg-25), [erros](README.md#tratamento-de-erros-e-observabilidade-ecmsg-17) e [testes](README.md#testes-ecmsg-19) para os limites.
 
 Candidatos para próximas Tasks, vinculados às ameaças acima:
 
 - Autenticação e sessão: revisar a política de rotação e CSRF ao introduzir novas mutations ou mudança de privilégio; implementar proteção contra abuso antes de exposição pública do login.
-- Autorização e ownership: definir permissões por recurso/operação e cenários IDOR/BOLA quando houver domínio protegido.
+- Autorização e ownership: aplicar o [padrão implementado na identidade](README.md#autorização-server-side-ecmsg-25) às futuras operações comerciais, com permissão/ownership por operação e testes IDOR/BOLA.
 - Contratos de entrada/saída e conteúdo: validação, DTOs, erros/logs/cache seguro e tratamento de XSS; avaliar CSP mais restritiva nas páginas reais.
 - Proteção contra abuso: limites e resposta à automação/brute force nas entradas concretas.
 - Integridade comercial: cálculo monetário server-side, constraints, transactions, concorrência e idempotência com a primeira operação persistida.

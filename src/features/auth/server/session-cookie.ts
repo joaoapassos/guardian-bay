@@ -17,3 +17,10 @@ export async function getAuthenticatedIdentity() {
   const store = await cookies();
   return resolveSession(store.get(sessionCookiePolicy().name)?.value);
 }
+
+export async function requireAuthenticatedIdentity() {
+  const identity = await getAuthenticatedIdentity();
+  return identity
+    ? { success: true as const, identity }
+    : { success: false as const, code: "UNAUTHENTICATED" as const };
+}
