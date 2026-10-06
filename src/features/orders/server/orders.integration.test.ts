@@ -8,6 +8,10 @@ import { hashPassword } from "@/features/auth/server/password";
 import { createSession } from "@/features/auth/server/session";
 
 vi.mock("server-only", () => ({}));
+const requestContext = await vi.hoisted(async () => {
+  const { AsyncLocalStorage } = await import("node:async_hooks");
+  return new AsyncLocalStorage<{ token: string }>();
+});
 const request = vi.hoisted(() => ({
   token: undefined as string | undefined,
   headers: new Headers({
@@ -17,9 +21,10 @@ const request = vi.hoisted(() => ({
 }));
 vi.mock("next/headers", () => ({
   headers: async () => request.headers,
-  cookies: async () => ({
-    get: () => (request.token ? { value: request.token } : undefined),
-  }),
+  cookies: async () => {
+    const token = requestContext.getStore()?.token ?? request.token;
+    return { get: () => (token ? { value: token } : undefined) };
+  },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 const value = process.env.TEST_DATABASE_URL;
@@ -333,7 +338,7 @@ it("ECMSG-75: detalhes usam snapshot, ownership na query e DTO mínimo", async (
   });
 });
 
-async function waitForOrderLock(table: "products" | "users") {
+async function waitForOrderLock(table: "products" | "users" | "inventory") {
   for (let i = 0; i < 100; i++) {
     const [row] =
       await client`SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE ${`%"${table}"%`}`;
@@ -715,4 +720,109 @@ it("ECMSG-85: PAID consome uma vez, failed preserva e revisão saturada rollback
       await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`
     )[0].available_quantity,
   ).toBe(3);
+});
+
+it.each([
+  [1, 1],
+  [3, 2],
+])("ECMSG-86: estoque %i, compras concorrentes de %i nunca oversell", async (stock, quantity) => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const tokens = [
+    (await createSession(userId)).token,
+    (await createSession(otherId)).token,
+  ];
+  await client`UPDATE inventory SET available_quantity=${stock} WHERE product_id=${productId}`;
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},${quantity}),(${otherId},${productId},${quantity})`;
+  const lock = await holdOrderLock(
+    (tx) =>
+      tx`SELECT product_id FROM inventory WHERE product_id=${productId} FOR UPDATE`,
+  );
+  try {
+    const pending = Promise.all(
+      tokens.map((token) =>
+        requestContext.run({ token }, () =>
+          checkoutAction({ checkoutKey: randomUUID() }),
+        ),
+      ),
+    );
+    await waitForOrderLock("inventory");
+    await lock.release();
+    const result = await pending;
+    expect(result.filter((r) => r.success)).toMatchObject([{ status: "PAID" }]);
+    expect(result.filter((r) => !r.success)).toEqual([
+      { success: false, code: "OUT_OF_STOCK" },
+    ]);
+    expect(
+      (
+        await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`
+      )[0].available_quantity,
+    ).toBe(stock - quantity);
+    expect(
+      await client`SELECT id FROM orders WHERE user_id IN (${userId},${otherId})`,
+    ).toHaveLength(1);
+  } finally {
+    await lock.release();
+  }
+});
+it("ECMSG-86: múltiplos produtos invertidos são lockados em ordem estável e atômicos", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const [second] =
+    await client`INSERT INTO products(name,category_id,amount,is_published) VALUES ('Second stock',${categoryId},100,true) RETURNING id`;
+  await client`INSERT INTO inventory(product_id,available_quantity) VALUES (${second.id},1)`;
+  await client`UPDATE inventory SET available_quantity=1 WHERE product_id=${productId}`;
+  const tokens = [
+    (await createSession(userId)).token,
+    (await createSession(otherId)).token,
+  ];
+  try {
+    await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId}),(${userId},${second.id}),(${otherId},${second.id}),(${otherId},${productId})`;
+    const result = await Promise.all(
+      tokens.map((token) =>
+        requestContext.run({ token }, () =>
+          checkoutAction({ checkoutKey: randomUUID() }),
+        ),
+      ),
+    );
+    expect(result.filter((r) => r.success)).toHaveLength(1);
+    expect(result.filter((r) => !r.success)).toEqual([
+      { success: false, code: "OUT_OF_STOCK" },
+    ]);
+    expect(
+      await client`SELECT available_quantity FROM inventory WHERE product_id IN (${productId},${second.id})`,
+    ).toEqual([{ available_quantity: 0 }, { available_quantity: 0 }]);
+    expect(
+      await client`SELECT product_id FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (${userId},${otherId}))`,
+    ).toHaveLength(2);
+  } finally {
+    await client`DELETE FROM cart_items WHERE product_id=${second.id}`;
+    await client`DELETE FROM inventory WHERE product_id=${second.id}`;
+    await client`DELETE FROM products WHERE id=${second.id}`;
+  }
+});
+it("ECMSG-86: sessão expirada esperando inventory não cria pedido nem consome", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const { tokenHash } = await import("@/features/auth/server/session");
+  await client`UPDATE sessions SET expires_at=clock_timestamp()+interval '1 second' WHERE token_hash=${tokenHash(request.token)}`;
+  await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
+  const lock = await holdOrderLock(
+    (tx) =>
+      tx`SELECT product_id FROM inventory WHERE product_id=${productId} FOR UPDATE`,
+  );
+  try {
+    const pending = checkoutAction({ checkoutKey: randomUUID() });
+    await waitForOrderLock("inventory");
+    await client`SELECT pg_sleep(1.1)`;
+    await lock.release();
+    expect(await pending).toEqual({ success: false, code: "UNAUTHENTICATED" });
+    expect(
+      await client`SELECT id FROM orders WHERE user_id=${userId}`,
+    ).toHaveLength(0);
+    expect(
+      (
+        await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`
+      )[0].available_quantity,
+    ).toBe(99);
+  } finally {
+    await lock.release();
+  }
 });
