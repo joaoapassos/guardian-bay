@@ -8,6 +8,12 @@ O [threat model](threat-model.md) identifica atores, ativos, entradas externas, 
 
 ## Modelo do catálogo (ECMSG-42)
 
+### Administração (ECMSG-48)
+
+`users.role` tem somente customer/admin, CHECK no PostgreSQL e default customer. Cadastro não aceita role; a identidade/sessão pública não transporta capacidade administrativa. `auth/server/require-admin.ts` consulta sessão válida e role atual no banco, retornando apenas id autorizado. O catálogo reutilizará essa autoridade de autenticação, uma dependência server explícita necessária, sem engine de permissões.
+
+O primeiro admin é um usuário cadastrado provisionado por operador com acesso controlado ao PostgreSQL: `BEGIN; SELECT id FROM users WHERE id = '<UUID conferido>' FOR UPDATE; UPDATE users SET role = 'admin' WHERE id = '<mesmo UUID>'; DELETE FROM sessions WHERE user_id = '<mesmo UUID>'; COMMIT;`. O operador deve conferir a identidade antes da alteração e exigir novo login. Remoção de privilégio segue a mesma transação com customer e revogação de sessões; não há endpoint de mudança de role. A consulta da role atual evita autoridade obsoleta em cookies.
+
 Catálogo define o que é vendido e apresentado; não gerencia inventory, carrinho, pedidos, estoque ou total de compra. Produto tem UUID gerado pelo servidor/banco, nome plain text de 1–120 caracteres após trim, descrição plain text de até 2.000 caracteres, categoria obrigatória, preço inteiro em centavos e moeda explícita BRL. URLs usam UUID, sem slug ou compatibilidade de renomeação de slug. Nomes de produto não precisam ser únicos.
 
 Uma categoria plana tem UUID e nome de 1–80 caracteres após trim, único sem distinção de maiúsculas segundo `lower` do PostgreSQL. Uma categoria pode conter vários produtos; cada produto pertence a exatamente uma categoria. Não há hierarquia ou estado de categoria: publicabilidade pertence ao produto.

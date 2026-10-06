@@ -30,6 +30,7 @@ import * as passwordOperations from "./password";
 import { hashPassword, verifyPassword } from "./password";
 import { readAccount } from "./read-account";
 import { readOwnIdentity } from "./read-own-identity";
+import { requireAuthenticatedAdmin } from "./require-admin";
 import {
   createSession,
   recordSessionActivity,
@@ -1217,5 +1218,54 @@ describe("ECMSG-37: troca de senha e revogação atômica", () => {
         newPassword: password,
       }),
     ).toEqual({ success: true });
+  });
+});
+
+describe("admin persistido e atual (ECMSG-48)", () => {
+  it("nega visitante/customer, permite admin e revoga privilégio sem confiar no cliente", async () => {
+    request.token = undefined;
+    expect(await requireAuthenticatedAdmin()).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+    const [user] =
+      await client`INSERT INTO users(email,password_hash) VALUES (${`${randomUUID()}@example.test`},${passwordHash}) RETURNING id,role`;
+    try {
+      expect(user.role).toBe("customer");
+      request.token = (await createSession(user.id)).token;
+      expect(await requireAuthenticatedAdmin()).toEqual({
+        success: false,
+        code: "FORBIDDEN",
+      });
+      await expect(
+        client`UPDATE users SET role='root' WHERE id=${user.id}`,
+      ).rejects.toMatchObject({ code: "23514" });
+      await client`UPDATE users SET role='admin' WHERE id=${user.id}`;
+      expect(await requireAuthenticatedAdmin()).toEqual({
+        success: true,
+        identity: { id: user.id },
+      });
+      await client`UPDATE users SET role='customer' WHERE id=${user.id}`;
+      expect(await requireAuthenticatedAdmin()).toEqual({
+        success: false,
+        code: "FORBIDDEN",
+      });
+      await client`UPDATE users SET role='admin' WHERE id=${user.id}`;
+      await revokeSession(request.token);
+      expect(await requireAuthenticatedAdmin()).toEqual({
+        success: false,
+        code: "UNAUTHENTICATED",
+      });
+      expect(
+        await registerAction({
+          email: `${randomUUID()}@example.test`,
+          password,
+          role: "admin",
+        }),
+      ).toMatchObject({ success: false });
+    } finally {
+      request.token = undefined;
+      await client`DELETE FROM users WHERE id=${user.id}`;
+    }
   });
 });
