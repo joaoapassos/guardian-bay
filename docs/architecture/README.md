@@ -24,6 +24,22 @@ Dependência explícita permitida: cart/server reutiliza autoridade server-only 
 
 Read relê produto por join no mesmo snapshot da sessão/itens: mudança de preço/nome/imagem/categoria aparece na próxima leitura, sem preço antigo persistido. Item despublicado continua visível, com subtotal nulo e total elegível excluído. Mutation add/update usa lock SHARE da linha de produto antes de decidir publicação; se esperou uma edição/despublicação, o PostgreSQL READ COMMITTED entrega o estado atualizado. O lock permanece até terminar a transaction, serializando alterações posteriores. Remoção não depende de publicação/categoria nem precisa bloquear o produto. Não se bloqueia catálogo inteiro. Testes usam transactions independentes e verificam espera real em pg_stat_activity, sem inferir race somente por timer.
 
+### Cobertura do carrinho (ECMSG-64)
+
+| Garantia | Teste real |
+| --- | --- |
+| PK composta, default, FK/RESTRICT e quantidade no DB | `cart.integration.test.ts`; exclusão RESTRICT usa 23001 no PostgreSQL 18 e 23503 no 17 |
+| Contrato estrito, UUID/quantidade, NaN/Infinity e mass assignment | `cart-item.test.ts`, PostgreSQL e HTTP das três Actions |
+| Ownership A/B, vazio/visitante, publicação e catálogo atual | Integração Drizzle/PostgreSQL com sessões reais; fixtures resetadas antes de cada caso |
+| Add/add, limite de 99 e 100 produtos, update/update, update/remove, remove/remove | Transactions independentes, UPSERT/locks reais e assertions de estado persistido |
+| Catálogo concorrente, revogação e expiração absoluta/idle durante espera | Espera observada em pg_stat_activity, relógio PostgreSQL e rollback de add/update/remove |
+| Centavos, subtotais, total máximo, indisponibilidade e preço forjado | `cart-money.test.ts` e integração com preço alterado no catálogo |
+| Origin/Host, body >16 KiB, replay, autoridade extra e erro sanitizado | Harness Next HTTP das Actions reais, sem endpoint de diagnóstico no produto |
+| Login → lista/detalhe → add → cart → update/remove; preço/despublicação e XSS | Chromium/HTTPS contra build da aplicação; nomes escapados, quantidade e total relidos do servidor |
+| Allowlist de logs e sink indisponível | `cart-event.test.ts` e exceção operacional injetada somente na boundary do DB |
+
+Negative testing temporário: retirar ownership da leitura ou UPDATE, filtro de publicação, limite do schema, contrato strict ou revalidação após lock faz as assertions falharem. Código original é restaurado antes do gate/commit; não há mutantes no produto. Testes não mockam Drizzle para provar queries/concorrência. Cart não renova idle durante render/mutation; novo login é necessário ao expirar. Mocks de cookies/headers na integração não substituem o harness de transporte real.
+
 ## Modelo do catálogo (ECMSG-42)
 
 Catálogo define o que é vendido e apresentado; não gerencia inventory, carrinho, pedidos, estoque ou total de compra. Produto tem UUID gerado pelo servidor/banco, nome plain text de 1–120 caracteres após trim, descrição plain text de até 2.000 caracteres, categoria obrigatória, preço inteiro em centavos e moeda explícita BRL. URLs usam UUID, sem slug ou compatibilidade de renomeação de slug. Nomes de produto não precisam ser únicos.

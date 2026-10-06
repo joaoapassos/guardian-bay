@@ -2,7 +2,15 @@ import { randomUUID } from "node:crypto";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { getDb } from "@/db";
 import { hashPassword } from "@/features/auth/server/password";
 import { createSession } from "@/features/auth/server/session";
@@ -61,6 +69,16 @@ beforeAll(async () => {
   const [product] =
     await client`INSERT INTO products(name,category_id,amount,is_published) VALUES ('Cart fixture',${categoryId},1099,true) RETURNING id`;
   productId = product.id;
+});
+
+beforeEach(async () => {
+  await client`DELETE FROM cart_items WHERE user_id IN (${userId},${otherId})`;
+  await client`UPDATE products SET name='Cart fixture',amount=1099,image_key=null,is_published=true,category_id=${categoryId} WHERE id=${productId}`;
+  request.headers = new Headers({
+    host: "localhost:3000",
+    origin: "http://localhost:3000",
+  });
+  request.token = (await createSession(userId)).token;
 });
 
 afterAll(async () => {
@@ -561,4 +579,116 @@ describe("ECMSG-63: boundaries, ownership e sessão concorrente", () => {
       await client`DELETE FROM cart_items WHERE user_id=${userId}`;
     }
   });
+});
+
+describe("ECMSG-64: matriz de segurança adicional", () => {
+  it("A e B leem somente próprios itens, update/remove não operam item de B", async () => {
+    await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${otherId},${productId},9)`;
+    request.token = (await createSession(otherId)).token;
+    expect(await readCart()).toMatchObject({
+      success: true,
+      items: [{ quantity: 9 }],
+      total: { amount: 9891 },
+    });
+    request.token = (await createSession(userId)).token;
+    expect(await readCart()).toMatchObject({ success: true, items: [] });
+    expect(await updateCartItemAction({ productId, quantity: 2 })).toEqual({
+      success: false,
+      code: "CONFLICT",
+    });
+    await removeCartItemAction({ productId });
+    expect(
+      (
+        await client`SELECT quantity FROM cart_items WHERE user_id=${otherId}`
+      )[0].quantity,
+    ).toBe(9);
+    await client`DELETE FROM cart_items WHERE user_id=${otherId}`;
+  });
+  it("limite de 100 produtos é serializado mesmo para adições diferentes concorrentes", async () => {
+    request.token = (await createSession(userId)).token;
+    const fixture =
+      await client`INSERT INTO products(name,category_id,amount,is_published) SELECT 'Cart bound',${categoryId},1,true FROM generate_series(1,101) RETURNING id`;
+    try {
+      for (const product of fixture.slice(0, 99))
+        await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${product.id})`;
+      const results = await Promise.all(
+        fixture
+          .slice(99)
+          .map((p) => addToCartAction({ productId: p.id, quantity: 1 })),
+      );
+      expect(results.filter((r) => r.success)).toHaveLength(1);
+      expect(results.filter((r) => !r.success)).toEqual([
+        { success: false, code: "LIMIT_REACHED" },
+      ]);
+      expect(
+        (
+          await client`SELECT count(*)::int AS count FROM cart_items WHERE user_id=${userId}`
+        )[0].count,
+      ).toBe(100);
+    } finally {
+      await client`DELETE FROM cart_items WHERE user_id=${userId}`;
+      await client`DELETE FROM products WHERE id IN ${client(fixture.map((p) => p.id))}`;
+    }
+  });
+  it("falha inesperada permanece exception sanitizada sem cause/payload em logs", async () => {
+    request.token = (await createSession(userId)).token;
+    const logging = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const failure = vi
+      .spyOn(getDb(), "transaction")
+      .mockRejectedValueOnce(
+        new Error("DATABASE_URL=private; SQL SELECT; token=private"),
+      );
+    try {
+      const error = await addToCartAction({ productId, quantity: 1 }).catch(
+        (error) => error,
+      );
+      expect(error).toBeInstanceOf(Error);
+      expect(error.message).toBe(
+        "Não foi possível concluir a operação do carrinho.",
+      );
+      expect(error).not.toHaveProperty("cause");
+      const output = JSON.stringify(logging.mock.calls);
+      expect(output).not.toMatch(/DATABASE_URL|SELECT|token|private/);
+      expect(logging).toHaveBeenCalledTimes(1);
+    } finally {
+      failure.mockRestore();
+      logging.mockRestore();
+    }
+  });
+});
+
+it("ECMSG-64: visitante não atualiza/remove; replay e concorrência no limite", async () => {
+  request.token = undefined;
+  expect(await updateCartItemAction({ productId, quantity: 2 })).toEqual({
+    success: false,
+    code: "UNAUTHENTICATED",
+  });
+  expect(await removeCartItemAction({ productId })).toEqual({
+    success: false,
+    code: "UNAUTHENTICATED",
+  });
+  request.token = (await createSession(userId)).token;
+  await addToCartAction({ productId, quantity: 95 });
+  const results = await Promise.all(
+    Array.from({ length: 8 }, () =>
+      addToCartAction({ productId, quantity: 1 }),
+    ),
+  );
+  expect(results.filter((r) => r.success)).toHaveLength(4);
+  expect(
+    (await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`)[0]
+      .quantity,
+  ).toBe(99);
+  for (let i = 0; i < 2; i++)
+    expect(await updateCartItemAction({ productId, quantity: 3 })).toEqual({
+      success: true,
+    });
+  expect(
+    (await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`)[0]
+      .quantity,
+  ).toBe(3);
+  for (let i = 0; i < 2; i++)
+    expect(await removeCartItemAction({ productId })).toEqual({
+      success: true,
+    });
 });
