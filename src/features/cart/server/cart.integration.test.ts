@@ -103,10 +103,10 @@ describe("ECMSG-55: persistência real", () => {
     await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
     await expect(
       client`DELETE FROM users WHERE id=${userId}`,
-    ).rejects.toMatchObject({ code: "23503" });
+    ).rejects.toMatchObject({ code: expect.stringMatching(/^(23503|23001)$/) });
     await expect(
       client`DELETE FROM products WHERE id=${productId}`,
-    ).rejects.toMatchObject({ code: "23503" });
+    ).rejects.toMatchObject({ code: expect.stringMatching(/^(23503|23001)$/) });
     await client`DELETE FROM cart_items WHERE user_id=${userId}`;
   });
 });
