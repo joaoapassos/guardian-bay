@@ -242,3 +242,73 @@ it("ECMSG-89: role atual, DTO administrativo e revisão saturada falham fechado"
     )[0].available_quantity,
   ).toBe(2147483647);
 });
+
+async function waitForInventoryLock(
+  table: "products" | "users" | "inventory",
+  minimum = 1,
+) {
+  for (let i = 0; i < 100; i++) {
+    const [row] =
+      await client`SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE ${`%"${table}"%`}`;
+    if (row.count >= minimum) return;
+    await new Promise((done) => setTimeout(done, 20));
+  }
+  throw new Error("Checkout did not reach expected lock");
+}
+async function holdInventoryLock(
+  action: (tx: postgres.TransactionSql) => Promise<unknown>,
+) {
+  const blocker = postgres(url.href, { max: 1, onnotice: () => {} });
+  let acquired!: () => void;
+  let release!: () => void;
+  const locked = new Promise<void>((done) => {
+    acquired = done;
+  });
+  const unlock = new Promise<void>((done) => {
+    release = done;
+  });
+  const holding = blocker.begin(async (tx) => {
+    await action(tx);
+    acquired();
+    await unlock;
+  });
+  await locked;
+  return {
+    release: async () => {
+      release();
+      await holding;
+      await blocker.end();
+    },
+  };
+}
+
+it("ECMSG-90: admin expirado durante inventory lock rollback", async () => {
+  const { setInventoryQuantityAction } = await import(
+    "../actions/set-inventory.action"
+  );
+  const { tokenHash } = await import("@/features/auth/server/session");
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  await client`UPDATE sessions SET expires_at=clock_timestamp()+interval '1 second' WHERE token_hash=${tokenHash(request.token)}`;
+  const lock = await holdInventoryLock(
+    (tx) =>
+      tx`SELECT product_id FROM inventory WHERE product_id=${productId} FOR UPDATE`,
+  );
+  try {
+    const pending = setInventoryQuantityAction({
+      productId,
+      quantity: 5,
+      revision: 1,
+    });
+    await waitForInventoryLock("inventory");
+    await client`SELECT pg_sleep(1.1)`;
+    await lock.release();
+    expect(await pending).toEqual({ success: false, code: "FORBIDDEN" });
+    expect(
+      (
+        await client`SELECT available_quantity,revision FROM inventory WHERE product_id=${productId}`
+      )[0],
+    ).toEqual({ available_quantity: 0, revision: 1 });
+  } finally {
+    await lock.release();
+  }
+});

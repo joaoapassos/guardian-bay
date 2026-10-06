@@ -672,6 +672,21 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 await navigate(`/products/${catalogProduct.id}`);
                 assert.equal(
                   await evaluate(
+                    "[...document.querySelectorAll('button')].some(b=>b.disabled && b.textContent==='Sem estoque')",
+                  ),
+                  true,
+                );
+                await navigate("/admin/catalog");
+                const stockLabel = `Estoque de ${catalogName}`;
+                await adminSubmit(stockLabel, { quantity: "2" }, false);
+                await waitFor(
+                  `(() => {const f=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(stockLabel)});return f?.elements.namedItem('quantity')?.defaultValue==='2' && f.getAttribute('aria-busy')==='false';})()`,
+                  "admin stock refresh",
+                );
+
+                await navigate(`/products/${catalogProduct.id}`);
+                assert.equal(
+                  await evaluate(
                     "window.catalogXss === undefined && document.querySelector('main').textContent.includes('<script>window.catalogXss=true</script>')",
                   ),
                   true,
@@ -770,6 +785,19 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   )[0].n,
                   0,
                 );
+                assert.equal(
+                  (
+                    await client`SELECT available_quantity FROM inventory WHERE product_id=${catalogProduct.id}`
+                  )[0].available_quantity,
+                  0,
+                );
+                await navigate(`/products/${catalogProduct.id}`);
+                assert.equal(
+                  await evaluate(
+                    "[...document.querySelectorAll('button')].some(b=>b.disabled && b.textContent==='Sem estoque')",
+                  ),
+                  true,
+                );
                 await client`UPDATE products SET name='Later browser name',amount=9999,is_published=false WHERE id=${catalogProduct.id}`;
                 await navigate(detailPath);
                 await waitFor(
@@ -788,6 +816,13 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "private order history",
                 );
                 await client`UPDATE products SET name=${catalogName},amount=1200,is_published=true WHERE id=${catalogProduct.id}`;
+                await navigate("/admin/catalog");
+                await adminSubmit(stockLabel, { quantity: "2" }, false);
+                await waitFor(
+                  `(() => {const f=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(stockLabel)});return f?.elements.namedItem('quantity')?.defaultValue==='2' && f.getAttribute('aria-busy')==='false';})()`,
+                  "restock after purchase",
+                );
+
                 await navigate(`/products/${catalogProduct.id}`);
                 await evaluate(
                   "[...document.querySelectorAll('button')].find(b=>b.textContent==='Adicionar ao carrinho').click()",
@@ -899,6 +934,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 await client`DELETE FROM orders WHERE user_id IN (SELECT id FROM users WHERE email=${email})`;
                 if (catalogCategoryId) {
                   await client`DELETE FROM cart_items WHERE product_id IN (SELECT id FROM products WHERE category_id=${catalogCategoryId})`;
+                  await client`DELETE FROM inventory WHERE product_id IN (SELECT id FROM products WHERE category_id=${catalogCategoryId})`;
                   await client`DELETE FROM products WHERE category_id=${catalogCategoryId}`;
                   await client`DELETE FROM categories WHERE id=${catalogCategoryId}`;
                 }
