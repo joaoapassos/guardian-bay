@@ -99,7 +99,7 @@ describe("listagem pública", () => {
     if (visible.success)
       expect(
         Object.keys(visible.products.find((p) => p.id === productId) ?? {}),
-      ).toEqual(["id", "name", "category", "price", "image"]);
+      ).toEqual(["id", "name", "category", "inStock", "price", "image"]);
     for (const input of [
       { page: "0" },
       { page: "1001" },

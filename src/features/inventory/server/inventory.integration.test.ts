@@ -113,3 +113,24 @@ it("ECMSG-81: disponibilidade pública mínima, mutável e ausência fechada", a
   await client`INSERT INTO inventory(product_id) VALUES (${productId})`;
   expect(await readAvailability("' OR 1=1 --")).toBeNull();
 });
+
+it("ECMSG-82: catálogo mantém publicado sem estoque e não expõe revision", async () => {
+  const { listProducts } = await import(
+    "@/features/catalog/server/list-products"
+  );
+  const { readProduct } = await import(
+    "@/features/catalog/server/read-product"
+  );
+  const listing = await listProducts({ category: categoryId });
+  expect(listing.success && listing.products).toMatchObject([
+    { id: productId, inStock: false },
+  ]);
+  expect(await readProduct(productId)).toMatchObject({ inStock: false });
+  await client`UPDATE inventory SET available_quantity=2 WHERE product_id=${productId}`;
+  const detail = await readProduct(productId);
+  expect(detail).toMatchObject({ inStock: true });
+  expect(detail).not.toHaveProperty("revision");
+  expect(detail).not.toHaveProperty("stockQuantity");
+  await client`UPDATE products SET is_published=false WHERE id=${productId}`;
+  expect(await readProduct(productId)).toBeNull();
+});

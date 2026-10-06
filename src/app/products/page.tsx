@@ -86,7 +86,10 @@ export default async function ProductsPage({
                   </h2>
                   <p>{product.category}</p>
                   <p>{product.price.formatted}</p>
-                  <AddToCartButton productId={product.id} />
+                  <AddToCartButton
+                    productId={product.id}
+                    inStock={product.inStock}
+                  />
                 </li>
               ))}
             </ul>

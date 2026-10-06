@@ -3,7 +3,13 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { addToCartAction } from "../actions/add-to-cart.action";
 
-export function AddToCartButton({ productId }: { productId: string }) {
+export function AddToCartButton({
+  productId,
+  inStock = true,
+}: {
+  productId: string;
+  inStock?: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
@@ -11,7 +17,7 @@ export function AddToCartButton({ productId }: { productId: string }) {
     <div className="mt-4">
       <button
         type="button"
-        disabled={pending}
+        disabled={pending || !inStock}
         className="rounded border px-4 py-2 disabled:opacity-50"
         onClick={() => {
           setMessage("");
@@ -36,7 +42,11 @@ export function AddToCartButton({ productId }: { productId: string }) {
           });
         }}
       >
-        {pending ? "Adicionando…" : "Adicionar ao carrinho"}
+        {!inStock
+          ? "Sem estoque"
+          : pending
+            ? "Adicionando…"
+            : "Adicionar ao carrinho"}
       </button>
       <output aria-live="polite" className="block">
         {message}
