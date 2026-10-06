@@ -20,6 +20,9 @@ export const sessions = pgTable(
       .defaultNow()
       .notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    lastActiveAt: timestamp("last_active_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (table) => [
     check(
@@ -27,6 +30,10 @@ export const sessions = pgTable(
       sql`${table.tokenHash} ~ '^[0-9a-f]{64}$'`,
     ),
     check("sessions_expiration", sql`${table.expiresAt} > ${table.createdAt}`),
+    check(
+      "sessions_activity",
+      sql`${table.lastActiveAt} >= ${table.createdAt} AND ${table.lastActiveAt} < ${table.expiresAt}`,
+    ),
     index("sessions_user_id_idx").on(table.userId),
     index("sessions_expires_at_idx").on(table.expiresAt),
   ],

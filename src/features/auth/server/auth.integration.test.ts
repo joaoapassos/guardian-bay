@@ -1,15 +1,34 @@
 import { randomUUID } from "node:crypto";
+import { argon2id, hash } from "argon2";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { getDb } from "@/db";
 import { users } from "@/db/schema/users";
 import { loginAction } from "../actions/login.action";
 import { logoutAction } from "../actions/logout.action";
+import { readIdentityAction } from "../actions/read-identity.action";
 import { authenticate } from "./authenticate";
 import { hashPassword, verifyPassword } from "./password";
-import { createSession, resolveSession, revokeSession } from "./session";
+import { readOwnIdentity } from "./read-own-identity";
+import {
+  createSession,
+  recordSessionActivity,
+  resolveSession,
+  revokeSession,
+  tokenHash,
+} from "./session";
+import * as sessionCookie from "./session-cookie";
 import {
   getAuthenticatedIdentity,
   sessionCookiePolicy,
@@ -242,7 +261,7 @@ describe("autenticação e sessões com PostgreSQL real", () => {
   });
   it("sessão expirada não autentica", async () => {
     const session = await createSession(userId);
-    await client`UPDATE sessions SET created_at = CURRENT_TIMESTAMP - interval '2 days', expires_at = CURRENT_TIMESTAMP - interval '1 day' WHERE user_id = ${userId}`;
+    await client`UPDATE sessions SET created_at = CURRENT_TIMESTAMP - interval '2 days', last_active_at = CURRENT_TIMESTAMP - interval '2 days', expires_at = CURRENT_TIMESTAMP - interval '1 day' WHERE user_id = ${userId}`;
     expect(await resolveSession(session.token)).toBeNull();
     expect(await resolveSession(token)).toBeNull();
   });
@@ -320,5 +339,208 @@ describe("autenticação e sessões com PostgreSQL real", () => {
       path: "/",
     });
     vi.stubEnv("NODE_ENV", "test");
+  });
+});
+
+describe("ECMSG-25: autorização e correções de autenticação", () => {
+  const emails = [randomUUID(), randomUUID(), randomUUID()].map(
+    (id) => `${id}@example.test`,
+  );
+  let ids: string[];
+  let ownToken: string;
+  beforeAll(async () => {
+    const legacyHash = await hash("old", {
+      type: argon2id,
+      memoryCost: 65536,
+      timeCost: 3,
+      parallelism: 1,
+      hashLength: 32,
+    });
+    const rows = await database
+      .insert(users)
+      .values(
+        emails.map((fixtureEmail, index) => ({
+          email: fixtureEmail,
+          passwordHash: index === 2 ? legacyHash : passwordHash,
+        })),
+      )
+      .returning({ id: users.id });
+    ids = rows.map((row) => row.id);
+  });
+  beforeEach(async () => {
+    request.headers = new Headers({
+      origin: "http://localhost:3000",
+      host: "localhost:3000",
+    });
+    ownToken = (await createSession(ids[0])).token;
+    request.token = ownToken;
+  });
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await client`DELETE FROM sessions WHERE user_id IN (${ids[0]},${ids[1]},${ids[2]})`;
+  });
+  afterAll(async () => {
+    await client`DELETE FROM users WHERE email IN (${emails[0]},${emails[1]},${emails[2]})`;
+  });
+  it("login verifica credencial existente menor que o mínimo de criação", async () => {
+    expect(await loginAction({ email: emails[2], password: "old" })).toEqual({
+      success: true,
+    });
+    expect(await sessionCookie.getAuthenticatedIdentity()).toEqual({
+      id: ids[2],
+      email: emails[2],
+    });
+  });
+  it.each([
+    undefined,
+    "invalid",
+    "a".repeat(64),
+  ])("identidade obrigatória rejeita sessão ausente/inválida", async (token) => {
+    request.token = token;
+    expect(await sessionCookie.requireAuthenticatedIdentity()).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+    expect(await readIdentityAction({ userId: ids[0] })).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+  });
+  it("A lê A com DTO mínimo; A troca apenas ID para B e continua negado", async () => {
+    expect(await readIdentityAction({ userId: ids[0] })).toEqual({
+      success: true,
+      identity: { id: ids[0], email: emails[0] },
+    });
+    expect(await readOwnIdentity({ userId: ids[1] })).toEqual({
+      success: false,
+      code: "FORBIDDEN",
+    });
+    expect(await readIdentityAction({ userId: ids[1] })).toEqual({
+      success: false,
+      code: "NOT_FOUND",
+    });
+    expect(await readIdentityAction({ userId: randomUUID() })).toEqual({
+      success: false,
+      code: "NOT_FOUND",
+    });
+    request.token = (await createSession(ids[1])).token;
+    expect(await readIdentityAction({ userId: ids[0] })).toEqual({
+      success: false,
+      code: "NOT_FOUND",
+    });
+  });
+  it("chamada direta sem UI não aceita role/userId como autoridade", async () => {
+    expect(await readOwnIdentity({ userId: ids[1], role: "admin" })).toEqual({
+      success: false,
+      code: "INVALID_INPUT",
+    });
+    expect(
+      await readIdentityAction({ userId: ids[1], authenticatedUserId: ids[1] }),
+    ).toEqual({ success: false, code: "INVALID_INPUT" });
+    expect(await readIdentityAction({ userId: "' OR TRUE --" })).toEqual({
+      success: false,
+      code: "INVALID_INPUT",
+    });
+  });
+  it("sessão revogada não autoriza", async () => {
+    await revokeSession(ownToken);
+    expect(await readOwnIdentity({ userId: ids[0] })).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+  });
+  it("revogação entre helper e query final impede disclosure", async () => {
+    const original = sessionCookie.requireAuthenticatedIdentity;
+    vi.spyOn(
+      sessionCookie,
+      "requireAuthenticatedIdentity",
+    ).mockImplementationOnce(async () => {
+      const result = await original();
+      await revokeSession(ownToken);
+      return result;
+    });
+    expect(await readIdentityAction({ userId: ids[0] })).toEqual({
+      success: false,
+      code: "NOT_FOUND",
+    });
+  });
+  it("idle timeout rejeita sessão após 30 minutos e não ressuscita", async () => {
+    await client`UPDATE sessions SET created_at=CURRENT_TIMESTAMP-interval '1 hour', last_active_at=CURRENT_TIMESTAMP-interval '31 minutes' WHERE token_hash=${tokenHash(ownToken)}`;
+    expect(await resolveSession(ownToken)).toBeNull();
+    expect(await readIdentityAction({ userId: ids[0] })).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+    await recordSessionActivity(ownToken);
+    expect(await resolveSession(ownToken)).toBeNull();
+  });
+  it("renova atividade no máximo a cada 5 minutos sem estender limite absoluto", async () => {
+    await client`UPDATE sessions SET created_at=CURRENT_TIMESTAMP-interval '1 hour', last_active_at=CURRENT_TIMESTAMP-interval '6 minutes' WHERE token_hash=${tokenHash(ownToken)}`;
+    const [before] =
+      await client`SELECT last_active_at,expires_at FROM sessions WHERE token_hash=${tokenHash(ownToken)}`;
+    await Promise.all([
+      readIdentityAction({ userId: ids[0] }),
+      readIdentityAction({ userId: ids[0] }),
+    ]);
+    const [after] =
+      await client`SELECT last_active_at,expires_at FROM sessions WHERE token_hash=${tokenHash(ownToken)}`;
+    expect(after.last_active_at).not.toEqual(before.last_active_at);
+    expect(after.expires_at).toEqual(before.expires_at);
+    await readIdentityAction({ userId: ids[0] });
+    const [again] =
+      await client`SELECT last_active_at FROM sessions WHERE token_hash=${tokenHash(ownToken)}`;
+    expect(again.last_active_at).toEqual(after.last_active_at);
+  });
+  it("render/leitura server não renova atividade", async () => {
+    await client`UPDATE sessions SET created_at=CURRENT_TIMESTAMP-interval '1 hour', last_active_at=CURRENT_TIMESTAMP-interval '6 minutes' WHERE token_hash=${tokenHash(ownToken)}`;
+    const [before] =
+      await client`SELECT last_active_at FROM sessions WHERE token_hash=${tokenHash(ownToken)}`;
+    await sessionCookie.getAuthenticatedIdentity();
+    const [after] =
+      await client`SELECT last_active_at FROM sessions WHERE token_hash=${tokenHash(ownToken)}`;
+    expect(after.last_active_at).toEqual(before.last_active_at);
+  });
+  it("expiração absoluta continua negando autorização", async () => {
+    await client`UPDATE sessions SET created_at=CURRENT_TIMESTAMP-interval '9 hours', last_active_at=CURRENT_TIMESTAMP-interval '2 hours', expires_at=CURRENT_TIMESTAMP-interval '1 hour' WHERE token_hash=${tokenHash(ownToken)}`;
+    expect(await sessionCookie.requireAuthenticatedIdentity()).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+    expect(await readIdentityAction({ userId: ids[0] })).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+  });
+  it("constraint de atividade rejeita NULL e atividade anterior à criação", async () => {
+    await expect(
+      client`UPDATE sessions SET last_active_at=NULL WHERE token_hash=${tokenHash(ownToken)}`,
+    ).rejects.toMatchObject({ code: "23502" });
+    await expect(
+      client`UPDATE sessions SET last_active_at=created_at-interval '1 second' WHERE token_hash=${tokenHash(ownToken)}`,
+    ).rejects.toMatchObject({ code: "23514" });
+  });
+  it("proxy com Host público é aceito; forwarded-host forjado não concede origem", async () => {
+    request.headers = new Headers({
+      origin: "http://localhost:3000",
+      host: "localhost:3000",
+      "x-forwarded-host": "localhost:3000",
+    });
+    expect((await readIdentityAction({ userId: ids[0] })).success).toBe(true);
+    request.headers = new Headers({
+      origin: "https://public.example.test",
+      host: "backend:3000",
+      "x-forwarded-host": "public.example.test",
+    });
+    await expect(readIdentityAction({ userId: ids[0] })).rejects.toThrow(
+      "Requisição inválida.",
+    );
+    request.headers = new Headers({
+      origin: "https://evil.test",
+      host: "localhost:3000",
+      "x-forwarded-host": "evil.test",
+    });
+    await expect(readIdentityAction({ userId: ids[0] })).rejects.toThrow(
+      "Requisição inválida.",
+    );
   });
 });

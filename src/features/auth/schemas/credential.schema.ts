@@ -13,15 +13,24 @@ export const emailSchema = z
   );
 
 // Preserve the password exactly; limit code units before counting code points.
-export const passwordSchema = z
+export const authenticationPasswordSchema = z
   .string()
   .max(256)
   .pipe(
     z.string().refine((value) => {
       const length = [...value].length;
-      return length >= 15 && length <= 128 && !/\p{Surrogate}/u.test(value);
+      return length >= 1 && length <= 128 && !/\p{Surrogate}/u.test(value);
     }),
   );
+
+export const passwordSchema = authenticationPasswordSchema.refine(
+  (value) => [...value].length >= 15,
+);
+
+export const authenticationCredentialSchema = z.strictObject({
+  email: emailSchema,
+  password: authenticationPasswordSchema,
+});
 
 export const credentialSchema = z.strictObject({
   email: emailSchema,

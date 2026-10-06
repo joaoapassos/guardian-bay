@@ -1,7 +1,10 @@
 import "server-only";
 
 import { argon2id, hash, verify } from "argon2";
-import { passwordSchema } from "../schemas/credential.schema";
+import {
+  authenticationPasswordSchema,
+  passwordSchema,
+} from "../schemas/credential.schema";
 
 // Versioned server policy: callers cannot supply cost, salt or algorithm.
 const passwordHashOptions = Object.freeze({
@@ -31,13 +34,8 @@ export async function verifyPassword(
   password: unknown,
   passwordHash: string,
 ): Promise<boolean> {
-  if (
-    typeof password !== "string" ||
-    password.length === 0 ||
-    password.length > 256 ||
-    [...password].length > 128 ||
-    /\p{Surrogate}/u.test(password)
-  ) {
+  const input = authenticationPasswordSchema.safeParse(password);
+  if (!input.success) {
     return false;
   }
 
@@ -49,7 +47,7 @@ export async function verifyPassword(
     ) {
       throw new Error();
     }
-    return await verify(passwordHash, password);
+    return await verify(passwordHash, input.data);
   } catch {
     throw new Error("Não foi possível processar a credencial.");
   }
