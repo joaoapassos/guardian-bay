@@ -28,6 +28,12 @@ Cadastro admite duas tentativas por e-mail/15 minutos em chave `reg:` pseudonimi
 
 Inputs e botões nativos com Tailwind atendem aos controles atuais; não há consumidor que justifique adicionar primitives Radix ou Zustand. A única dependência de UI nova é RHF, compatível com React 19. Login navega para a aplicação após sucesso; cadastro orienta login sem revelar duplicidade. A integração de navegação/sessão é responsabilidade da ECMSG-35.
 
+## Sessão integrada à aplicação (ECMSG-35)
+
+O layout Server resolve identidade por cookie/sessão e compõe navegação de visitante ou autenticado, sem enviar sessão, token ou identidade completa ao botão Client de logout. A navegação é UX; não autoriza recursos. Logout chama a Action existente sem argumentos, revoga no DB antes de expirar cookie e atualiza navegação por router refresh. Login atualiza a composição Server após sucesso.
+
+`cookies()` torna a composição dependente da request; identidade não usa cache compartilhado, `use cache`, store ou contexto Client. Render continua somente read: não renova idle timeout. Reads e queries protegidas continuam validando expiração/revogação. A área `/account` será implementada na ECMSG-36; o link não concede acesso antecipado.
+
 ## Contrato de entrada e proteção contra abuso (ECMSG-27)
 
 Não há deployment definido. O link do scaffold para Vercel não configura hospedagem, proxy ou origem confiável. Atualmente `X-Forwarded-For`, `X-Real-IP` e `Forwarded` não identificam o caller; os limites de login funcionam sem eles.
