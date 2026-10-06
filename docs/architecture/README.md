@@ -1,8 +1,8 @@
 # Arquitetura e fronteiras do sistema
 
-Sistema: E-commerce seguro · Epic 1: Fundação e arquitetura · Task 1: Definir arquitetura e fronteiras do sistema.
+Sistema: E-commerce seguro · Epic 1: Fundação e arquitetura.
 
-Este documento registra as decisões aprovadas. O [AGENTS.md](../../AGENTS.md) estabelece invariantes; as [skills](../../.agents/skills/) descrevem procedimentos para aplicá-las. A fronteira Server × Client aprovada na Task 1 é preservada. A ECMSG-14 (Task 3) complementa este documento com localização de código e convenções, sem implementar funcionalidades.
+Este documento registra as decisões aprovadas. O [AGENTS.md](../../AGENTS.md) estabelece invariantes; as [skills](../../.agents/skills/) descrevem procedimentos para aplicá-las.
 
 ## Precedência das instruções
 
@@ -12,9 +12,7 @@ A ordem entre instruções do projeto é `AGENTS.md → arquitetura aprovada do 
 
 O projeto contém o scaffold de Next.js 16.3.8 com React 19.2.8, App Router em `src/app`, Tailwind 4 e React Compiler habilitado. `page.tsx` e `layout.tsx` têm um componente principal cada e não usam `"use client"`. TypeScript está em modo estrito, com `@/* → ./src/*`. Biome 2.4.2 já formata, organiza imports e aplica regras recomendadas de Next/React por `npm run lint`.
 
-Antes desta Task, `docs/`, `.codex/` e `.agents/skills/` estavam vazios. Havia somente o `AGENTS.md` raiz, com o bloco gerenciado pelo Next.js; `CLAUDE.md` já apontava para ele. As pastas `components`, `features`, `db`, `lib` e `hooks` já existiam vazias e foram preservadas, sem placeholders. Não havia comportamento de domínio ou conflito no código a migrar.
-
-Na Task 1, PostgreSQL, Drizzle, Radix UI, Zod, Zustand e React Hook Form eram decisões para uso futuro. A ECMSG-16 instala Drizzle ORM/Kit e Postgres.js, sem tabelas de domínio; as demais dependências continuam futuras. Os exemplos não autorizam implementação antecipada.
+Há infraestrutura PostgreSQL com Drizzle ORM/Kit e Postgres.js em `src/db`, configuração privada validada em `src/lib/env`, testes unitários com Vitest, baseline de headers HTTP e quality gates. Ainda não há tabelas, migrations ou funcionalidades de domínio. Radix UI, Zod, Zustand e React Hook Form permanecem decisões para uso futuro, com instalação somente quando houver consumidor concreto.
 
 ## Camadas e responsabilidades
 
@@ -81,7 +79,7 @@ Features futuras podem ser `auth`, `catalog`, `cart`, `checkout` e `orders`. Cad
 
 ## Diretórios e convenções (ECMSG-14)
 
-Esta seção complementa as responsabilidades e o mapa de dependências acima; não cria outra arquitetura. Atualmente, os arquivos versionados de aplicação estão somente em `src/app`. Não há schemas Zod, Drizzle, Actions, handlers ou módulos `server-only` a migrar. Os exemplos abaixo são destinos para código futuro, não diretórios a criar antecipadamente.
+Esta seção complementa as responsabilidades e o mapa de dependências acima. O código atual está em `src/app`, `src/db` e `src/lib/env`. Não há schemas de domínio, Actions ou Route Handlers. Os exemplos abaixo orientam novas adições, sem criar diretórios antecipadamente.
 
 ### Onde colocar novo código
 
@@ -146,7 +144,7 @@ Uma feature não importa arbitrariamente `server`, componentes, stores ou outros
 
 Mantenha `"use client"` no topo da menor entrada interativa necessária. Não espalhe a diretiva para compensar imports incompatíveis. `"use server"` no topo de arquivo de Actions identifica exports assíncronos remotos; não use essa diretiva como proteção de helpers internos.
 
-Módulos que acessam DB, secrets, autenticação/autorização ou regras privilegiadas devem usar `import "server-only";`, inclusive pontos de entrada server e infraestrutura privilegiada em `db`/`lib`. O nome `server/` ou um sufixo de arquivo sozinho não impede bundling client. Não marque schemas puros de entrada ou contratos seguros compartilhados como server-only apenas pela localização. A implementação desse guard e sua dependência pertencem à Task que introduzir o primeiro módulo privilegiado; nenhum é necessário no scaffold atual.
+Módulos que acessam DB, secrets, autenticação/autorização ou regras privilegiadas devem usar `import "server-only";`, inclusive pontos de entrada server e infraestrutura privilegiada em `db`/`lib`. O nome `server/` ou um sufixo de arquivo sozinho não impede bundling client. Não marque schemas puros de entrada ou contratos seguros compartilhados como server-only apenas pela localização. `src/db/index.ts` e `src/lib/env/server.ts` já usam esse guard, com suporte interno do Next.js.
 
 Tipos inferidos do Drizzle permanecem internos. Um DTO específico, junto da feature, declara os campos mínimos realmente enviados; a implementação server projeta os campos explicitamente, sem espalhar uma entidade inteira. Para inputs, prefira `z.infer` ou, quando houver transformação, `z.input`/`z.output` conforme o lado do contrato. Compartilhe schema com o formulário somente quando for puro, seguro e não trouxer dependências privilegiadas. Consulte as seções de DTO, validação e writes para as garantias da operação; nomes de arquivos e tipos não substituem esses checks.
 
@@ -284,9 +282,9 @@ A precedência é: `process.env` → `.env.$NODE_ENV.local` → `.env.local` →
 
 Leituras estáticas de `process.env.NEXT_PUBLIC_*` são incorporadas ao bundle durante `next build` e ficam congeladas: mudar o ambiente em runtime não altera o bundle já gerado. Acesso dinâmico por nome de variável ou alias de `process.env` não oferece esse inlining. Configuração privada também pode ser avaliada no build se usada em prerenderização; quando houver necessidade de configuração runtime, o consumidor deve usar o fluxo dinâmico apropriado documentado pelo Next.js, sem tornar todas as páginas dinâmicas preventivamente.
 
-Não use `next.config.ts` → `env` para secrets: essa opção incorpora os valores ao JavaScript mesmo sem prefixo público. Preserve o arquivo de configuração atual sem esse campo. Ferramentas futuras fora do runtime Next.js, como CLI do ORM, precisarão de carregamento explícito compatível com `@next/env`; implemente isso somente junto da ferramenta, declarando dependência direta quando usada, sem depender implicitamente de um pacote transitivo.
+Não use `next.config.ts` → `env` para secrets: essa opção incorpora os valores ao JavaScript mesmo sem prefixo público. Preserve o arquivo de configuração atual sem esse campo. A CLI Drizzle Kit usa `@next/env`, declarado como dependência direta, para carregar a configuração fora do runtime Next.js.
 
-### Acesso e validação quando houver consumidor
+### Acesso e validação
 
 A ECMSG-16 introduz o consumidor DB e o módulo `src/lib/env/server.ts`. Seu `getDatabaseUrl()` valida a configuração antes da criação da instância. A função pura em `database-url.ts` recebe somente o valor a validar e é compartilhada com a CLI; não lê nem exporta ambiente. Zod não está instalado e não será adicionado apenas para configuração.
 
@@ -322,7 +320,7 @@ Ainda não existem tabelas ou migrations. Portanto, `schema/` e `drizzle/` só s
 
 Para verificar o carregamento da configuração sem banco nem migrations, use uma URL fictícia formalmente válida em ambiente temporário e `npx drizzle-kit check`. Esse comando verifica histórico de migrations, não conectividade ou integridade de um banco; com histórico ausente, não comprova migrations reais. Não execute migrate/studio com placeholders. Uma conexão real requer PostgreSQL e `DATABASE_URL` utilizável e deve ser validada localmente, sem endpoint público.
 
-Referências oficiais consultadas: [PostgreSQL](https://orm.drizzle.team/docs/get-started-postgresql), [config](https://orm.drizzle.team/docs/drizzle-config-file), [generate](https://orm.drizzle.team/docs/drizzle-kit-generate), [migrate](https://orm.drizzle.team/docs/drizzle-kit-migrate), [check](https://orm.drizzle.team/docs/drizzle-kit-check) e [lifecycle Postgres.js](https://github.com/porsager/postgres#the-connection-pool). A documentação foi consultada no repositório oficial quando o site estava bloqueado; as opções foram confirmadas na CLI instalada.
+Referências oficiais consultadas: [PostgreSQL](https://orm.drizzle.team/docs/get-started-postgresql), [config](https://orm.drizzle.team/docs/drizzle-config-file), [generate](https://orm.drizzle.team/docs/drizzle-kit-generate), [migrate](https://orm.drizzle.team/docs/drizzle-kit-migrate), [check](https://orm.drizzle.team/docs/drizzle-kit-check) e [lifecycle Postgres.js](https://github.com/porsager/postgres#the-connection-pool).
 
 ## Tratamento de erros e observabilidade (ECMSG-17)
 
@@ -451,13 +449,11 @@ Não adicione `X-XSS-Protection` (filtro obsoleto que pode ser contraproducente)
 
 Valide respostas reais da página, assets e 404 após iniciar dev/produção: confirme CSP, nosniff, Referrer-Policy, Permissions-Policy, ausência de HSTS no HTTP local, de CORS global e de X-Powered-By. No navegador, confira ausência de violações inesperadas, recursos carregados e HMR; uma tentativa deliberada de framing deve falhar. Logs de teste dessa tentativa podem conter a violação esperada, sem relaxar a política.
 
-Na validação da ECMSG-18, `npm run check`, build de produção e `git diff --check` passaram. Respostas reais de `/`, `/next.svg` e rota inexistente (404) em dev/produção apresentaram os quatro headers da tabela, sem HSTS no HTTP local, CORS global ou X-Powered-By. Chromium carregou scripts, CSS, imagens e fontes sem violações inesperadas, negou as seis capacidades e bloqueou framing; HMR foi verificado por atualização/restauração temporária da página. Isso não valida deployment HTTPS, outros browsers ou CSP rígida futura.
-
 Referências: guias instalados `headers`, `poweredByHeader`, `content-security-policy`, Server/Client Components, Route Handlers e deploying sob `node_modules/next/dist/docs/`; MDN [CSP/frame-ancestors](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/frame-ancestors), [nosniff](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Content-Type-Options), [Referrer-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy), [Permissions-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy) e [HSTS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Strict-Transport-Security), consultados no conteúdo oficial atual.
 
 ## Testes (ECMSG-19)
 
-Vitest 4.1.11 é o runner único: executa TypeScript/ES modules rapidamente em Node e pode evoluir para testes de componentes sem outro runner. `vitest.config.mts` mantém ambiente `node`, imports explícitos de APIs de teste e o alias existente `@/ → src/`. Não altera `strict`/`noEmit` do TypeScript nem configura DOM, cobertura ou snapshots. Para executar testes e `check`, use Node 20.19+ da linha 20, 22.12+ da linha 22 ou 24+ (validado em 24.19.0); o mínimo do runtime Next.js permanece 20.9. Dependências e lockfile fixam a versão utilizada.
+Vitest 4.1.11 é o runner único: executa TypeScript/ES modules rapidamente em Node e pode evoluir para testes de componentes sem outro runner. `vitest.config.mts` mantém ambiente `node`, imports explícitos de APIs de teste e o alias existente `@/ → src/`. Não altera `strict`/`noEmit` do TypeScript nem configura DOM, cobertura ou snapshots. Para executar testes e `check`, use Node 20.19+ da linha 20, 22.12+ da linha 22 ou 24+; o mínimo do runtime Next.js permanece 20.9. Dependências e lockfile fixam a versão utilizada.
 
 | Tipo | Onde / quando | Garantia e dependências |
 | --- | --- | --- |
@@ -478,26 +474,27 @@ Segurança entra nos testes normais junto da surface real: validação server-si
 
 Não use secrets, tokens/sessões, PII ou produção nos testes. Preserve `.env*` ignorado com única exceção `.env.example`; ambiente de integração futuro deve ser explícito e seguro, sem reutilizar implicitamente configuração local. Evite rede, relógio real, ordem de execução e estado global em unitários; controle aleatoriedade/tempo somente quando necessário. Priorize casos relevantes, sem percentual arbitrário de cobertura ou dependências extras para números. React Testing Library, jsdom, Playwright, MSW, coverage e CI ficam para consumidores concretos.
 
-Referência: [guia oficial do Vitest](https://vitest.dev/guide/) e configuração `include`/`environment`, consultados na versão utilizada. A documentação da branch principal pode descrever requisitos futuros; os requisitos npm da versão instalada são a referência de compatibilidade.
+Referência: [guia do Vitest](https://vitest.dev/guide/). Os requisitos npm das versões instaladas definem a compatibilidade de Node.js.
 
 ## Quality gates (ECMSG-20)
 
 | Momento / risco | Gate obrigatório | Ambiente e finalidade |
 | --- | --- | --- |
-| Toda mudança | `npm run check` + `git diff --check` | Gate rápido: Biome sem autofix → typecheck → unitários. Com dependências já instaladas, não exige PostgreSQL, rede, browser, Docker ou produção |
-| Antes de merge de qualquer mudança / integração da Epic; mudanças relevantes de runtime, configuração ou dependências durante desenvolvimento | `npm run verify` + `git diff --check` | `verify` agrega check → build Next.js de produção; não substitui revisão de segurança/arquitetura nem testes adicionais aplicáveis |
+| Durante desenvolvimento | `npm run check` + `git diff --check` (não staged) + `git diff --cached --check` (staged) | Gate rápido: Biome sem autofix → typecheck → unitários. Com dependências já instaladas, não exige serviços externos |
+| Antes de merge da branch da Epic | `npm run verify` + `git diff --check origin/main...HEAD` | Valida produção e o patch acumulado desde o merge-base com a base atualizada, com todas as mudanças commitadas |
+| Mudanças relevantes de runtime, configuração ou dependências durante desenvolvimento | `npm run verify` + checks de diff de desenvolvimento | Build de produção e revisão do patch em elaboração |
 | Limites de confiança / operação sensível | Revisão `security-review` | Validação server-side, autenticação/autorização, ownership/IDOR, preço/estoque/totais, DTOs, erros, logs e secrets conforme a surface afetada |
 | Localização/dependências internas ou UI alterada | Revisão `architecture` / `frontend-patterns` pertinente | Respeita precedência do AGENTS.md; exemplos genéricos não autorizam mudanças incompatíveis |
 | Dependência ou superfície Next.js de risco alterada; antes de deployment quando pertinente | Auditoria complementar `nextjs-security-scan` / `npm audit` | Findings exigem triagem contextual; acesso ao registry e dados de advisories podem variar, portanto não integram automaticamente check/verify |
 | Persistência, fluxo crítico ou schema futuro | Integração/E2E/revisão de migration pertinentes quando existirem | Gates separados, com ambiente isolado e recursos necessários; não antecipados nesta Task |
 
-`check` preserva `lint → typecheck → unitários` e para na primeira falha. `verify` preserva o exit code de falha e só executa build se check passar. Não há aliases equivalentes adicionais ou wrapper próprio. `git diff --check` verifica whitespace/conflitos de patch, não semântica nem secrets; antes do commit use também `git diff --cached --check`, e antes de integrar revise o diff contra a base da mudança (um working tree limpo sozinho não verifica o patch já commitado).
+`check` executa `lint → typecheck → unitários` e para na primeira falha. `verify` só executa build se check passar e preserva o exit code de falha. Os checks de diff detectam erros de whitespace e marcadores de conflito introduzidos no patch; não validam semântica ou secrets. `git diff --check` isolado não verifica commits. Antes de merge, atualize a referência `origin/main` e use `git diff --check origin/main...HEAD`; o intervalo de três pontos compara o merge-base com `HEAD`.
 
 Biome continua sendo o único linter/formatter. `npm run format` é ação explícita que modifica arquivos, nunca gate; não execute autofix para fabricar resultado verde. Typecheck mantém `strict`/`noEmit` e gera somente tipos/artefatos ignorados necessários (`next typegen`, tsbuildinfo), sem build de produção. Build não ignora erros via `ignoreBuildErrors` ou configuração equivalente.
 
 ### Limites do build e dos testes
 
-O build detecta integração/compilação de produção que lint, tipos e unitários não cobrem. Hoje `next/font/google` pode baixar Geist de `fonts.googleapis.com`/`fonts.gstatic.com`; cache aquecido não prova funcionamento offline em máquina nova. O gate completo requer essa conectividade quando não houver cache válido. Falha de rede deve ser registrada como bloqueio ambiental e revalidada em ambiente adequado, sem modificar fontes/design nem desabilitar TLS/checks. Não declare build aprovado se ele não concluiu.
+O build detecta integração/compilação de produção que lint, tipos e unitários não cobrem. Os requisitos do ambiente de compilação estão no [README](../../README.md#comandos-e-quality-gates).
 
 A separação de testes é a da ECMSG-19: unitários entram em check; componentes poderão entrar se rápidos/determinísticos e independentes de infraestrutura; integração e E2E permanecem em comandos/configurações próprios. Falhas, skipped e zero testes não são equivalentes a sucesso de cobertura da mudança. Gate atual não precisa de `DATABASE_URL`, pois não importa DB e não há consumidor de banco no build das rotas atuais.
 
@@ -509,20 +506,16 @@ Quando persistência existir, integração exigirá PostgreSQL real de teste, di
 
 Não trate saída ou severidade sugerida pelo scanner como decisão automática de bloqueio. Analise evidência, severidade, pacote/arquivo afetado, produção vs tooling de desenvolvimento, reachability/exploitability, patch e impacto da correção. Ferramentas dev também podem ser exploráveis em build, workstation ou CI; devDependency não é dispensa automática. Um finding crítico explorável em código utilizado, exposição de secrets ou quebra comprovada de autorização bloqueia a mudança. Riscos relevantes sem mitigação aceitável também bloqueiam; ausência de análise não é justificativa de aprovação.
 
-`npm audit` é diagnóstico dependente de registry/advisories, não hard gate automático para qualquer finding ou status não zero. Classifique falha de conectividade separadamente de finding e registre triagem: caminho afetado, impacto, decisão e ação. Finding transitivo comprovadamente sem caminho explorável pode originar Task de análise/correção com justificativa registrada; não atualizar dependências fora da Task para obter green gate. Não execute `npm audit fix`, upgrades ou correções do scanner automaticamente. Esta Task define a política, não afirma ter realizado auditoria completa de dependências.
+`npm audit` é diagnóstico dependente de registry/advisories, não hard gate automático para qualquer finding ou status não zero. Classifique falha de conectividade separadamente de finding e registre triagem: caminho afetado, impacto, decisão e ação. Finding transitivo comprovadamente sem caminho explorável pode originar Task de análise/correção com justificativa registrada; não atualizar dependências fora da Task para obter green gate. Não execute `npm audit fix`, upgrades ou correções do scanner automaticamente.
 
 Qualquer secret versionado é grave e bloqueia: `.env` real, token/API key, connection string, cookie/sessão ou chave privada. Preserve `.env*` ignorado com única exceção `.env.example`, revise arquivos rastreados/staged e o diff, incluindo novos arquivos. Ignore não protege arquivos já rastreados nem substitui inspeção; scanner pode perder secrets e produzir falsos positivos. Não copie valores em relatórios/logs. Se houver exposição real, contenha/remova e revogue/rotacione pela via segura conforme o incidente, não apenas silencie o finding.
 
 ### Falhas, revisão e automação futura
 
-Gate obrigatório falhou ou não foi executado → não mergear. Corrija somente problemas em escopo; problemas externos devem ser relatados como **Problema → impacto → bloqueia ou não**, com Task separada quando apropriado. Falha ambiental de build não impede documentar gates, mas impede declarar o gate completo aprovado até revalidação. Não desative assertions, testes ou proteção de runtime para passar. Skills/revisões não são automatizadas cegamente nem garantias de scanners; registre verificações aplicáveis, resultados e limitações no review.
+Gate obrigatório falhou ou não foi executado → não mergear. Corrija somente problemas em escopo; problemas externos devem ser relatados como **Problema → impacto → bloqueia ou não**, com Task separada quando apropriado. Não desative assertions, testes ou proteção de runtime para passar. Skills/revisões não são automatizadas cegamente nem garantias de scanners; registre verificações aplicáveis, resultados e limitações no review.
 
-Não há CI ou hooks configurados nesta fase. Uma futura pipeline apenas orquestrará instalação pelo lockfile, check, build e gates por risco em ambiente correspondente, preservando exit codes; não criará política paralela. Hooks locais/editor são opcionais futuros e não condição para executar os gates. Não se adicionam GitHub Actions, Husky/lint-staged/Lefthook, scanners ou ferramentas novas nesta Task.
+Não há pipeline de CI ou hooks Git configurados. Quando introduzidos, devem executar os gates desta política, instalar dependências pelo lockfile e preservar exit codes.
 
 ### Enforcement arquitetural existente
 
-Biome é formatter, linter principal e quality gate. É o mecanismo preferido para enforcement automatizado de boundaries quando possível, futuramente com restricted imports e overrides para limites como `Client × feature/server`, `Client × db`, `components × db`, `lib × features` e `db × features`, respeitando referências remotas de Actions. A configuração atual não impõe o mapa arquitetural: por enquanto, ele é verificado em revisão. O enforcement de imports não adiciona configuração extensa ou ESLint nesta fase.
-
-Para futuras mudanças, execute checks disponíveis e pertinentes sem corrigir problemas alheios silenciosamente. Analise primeiro o código existente, preserve padrões e informe conflitos antes de ampliar escopo.
-
-As Tasks de fundação registram decisões e acrescentam infraestrutura somente com responsabilidade concreta. A ECMSG-19 adiciona testes da validação existente, sem tabelas, funcionalidades de negócio ou avanço para outra Task.
+Biome é o formatter, linter principal e mecanismo preferido para enforcement de boundaries quando possível. A configuração atual não impõe o mapa arquitetural; os imports e a fronteira Server × Client são verificados em revisão.

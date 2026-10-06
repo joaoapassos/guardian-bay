@@ -4,7 +4,7 @@ Base de um e-commerce seguro, com regras de domínio e segurança executadas no 
 
 ## Pré-requisitos e instalação
 
-- Runtime Next.js: Node.js 20.9 ou superior. Para desenvolvimento e quality gates com Vitest 4.1.11, use Node.js 20.19+ da linha 20, 22.12+ da linha 22 ou 24+; ambiente validado com Node 24.19.0.
+- Runtime Next.js: Node.js 20.9 ou superior. Para desenvolvimento e quality gates com Vitest 4.1.11, use Node.js 20.19+ da linha 20, 22.12+ da linha 22 ou 24+.
 - npm; use o `package-lock.json` versionado. Não use outro package manager neste projeto.
 
 ```bash
@@ -37,16 +37,16 @@ A estratégia de carregamento, validação e acesso está na [arquitetura: vari�
 | `npm run build` | Build de produção, incluindo verificação TypeScript do Next.js |
 | `npm run start` | Executa o build de produção existente |
 
-Para toda mudança, execute `npm run check` e `git diff --check`. Antes de merge, execute:
+Durante desenvolvimento, execute `npm run check`, `git diff --check` para alterações não staged e `git diff --cached --check` para alterações staged. Antes de merge da branch da Epic, com todas as mudanças commitadas e `origin/main` atualizado, execute:
 
 ```bash
 npm run verify
-git diff --check
+git diff --check origin/main...HEAD
 ```
 
 A [política de quality gates](docs/architecture/README.md#quality-gates-ecmsg-20) define verificações adicionais por risco e tratamento de falhas. Gate obrigatório falhou ou não foi executado: não mergear.
 
-O build atual usa Geist via `next/font/google` e precisa de acesso ao Google Fonts durante a compilação. `next typegen` e build geram arquivos em `.next/` e `next-env.d.ts`, ignorados pelo Git.
+O build baixa Geist e Geist Mono via `next/font/google`; o ambiente de compilação precisa acessar `fonts.googleapis.com` e `fonts.gstatic.com`. As fontes são incluídas no build e servidas pela aplicação, sem acesso ao Google Fonts pelo navegador. `next typegen` e build geram arquivos em `.next/` e `next-env.d.ts`, ignorados pelo Git.
 
 A [estratégia de testes](docs/architecture/README.md#testes-ecmsg-19) define colocation, separação de integração/E2E e casos de segurança. Os testes atuais são unitários, sem PostgreSQL, rede ou configuração real.
 
