@@ -69,6 +69,8 @@ test(
         `
 import { redirect } from "next/navigation";
 import { loginAction } from "@/features/auth/actions/login.action";
+import { registerAction } from "@/features/auth/actions/register.action";
+import { changePasswordAction } from "@/features/auth/actions/change-password.action";
 import { logoutAction } from "@/features/auth/actions/logout.action";
 import { readIdentityAction } from "@/features/auth/actions/read-identity.action";
 import { getAuthenticatedIdentity } from "@/features/auth/server/session-cookie";
@@ -89,11 +91,25 @@ async function read(form: FormData) {
   const result = await readIdentityAction({userId: form.get("userId")});
   redirect("/?result=" + encodeURIComponent(JSON.stringify(result)));
 }
+async function register(form: FormData) {
+  "use server";
+  const input=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));
+  const result = await registerAction(input);
+  redirect("/?result=" + encodeURIComponent(JSON.stringify(result)));
+}
+async function changePassword(form: FormData) {
+  "use server";
+  const input=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));
+  const result = await changePasswordAction(input);
+  redirect("/?result=" + encodeURIComponent(JSON.stringify(result)));
+}
 export default async function Probe() {
   const identity = await getAuthenticatedIdentity();
   return <main><p>{identity ? identity.id : "anonymous"}</p>
     <form action={login}><input name="email"/><input name="password"/></form>
     <form action={logout}/><form action={read}><input name="userId"/></form>
+    <form action={register}><input name="email"/><input name="password"/></form>
+    <form action={changePassword}><input name="currentPassword"/><input name="newPassword"/></form>
   </main>;
 }
 `,
@@ -139,7 +155,7 @@ export default async function Probe() {
       const actions = [...html.matchAll(/name="(\$ACTION_ID_[^"]+)"/g)].map(
         (match) => match[1],
       );
-      assert.equal(actions.length, 3);
+      assert.equal(actions.length, 5);
       const budget = async () =>
         (
           await client`SELECT attempts FROM login_rate_limits WHERE key='global'`
@@ -175,7 +191,7 @@ export default async function Probe() {
             "https://evil.test",
             "http://127.0.0.1:3108",
           ]) {
-            for (const index of [0, 1, 2]) {
+            for (const index of [0, 1, 2, 3, 4]) {
               const response = await post(index, credentials, {
                 origin,
                 "x-forwarded-host": "evil.test",
@@ -191,12 +207,34 @@ export default async function Probe() {
               );
             }
           }
-          const tooLarge = await post(0, {
-            ...credentials,
-            padding: "x".repeat(20000),
-          });
-          assert.equal(tooLarge.status, 500);
-          assert.equal(tooLarge.headers.get("set-cookie"), null);
+          for (const index of [0, 3, 4]) {
+            const tooLarge = await post(index, {
+              ...credentials,
+              padding: "x".repeat(20000),
+            });
+            assert.equal(tooLarge.status, 500);
+            assert.equal(tooLarge.headers.get("set-cookie"), null);
+          }
+          assert.equal(await budget(), 0);
+          for (const [index, fields] of [
+            [3, { ...credentials, role: "admin" }],
+            [
+              4,
+              {
+                currentPassword: password,
+                newPassword: password,
+                userId: user.id,
+              },
+            ],
+          ]) {
+            const response = await post(index, fields);
+            assert.equal(response.status, 303);
+            assert.deepEqual(result(response), {
+              success: false,
+              code: "INVALID_INPUT",
+            });
+            assert.equal(response.headers.get("set-cookie"), null);
+          }
           assert.equal(await budget(), 0);
           const forged = await post(0, { ...credentials, role: "admin" });
           assert.equal(forged.status, 303);
