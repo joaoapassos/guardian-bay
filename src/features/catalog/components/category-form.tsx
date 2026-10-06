@@ -40,7 +40,11 @@ export function CategoryForm({
               ? "Categoria salva."
               : result.code === "CONFLICT"
                 ? "A categoria mudou. Atualize a página antes de editar."
-                : "Não foi possível salvar a categoria.",
+                : result.code === "FORBIDDEN"
+                  ? "Acesso administrativo negado. Entre novamente."
+                  : result.code === "INVALID_INPUT"
+                    ? "Confira o nome da categoria."
+                    : "Não foi possível salvar a categoria.",
           );
           if (result.success) router.refresh();
         } catch {
@@ -65,9 +69,11 @@ export function CategoryForm({
         disabled={busy}
         className="rounded bg-teal-800 px-4 py-2 text-white"
       >
-        {category ? "Salvar categoria" : "Criar categoria"}
+        {busy ? "Salvando…" : category ? "Salvar categoria" : "Criar categoria"}
       </button>
-      <output className="block">{message}</output>
+      <output aria-live="polite" className="block">
+        {message}
+      </output>
     </form>
   );
 }
