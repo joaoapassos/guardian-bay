@@ -3,6 +3,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
 import { cartItems } from "@/db/schema/cart-items";
+import { inventory } from "@/db/schema/inventory";
 import { orderItems } from "@/db/schema/order-items";
 import { orders } from "@/db/schema/orders";
 import { products } from "@/db/schema/products";
@@ -94,6 +95,21 @@ export async function createOrder(input: unknown) {
         )
         .orderBy(products.id)
         .for("share");
+      const stocks = await tx
+        .select({
+          productId: inventory.productId,
+          quantity: inventory.availableQuantity,
+          revision: inventory.revision,
+        })
+        .from(inventory)
+        .where(
+          inArray(
+            inventory.productId,
+            items.map((item) => item.productId),
+          ),
+        )
+        .orderBy(inventory.productId)
+        .for("update");
       // Locked rows are re-read after any catalog wait; preview is never authority.
       if (
         !(
@@ -110,6 +126,9 @@ export async function createOrder(input: unknown) {
       const checked = checkoutCandidate(
         current.map((product) => ({
           ...product,
+          availableQuantity:
+            stocks.find((stock) => stock.productId === product.productId)
+              ?.quantity ?? 0,
           quantity:
             items.find((item) => item.productId === product.productId)
               ?.quantity ?? null,

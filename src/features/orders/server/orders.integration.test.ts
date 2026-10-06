@@ -51,12 +51,14 @@ beforeAll(async () => {
   const [product] =
     await client`INSERT INTO products(name,category_id,amount,is_published) VALUES ('Order fixture',${categoryId},1099,true) RETURNING id`;
   productId = product.id;
+  await client`INSERT INTO inventory(product_id,available_quantity) VALUES (${productId},99)`;
 });
 beforeEach(async () => {
   await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (${userId},${otherId}))`;
   await client`DELETE FROM orders WHERE user_id IN (${userId},${otherId})`;
   await client`DELETE FROM cart_items WHERE user_id IN (${userId},${otherId})`;
   await client`UPDATE products SET name='Order fixture',amount=1099,is_published=true WHERE id=${productId}`;
+  await client`UPDATE inventory SET available_quantity=99,revision=1 WHERE product_id=${productId}`;
   request.token = (await createSession(userId)).token;
   request.headers = new Headers({
     origin: "http://localhost:3000",
@@ -68,6 +70,7 @@ afterAll(async () => {
   await client`DELETE FROM orders WHERE user_id IN (${userId},${otherId})`;
   await client`DELETE FROM cart_items WHERE user_id IN (${userId},${otherId})`;
   await client`DELETE FROM users WHERE id IN (${userId},${otherId})`;
+  await client`DELETE FROM inventory WHERE product_id=${productId}`;
   await client`DELETE FROM products WHERE id=${productId}`;
   await client`DELETE FROM categories WHERE id=${categoryId}`;
   await client.end();
@@ -547,6 +550,8 @@ it("ECMSG-77: snapshot máximo persiste bigint exato sem truncar; FK histórica 
     await client`INSERT INTO products(name,category_id,amount,is_published) SELECT 'Maximum snapshot',${categoryId},2147483647,true FROM generate_series(1,100) RETURNING id`;
   try {
     for (const product of fixture)
+      await client`INSERT INTO inventory(product_id,available_quantity) VALUES (${product.id},99)`;
+    for (const product of fixture)
       await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${product.id},99)`;
     const created = await checkoutAction({ checkoutKey: randomUUID() });
     expect(created).toMatchObject({ success: true, status: "PAYMENT_FAILED" });
@@ -564,10 +569,12 @@ it("ECMSG-77: snapshot máximo persiste bigint exato sem truncar; FK histórica 
     if (detail.success) expect(detail.order.items).toHaveLength(100);
     // Operational deletion only in isolated DB proves historical references survive.
     await client`DELETE FROM cart_items WHERE user_id=${userId}`;
+    await client`DELETE FROM inventory WHERE product_id IN ${client(fixture.map((row) => row.id))}`;
     await client`DELETE FROM products WHERE id IN ${client(fixture.map((row) => row.id))}`;
     expect(await orderDetail(created.orderId)).toEqual(detail);
   } finally {
     await client`DELETE FROM cart_items WHERE user_id=${userId}`;
+    await client`DELETE FROM inventory WHERE product_id IN ${client(fixture.map((row) => row.id))}`;
     await client`DELETE FROM products WHERE id IN ${client(fixture.map((row) => row.id))}`;
   }
 });
@@ -631,4 +638,33 @@ it("ECMSG-77: falha interna não expõe Error/cause/payload nem duplica logs", a
     fail.mockRestore();
     warn.mockRestore();
   }
+});
+
+it("ECMSG-84: insuficiência/ausência rejeita conjunto sem criar pedido", async () => {
+  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutPreview } = await import("./checkout-preview");
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},3)`;
+  for (const quantity of [0, 2]) {
+    await client`UPDATE inventory SET available_quantity=${quantity} WHERE product_id=${productId}`;
+    expect(await checkoutPreview()).toEqual({
+      success: false,
+      code: "OUT_OF_STOCK",
+    });
+    expect(await checkoutAction({ checkoutKey: randomUUID() })).toEqual({
+      success: false,
+      code: "OUT_OF_STOCK",
+    });
+  }
+  await client`DELETE FROM inventory WHERE product_id=${productId}`;
+  expect(await checkoutAction({ checkoutKey: randomUUID() })).toEqual({
+    success: false,
+    code: "OUT_OF_STOCK",
+  });
+  expect(
+    await client`SELECT id FROM orders WHERE user_id=${userId}`,
+  ).toHaveLength(0);
+  expect(
+    await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`,
+  ).toEqual([{ quantity: 3 }]);
+  await client`INSERT INTO inventory(product_id) VALUES (${productId})`;
 });

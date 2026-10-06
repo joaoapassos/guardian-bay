@@ -24,9 +24,11 @@ export function CheckoutConfirmation({ checkoutKey }: { checkoutKey: string }) {
                   ? "Sessão expirada. Entre novamente."
                   : result.code === "EMPTY_CART"
                     ? "O carrinho está vazio. Volte ao catálogo."
-                    : result.code === "UNAVAILABLE"
-                      ? "Um produto está indisponível. Corrija o carrinho."
-                      : "Confirmação inválida. Recarregue o checkout.",
+                    : result.code === "OUT_OF_STOCK"
+                      ? "Estoque insuficiente. Revise o carrinho."
+                      : result.code === "UNAVAILABLE"
+                        ? "Um produto está indisponível. Corrija o carrinho."
+                        : "Confirmação inválida. Recarregue o checkout.",
               );
           } catch {
             setMessage(
