@@ -402,7 +402,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 const navigate = async (path) => {
                   await call("Page.navigate", { url: origin + path });
                   await waitFor(
-                    `location.pathname === ${JSON.stringify(path)} && document.readyState === 'complete' && !!window.next`,
+                    `location.pathname + location.search === ${JSON.stringify(path)} && document.readyState === 'complete' && !!window.next`,
                     `navigate ${path}`,
                   );
                   await new Promise((done) => setTimeout(done, 200));
@@ -615,6 +615,21 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   ).status,
                   404,
                 );
+                for (const path of [
+                  "/admin",
+                  "/admin/orders",
+                  `/admin/orders/${randomUUID()}`,
+                ])
+                  assert.equal(
+                    (
+                      await fetch(base + path, {
+                        headers: {
+                          cookie: `__Host-guardian-session=${customerCookie.value}`,
+                        },
+                      })
+                    ).status,
+                    404,
+                  );
                 const [catalogUser] =
                   await client`SELECT id FROM users WHERE email=${email}`;
                 await client.begin(async (tx) => {
@@ -628,7 +643,24 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "location.pathname === '/account'",
                   "provisioned admin logs in again",
                 );
-                await navigate("/admin/catalog");
+                await navigate("/admin");
+                await waitFor(
+                  "document.querySelector('h1')?.textContent === 'Backoffice'",
+                  "admin dashboard",
+                );
+                assert.equal(
+                  await evaluate(
+                    "[...document.querySelectorAll('nav[aria-label=Backoffice] a')].map(a=>a.textContent).join('|')",
+                  ),
+                  "Visão geral|Catálogo|Pedidos",
+                );
+                await evaluate(
+                  "document.querySelector('nav[aria-label=Backoffice] a[href=\"/admin/catalog\"]').click()",
+                );
+                await waitFor(
+                  "!![...document.forms].find(f=>f.getAttribute('aria-label')==='Criar categoria')",
+                  "catalog through administrative navigation",
+                );
                 const adminSubmit = async (label, values, feedback = true) => {
                   await evaluate(
                     `(() => { const form=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(label)}); for(const [name,value] of Object.entries(${JSON.stringify(values)})) { const input=form.elements.namedItem(name); if(input.type==='checkbox') input.checked=value; else input.value=value; input.dispatchEvent(new Event('change',{bubbles:true})); } form.requestSubmit(); })()`,
@@ -806,6 +838,26 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 await waitFor(
                   "document.querySelector('main').textContent.includes('25,00')",
                   "private order history",
+                );
+                await navigate(
+                  "/admin/orders?status=PAID&limit=1&sort=created-desc",
+                );
+                await waitFor(
+                  `!!document.querySelector('a[href="/admin/orders/${snapshotOrder.id}"]')`,
+                  "administrative order listing",
+                );
+                await evaluate(
+                  `document.querySelector('a[href="/admin/orders/${snapshotOrder.id}"]').click()`,
+                );
+                await waitFor(
+                  `location.pathname === "/admin/orders/${snapshotOrder.id}" && document.querySelector('main').textContent.includes('25,00')`,
+                  "administrative snapshot detail",
+                );
+                assert.equal(
+                  await evaluate(
+                    `document.querySelector('main').textContent.includes(${JSON.stringify(catalogName)}) && !document.querySelector('main form') && window.cartXss===undefined`,
+                  ),
+                  true,
                 );
                 await client`UPDATE products SET name=${catalogName},amount=1200,is_published=true WHERE id=${catalogProduct.id}`;
                 await navigate("/admin/catalog");

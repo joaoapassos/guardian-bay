@@ -26,3 +26,32 @@ it("revalida preço e rejeita mass assignment administrativo", () => {
       false,
     );
 });
+
+it("ECMSG-103: todas as operações administrativas rejeitam autoridade fora do contrato", () => {
+  const id = valid.categoryId;
+  for (const input of [
+    { operation: "create-category", name: "Category" },
+    { operation: "update-category", id, revision: 1, name: "Category" },
+    valid,
+    { ...valid, operation: "update-product", id, revision: 1 },
+  ]) {
+    expect(manageCatalogSchema.safeParse(input).success).toBe(true);
+    for (const key of [
+      "role",
+      "userId",
+      "ownerId",
+      "price",
+      "paymentStatus",
+      "orderStatus",
+      "availableQuantity",
+      "inventoryRevision",
+      "snapshot",
+      "checkoutKey",
+      "total",
+      "items",
+    ])
+      expect(
+        manageCatalogSchema.safeParse({ ...input, [key]: "forged" }).success,
+      ).toBe(false);
+  }
+});

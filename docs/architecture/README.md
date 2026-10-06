@@ -996,3 +996,9 @@ Radix AlertDialog tem um consumidor concreto: retirada de produto publicado. Can
 ### Isolamento administrativo (ECMSG-102)
 
 Listagem/detalhe de Orders verificam admin dentro da transação, com a mesma ordem identidade → sessão das operações existentes, e revalidam antes de devolver DTO. Role removida, revogação e expiração negam acesso mesmo após render anterior ou espera pelo lock. Queries selecionam somente campos necessários; nenhum userId, hash, token, checkoutKey ou row Drizzle integra DTO. Falha interna é relançada com mensagem controlada e evento server-side por allowlist, sem erro original. Catálogo/estoque mantêm a autorização independente das Actions, mesma origem, contrato estrito e revisão; layout, confirmação e expected revision não concedem autoridade.
+
+### Evidência de fluxo administrativo (ECMSG-103)
+
+PostgreSQL real verifica admin atual, visitante/customer, role removida, sessão revogada/expirada inclusive aguardando lock, paginação/filtros limitados, DTO mínimo e snapshot imutável. Contratos administrativos rejeitam mass assignment. HTTP real chama as Actions existentes diretamente e cobre Origin/Host, body limitado, revisão stale, leitura administrativa, filtros, disclosure e tentativa de POST sem caminho de edição de pedidos. Chromium percorre login administrativo → dashboard → catálogo/estoque → listagem/detalhe e cancela/confirma despublicação via Radix, incluindo foco, escaping e negação ao customer.
+
+Seis mutantes temporários produziram falhas de assertions: remoção dos guards da leitura administrativa, revisão de estoque, revisão de catálogo, aceitação de sort arbitrário, exposição de checkoutKey e contrato de checkout não estrito. Todos foram restaurados antes do commit. `notFound()` após streaming pode usar HTTP 200 no Next.js instalado; testes de detalhe ausente verificam a apresentação equivalente e ausência de dados, sem confundir status de transporte com autorização.

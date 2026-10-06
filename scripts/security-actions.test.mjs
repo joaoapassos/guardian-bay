@@ -919,6 +919,147 @@ export default async function Probe() {
           );
         },
       );
+      await t.test(
+        "ECMSG-103: backoffice reads, role freshness, filters and immutable snapshot over HTTP",
+        async () => {
+          for (const path of [
+            "/admin",
+            "/admin/catalog",
+            "/admin/orders",
+            `/admin/orders/${randomUUID()}`,
+          ]) {
+            assert.equal((await fetch(base + path)).status, 404);
+          }
+          await client`UPDATE users SET role='customer' WHERE id=${user.id}`;
+          await client`DELETE FROM login_rate_limits WHERE key IN ('global',${keys[0]},${keys[1]})`;
+          const login = await post(0, credentials);
+          assert.deepEqual(result(login), { success: true });
+          const cookie = login.headers.get("set-cookie").split(";")[0];
+          for (const path of ["/admin", "/admin/catalog", "/admin/orders"])
+            assert.equal(
+              (await fetch(base + path, { headers: { cookie } })).status,
+              404,
+            );
+          await client`UPDATE users SET role='admin' WHERE id=${user.id}`;
+          const key = randomUUID();
+          const [order] =
+            await client`INSERT INTO orders(user_id,checkout_key,total_amount,status) VALUES (${user.id},${key},2198,'PAID') RETURNING id`;
+          await client`INSERT INTO order_items(order_id,product_id,product_name,quantity,unit_amount,subtotal_amount) VALUES (${order.id},${randomUUID()},'HTTP immutable snapshot',2,1099,2198)`;
+          try {
+            for (const path of [
+              "/admin",
+              "/admin/catalog",
+              "/admin/orders",
+              `/admin/orders/${order.id}`,
+            ]) {
+              const response = await fetch(base + path, {
+                headers: { cookie },
+              });
+              assert.equal(response.status, 200);
+              const body = await response.text();
+              assert.ok(
+                !body.includes(key) &&
+                  !body.includes(passwordHash) &&
+                  !body.includes(cookie.split("=")[1]),
+              );
+              assert.doesNotMatch(
+                body,
+                /password_hash|checkoutKey|tokenHash|DATABASE_URL/,
+              );
+            }
+            const detail = await (
+              await fetch(`${base}/admin/orders/${order.id}`, {
+                headers: { cookie },
+              })
+            ).text();
+            assert.match(detail, /HTTP immutable snapshot/);
+            assert.match(detail, /21,98/);
+            for (const id of ["invalid", randomUUID()]) {
+              const missing = await fetch(`${base}/admin/orders/${id}`, {
+                headers: { cookie },
+              });
+              // Next.js documents 200 for notFound after streaming has started.
+              assert.ok([200, 404].includes(missing.status));
+              const body = await missing.text();
+              assert.match(body, /This page could not be found/);
+              assert.ok(
+                !body.includes("HTTP immutable snapshot") &&
+                  !body.includes(key),
+              );
+            }
+            for (const query of [
+              "status=SHIPPED",
+              "sort=created_at%3Bdrop",
+              "page=1001",
+              "limit=51",
+              "orderId=%27OR1%3D1",
+              "userId=forged",
+              `query=${"a".repeat(101)}`,
+            ]) {
+              const body = await (
+                await fetch(`${base}/admin/orders?${query}`, {
+                  headers: { cookie },
+                })
+              ).text();
+              assert.match(body, /Filtros inválidos/);
+              assert.ok(!body.includes("HTTP immutable snapshot"));
+            }
+            const filtered = await (
+              await fetch(
+                `${base}/admin/orders?status=PAYMENT_FAILED&orderId=${order.id}`,
+                { headers: { cookie } },
+              )
+            ).text();
+            assert.match(filtered, /Nenhum pedido/);
+            await fetch(`${base}/admin/orders/${order.id}`, {
+              method: "POST",
+              headers: {
+                cookie,
+                origin: "https://127.0.0.1:3108",
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({
+                status: "PAYMENT_FAILED",
+                total: 1,
+                items: [],
+              }),
+            });
+            assert.deepEqual(
+              (
+                await client`SELECT status,total_amount FROM orders WHERE id=${order.id}`
+              )[0],
+              { status: "PAID", total_amount: "2198" },
+            );
+            assert.equal(
+              (
+                await client`SELECT product_name FROM order_items WHERE order_id=${order.id}`
+              )[0].product_name,
+              "HTTP immutable snapshot",
+            );
+            await client`UPDATE users SET role='customer' WHERE id=${user.id}`;
+            for (const path of [
+              "/admin",
+              "/admin/orders",
+              `/admin/orders/${order.id}`,
+            ])
+              assert.equal(
+                (await fetch(base + path, { headers: { cookie } })).status,
+                404,
+              );
+            await client`UPDATE users SET role='admin' WHERE id=${user.id}`;
+            await client`DELETE FROM sessions WHERE user_id=${user.id}`;
+            assert.equal(
+              (await fetch(`${base}/admin/orders`, { headers: { cookie } }))
+                .status,
+              404,
+            );
+          } finally {
+            await client`DELETE FROM order_items WHERE order_id=${order.id}`;
+            await client`DELETE FROM orders WHERE id=${order.id}`;
+            await client`UPDATE users SET role='customer' WHERE id=${user.id}`;
+          }
+        },
+      );
     } finally {
       if (server) {
         server.kill();
