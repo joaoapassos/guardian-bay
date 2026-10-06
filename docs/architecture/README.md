@@ -6,6 +6,18 @@ Este documento registra as decisões aprovadas. O [AGENTS.md](../../AGENTS.md) e
 
 O [threat model](threat-model.md) identifica atores, ativos, entradas externas, trust boundaries e ameaças dos fluxos existentes.
 
+## Modelo do pedido e checkout (ECMSG-66)
+
+Pedido pertence ao usuário da sessão, nunca a userId externo. Checkout consome somente uma chave UUID de intenção, gerada no servidor para a confirmação e validada como identificador sem autoridade. UNIQUE(userId, checkoutKey) garante no máximo um pedido por intenção, incluindo double submit/retry; chave igual de outro usuário é independente. Nova intenção usa nova chave.
+
+Snapshot imutável contém productId de referência histórica (UUID sem FK para produto), nome, quantity 1–99, unitAmount em centavos BRL, subtotal e total. Alterar/remover catálogo no futuro não altera nem apaga histórico. FK do dono é RESTRICT; exclusão de identidade demanda política explícita de retenção. Item tem FK RESTRICT de pedido e chave (orderId, productId). Valores derivados usam PostgreSQL bigint em modo number, CHECK com máximo 21.260.088.105.300 centavos, seguro em JavaScript/Dinero; preço unitário segue integer. Nenhum valor monetário vem do Client.
+
+Checkout rejeita vazio ou qualquer item despublicado, sem compra parcial ou remoção silenciosa. Preview é UX: confirmação relê tudo na mesma transação. Ordem de locks: identidade → sessão → itens próprios → produtos em UUID crescente; SHARE de produto preserva preço/nome/publicação até commit. Lock da identidade serializa com todas as mutations do carrinho; adição que chega depois permanece após a conversão. Sessão é revalidada com clock_timestamp após espera e antes do commit, com rollback por expiração.
+
+Pagamento acadêmico é síncrono, sem gateway/dados financeiros. PENDING_PAYMENT é estado transacional intermediário, não workflow público; somente PENDING_PAYMENT → PAID ou PAYMENT_FAILED. Simulação determinística aprova total menor que 1.000.000 centavos e recusa a partir desse valor, sem input paymentStatus. Não é análise financeira. Snapshot de pedido recusado permanece histórico; carrinho permanece para correção/nova intenção. Pedido pago e remoção somente dos itens convertidos são atômicos. Retry resolve pedido existente antes de tocar carrinho; nunca remove itens novos. Erro inesperado faz rollback, log allowlist e exception sanitizada.
+
+`features/orders` possui snapshot/checkout/histórico; reutiliza auth server-only, lib/money e schemas físicos, sem acessar internals de cart/catalog. `app` compõe rotas. Histórico privado é limitado e detalhes consultam id + dono na query, sem reconstruir snapshot pelo catálogo. Estoque, frete, descontos, gateway, pagamento real e guest checkout permanecem fora do escopo.
+
 ## Modelo do carrinho (ECMSG-54)
 
 Carrinho é o conjunto de `cart_items` de um usuário autenticado: uma única tabela ligada a `users` basta, sem registro `carts`, estados ou criação durante leitura. Conjunto vazio é carrinho vazio. Chave composta `(userId, productId)` garante um produto por dono; IDs de usuário/produto já são gerados server-side. Ownership deriva exclusivamente do cookie/sessão e toda query restringe o usuário resolvido no servidor. Nenhuma entrada aceita userId/cartId/ownerId ou autoridade monetária.

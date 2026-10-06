@@ -107,3 +107,7 @@ Carrinho agora é ativo real: itens por usuário autenticado em `cart_items`, qu
 | Guest cart, estoque, snapshot comercial, pedido/pagamento | Não aplicável nesta Epic | Sem superfície implementada. Snapshot definitivo e integridade de compra devem ser modelados no futuro checkout/pedido |
 
 Evidências e limitações operacionais estão na [revisão da Epic 5](README.md#revisão-da-epic-5-ecmsg-65). Compatibilidade da assertion herdada RESTRICT com PostgreSQL anterior ao 18 e os quatro advisories moderados de tooling são pendências, não novas regras comerciais. Nenhum scanner substitui ownership/autorização ou permite exposição pública sem resolver a proteção de entrada.
+
+## Pedido/checkout: modelo planejado (ECMSG-66)
+
+A Epic 6 introduzirá snapshot comercial privado, chave de intenção por usuário e pagamento acadêmico server-side. Até implementação/validação, controles de ownership, idempotência persistente, atomicidade snapshot/carrinho e races cart/catalog são pendentes, não garantias existentes. O modelo aprovado está na arquitetura; não haverá estoque, gateway ou dados financeiros.
