@@ -33,6 +33,7 @@ A estratégia de carregamento, validação e acesso está na [arquitetura: vari�
 | `npm run check` | Gate rápido: lint, typecheck e unitários, sem autofix ou serviços externos |
 | `npm run verify` | Gate completo: check seguido do build de produção |
 | `npm test` | Vitest em modo não interativo; adequado para CI |
+| `npm run test:integration` | Migrations e autenticação/sessões em PostgreSQL local dedicado; exige `TEST_DATABASE_URL` |
 | `npm run test:watch` | Vitest em modo watch para desenvolvimento |
 | `npm run build` | Build de produção, incluindo verificação TypeScript do Next.js |
 | `npm run start` | Executa o build de produção existente |
@@ -48,7 +49,7 @@ A [política de quality gates](docs/architecture/README.md#quality-gates-ecmsg-2
 
 O build baixa Geist e Geist Mono via `next/font/google`; o ambiente de compilação precisa acessar `fonts.googleapis.com` e `fonts.gstatic.com`. As fontes são incluídas no build e servidas pela aplicação, sem acesso ao Google Fonts pelo navegador. `next typegen` e build geram arquivos em `.next/` e `next-env.d.ts`, ignorados pelo Git.
 
-A [estratégia de testes](docs/architecture/README.md#testes-ecmsg-19) define colocation, separação de integração/E2E e casos de segurança. Os testes atuais são unitários, sem PostgreSQL, rede ou configuração real.
+A [estratégia de testes](docs/architecture/README.md#testes-ecmsg-19) mantém unitários em `check` e integração em comando separado. Para mudanças de identidade/autenticação/sessão, configure `TEST_DATABASE_URL` no ambiente apontando exclusivamente para PostgreSQL local com banco `guardian_bay_test`, diferente de `DATABASE_URL`, e execute `npm run test:integration`. A suíte aplica migrations versionadas, cria fixtures próprias e limpa somente essas fixtures; não cria o banco nem usa a conexão normal como fallback.
 
 ## Configuração da base
 
@@ -56,6 +57,6 @@ Next.js 16.3.8, React 19.2.8, Tailwind CSS 4 e React Compiler habilitado. TypeSc
 
 Biome 2.4.2 é o único linter/formatter, integrado ao `.gitignore`, com regras recomendadas de React/Next e organização de imports. Enforcement completo de boundaries permanece para trabalho posterior.
 
-PostgreSQL usa Drizzle ORM com Postgres.js; Drizzle Kit e `@next/env` preparam a CLI. Há schema `users` e migration inicial para [identidade e credenciais](docs/architecture/README.md#identidade-e-credenciais-ecmsg-23), com Zod e Argon2id server-only, sem cadastro/login/sessão. Consulte o [fluxo de banco e migrations](docs/architecture/README.md#postgresql-e-drizzle-ecmsg-16) antes de executar `npm run db:generate`, `npm run db:migrate` ou `npm run db:studio`. As demais dependências futuras só serão adicionadas com uso concreto.
+PostgreSQL usa Drizzle ORM com Postgres.js; Drizzle Kit e `@next/env` preparam a CLI. Há schemas/migrations de `users` e `sessions`, contratos Zod, Argon2id e [autenticação/sessões server-side](docs/architecture/README.md#autenticação-e-sessões-ecmsg-24), com Actions de login/logout e leitura mínima da identidade. Não há UI de login, cadastro público ou autorização de recursos. Consulte o [fluxo de banco e migrations](docs/architecture/README.md#postgresql-e-drizzle-ecmsg-16) antes de executar `npm run db:generate`, `npm run db:migrate` ou `npm run db:studio`. As demais dependências futuras só serão adicionadas com uso concreto.
 
 Consulte [AGENTS.md](AGENTS.md) para invariantes e [a arquitetura aprovada](docs/architecture/README.md) para responsabilidades, colocation e fronteira Server × Client. Antes de alterar APIs/configuração Next.js, consulte `node_modules/next/dist/docs/` da versão instalada.
