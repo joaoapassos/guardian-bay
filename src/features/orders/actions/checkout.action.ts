@@ -8,6 +8,8 @@ export async function checkoutAction(input: unknown, ...extra: unknown[]) {
   if (result.success) {
     revalidatePath("/cart");
     revalidatePath("/orders");
+    revalidatePath("/products", "layout");
+    revalidatePath("/admin/catalog");
   }
   return result;
 }
