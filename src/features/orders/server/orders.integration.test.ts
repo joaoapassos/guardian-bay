@@ -1135,3 +1135,70 @@ it("ECMSG-100: filtros administrativos usam status/ID exato e paginação estáv
     await client`UPDATE users SET role='customer' WHERE id=${userId}`;
   }
 });
+
+it("ECMSG-102: leituras administrativas negam role removida, sessão revogada e expirada", async () => {
+  const { adminOrderList } = await import("./admin-order-list");
+  const { adminOrderDetail } = await import("./admin-order-detail");
+  const [order] =
+    await client`INSERT INTO orders(user_id,checkout_key,total_amount) VALUES (${otherId},${randomUUID()},1099) RETURNING id`;
+  await client`INSERT INTO order_items(order_id,product_id,product_name,quantity,unit_amount,subtotal_amount) VALUES (${order.id},${productId},'Private snapshot',1,1099,1099)`;
+  try {
+    for (const failure of ["role", "revoked", "expired"] as const) {
+      await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+      request.token = (await createSession(userId)).token;
+      expect((await adminOrderDetail(order.id)).success).toBe(true);
+      if (failure === "role")
+        await client`UPDATE users SET role='customer' WHERE id=${userId}`;
+      if (failure === "revoked")
+        await client`DELETE FROM sessions WHERE user_id=${userId}`;
+      if (failure === "expired")
+        await client`UPDATE sessions SET created_at=clock_timestamp()-interval '3 seconds',last_active_at=clock_timestamp()-interval '2 seconds',expires_at=clock_timestamp()-interval '1 second' WHERE user_id=${userId}`;
+      expect((await adminOrderList()).success).toBe(false);
+      expect((await adminOrderDetail(order.id)).success).toBe(false);
+    }
+  } finally {
+    await client`UPDATE users SET role='customer' WHERE id=${userId}`;
+  }
+});
+
+it("ECMSG-102: role removida durante espera pelo lock não libera snapshot administrativo", async () => {
+  const { adminOrderList } = await import("./admin-order-list");
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  const lock = await holdOrderLock(async (tx) => {
+    await tx`SELECT id FROM users WHERE id=${userId} FOR UPDATE`;
+    await tx`UPDATE users SET role='customer' WHERE id=${userId}`;
+  });
+  try {
+    const pending = adminOrderList();
+    await waitForOrderLock("users");
+    await lock.release();
+    expect(await pending).toMatchObject({ success: false, code: "FORBIDDEN" });
+  } finally {
+    await lock.release();
+    await client`UPDATE users SET role='customer' WHERE id=${userId}`;
+  }
+});
+
+it("ECMSG-102: expiração aguardando lock bloqueia leitura administrativa", async () => {
+  const { adminOrderDetail } = await import("./admin-order-detail");
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  const [order] =
+    await client`INSERT INTO orders(user_id,checkout_key,total_amount) VALUES (${otherId},${randomUUID()},1099) RETURNING id`;
+  await client`UPDATE sessions SET expires_at=clock_timestamp()+interval '1 second' WHERE user_id=${userId}`;
+  const lock = await holdOrderLock(
+    (tx) => tx`SELECT id FROM users WHERE id=${userId} FOR UPDATE`,
+  );
+  try {
+    const pending = adminOrderDetail(order.id);
+    await waitForOrderLock("users");
+    await client`SELECT pg_sleep(1.1)`;
+    await lock.release();
+    expect(await pending).toMatchObject({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+  } finally {
+    await lock.release();
+    await client`UPDATE users SET role='customer' WHERE id=${userId}`;
+  }
+});
