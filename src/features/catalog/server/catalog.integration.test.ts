@@ -498,3 +498,18 @@ describe("navegação pública com PostgreSQL real (ECMSG-52)", () => {
     ]);
   });
 });
+
+it("ECMSG-93: guard administrativo consulta role atual, sem autoridade do layout", async () => {
+  const { requireAuthenticatedAdmin } = await import(
+    "@/features/auth/server/require-admin"
+  );
+  request.token = undefined;
+  expect((await requireAuthenticatedAdmin()).success).toBe(false);
+  await client`UPDATE users SET role='customer' WHERE id=${userId}`;
+  request.token = (await createSession(userId)).token;
+  expect((await requireAuthenticatedAdmin()).success).toBe(false);
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  expect((await requireAuthenticatedAdmin()).success).toBe(true);
+  await client`UPDATE users SET role='customer' WHERE id=${userId}`;
+  expect((await requireAuthenticatedAdmin()).success).toBe(false);
+});
