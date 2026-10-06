@@ -16,6 +16,23 @@ A alteração de credencial exige identidade/sessão válida e senha atual; pers
 
 Guardian Bay não possui recuperação self-service de senha: não haverá link de reset, e-mail, OTP, pergunta secreta ou recovery code. Perda de acesso requer contato direto com administrador, por processo externo ainda não implementado. A ECMSG-38 formalizará os requisitos; não existe painel, role, reset privilegiado, senha padrão ou canal de contato configurado. Administração futura deverá verificar identidade e autorização, substituir a credencial sem conhecer a senha original e revogar sessões com auditoria.
 
+## Testes de identidade e acesso (ECMSG-40)
+
+`test:security` reutiliza os unitários, a integração PostgreSQL e os harnesses Next/Chromium. Os arquivos HTTP rodam sequencialmente porque compartilham o orçamento global no banco dedicado. Não há framework adicional ou rota de teste no produto.
+
+| Garantia | Evidência |
+| --- | --- |
+| Política de criação/login e inputs estritos | Unitários Zod; integração comprova rejeição antes de hashing/DB e credencial legada |
+| Cadastro válido, duplicado, concorrente e limitado | PostgreSQL real; browser registra/repete/atinge limite e confirma hash persistido |
+| Login e conta | Formulários reais Chromium: falhas equivalentes, credencial válida, navegação, DTO próprio e ausência de hash/token/ID no HTML/RSC da conta |
+| Sessão | Integração cobre expiração absoluta/idle e revogação; HTTPS/browser confere cookie HttpOnly/Secure/SameSite, rotação, logout e replay |
+| Mudança de senha | Integração cobre transação, múltiplas sessões, concorrência e login obsoleto; browser repete após erro, troca credencial e entra com senha nova |
+| CSRF, autoridade e payload | Transporte Next real rejeita origens/header spoof, campos de autoridade e body excessivo nas Actions existentes |
+| Abuso, ownership e logs | PostgreSQL real testa limites/slots concorrentes e IDOR/BOLA; testes conferem allowlist, secrets ausentes e logging best effort |
+| Recuperação | Rotas de reset não existem (404); login não oferece link para fluxo inexistente |
+
+Fluxos completos de browser exigem `TEST_DATABASE_URL`, `SECURITY_BROWSER_PATH` e OpenSSL disponível. O harness termina TLS exclusivamente em loopback com certificado temporário, preserva Host e remove headers forwarded. Somente o perfil isolado de teste aceita esse certificado; não altera trust store ou deployment. `SECURITY_OPENSSL_PATH` permite apontar o executável; Windows usa o OpenSSL do Git por padrão. Sem browser/banco, subtestes explicitam skip, que não comprova o fluxo.
+
 ## Proteção dos fluxos de identidade (ECMSG-39)
 
 As cinco Actions existentes (cadastro, login, logout, leitura autorizada e alteração de senha) exigem Origin/Host conforme a política same-origin, validam campos/argumentos permitidos e devolvem resultados mínimos. Cadastro e login não confirmam existência de conta; cadastro duplicado executa hash e não sobrescreve credencial. Não se promete tempo constante absoluto, pois banco, concorrência e rede também afetam duração.

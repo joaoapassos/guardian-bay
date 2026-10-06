@@ -14,7 +14,7 @@ export function ChangePasswordForm() {
   const {
     register,
     handleSubmit,
-    reset,
+    resetField,
     formState: { errors, isSubmitting },
   } = useForm<z.input<typeof changePasswordSchema>>();
   useEffect(() => {
@@ -43,7 +43,8 @@ export function ChangePasswordForm() {
             "Não foi possível concluir agora. Tente novamente mais tarde.",
           );
         } finally {
-          reset();
+          resetField("currentPassword");
+          resetField("newPassword");
         }
       })}
     >
