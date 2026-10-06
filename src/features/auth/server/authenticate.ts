@@ -12,7 +12,7 @@ const dummyHash =
 export async function authenticate(
   input: unknown,
   database?: Pick<ReturnType<typeof getDb>, "select">,
-): Promise<string | null> {
+) {
   const parsed = authenticationCredentialSchema.safeParse(input);
   if (!parsed.success) return null;
   try {
@@ -25,7 +25,7 @@ export async function authenticate(
       parsed.data.password,
       user?.passwordHash ?? dummyHash,
     );
-    return user && valid ? user.id : null;
+    return user && valid ? user : null;
   } catch {
     throw new Error("Não foi possível processar a autenticação.");
   }

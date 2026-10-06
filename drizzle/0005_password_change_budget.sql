@@ -1,0 +1,2 @@
+ALTER TABLE "login_rate_limits" DROP CONSTRAINT "login_rate_limits_key";--> statement-breakpoint
+ALTER TABLE "login_rate_limits" ADD CONSTRAINT "login_rate_limits_key" CHECK ("login_rate_limits"."key" = 'global' OR "login_rate_limits"."key" ~ '^(email|reg|pwd):[0-9a-f]{64}$');

@@ -18,6 +18,7 @@ import * as databaseInfrastructure from "@/db";
 import { getDb } from "@/db";
 import { loginRateLimits } from "@/db/schema/login-rate-limits";
 import { users } from "@/db/schema/users";
+import { changePasswordAction } from "../actions/change-password.action";
 import { loginAction } from "../actions/login.action";
 import { logoutAction } from "../actions/logout.action";
 import { readIdentityAction } from "../actions/read-identity.action";
@@ -179,10 +180,12 @@ describe("autenticação e sessões com PostgreSQL real", () => {
   let userId: string;
   let token: string;
   it("normaliza e-mail e autentica apenas a senha correta", async () => {
-    userId = (await authenticate({
-      email: ` ${email.toUpperCase()} `,
-      password,
-    })) as string;
+    userId = (
+      await authenticate({
+        email: ` ${email.toUpperCase()} `,
+        password,
+      })
+    )?.id as string;
     expect(userId).toMatch(/^[0-9a-f-]{36}$/);
     expect(
       await authenticate({ email, password: "Wrong password value" }),
@@ -225,10 +228,12 @@ describe("autenticação e sessões com PostgreSQL real", () => {
       `Argon2 real: medianas senha incorreta/inexistente ${medians.join("/")} ms; política 64 MiB por verificação.`,
     );
     expect(
-      await Promise.all([
-        authenticate({ email, password }),
-        authenticate({ email, password }),
-      ]),
+      (
+        await Promise.all([
+          authenticate({ email, password }),
+          authenticate({ email, password }),
+        ])
+      ).map((identity) => identity?.id),
     ).toEqual([userId, userId]);
   });
   it("falha operacional não expõe input, SQL ou cause", async () => {
@@ -1005,5 +1010,166 @@ describe("ECMSG-36: área da própria conta", () => {
     request.token = next.token;
     await client`UPDATE sessions SET created_at=CURRENT_TIMESTAMP-interval '9 hours',last_active_at=CURRENT_TIMESTAMP-interval '1 hour',expires_at=CURRENT_TIMESTAMP-interval '1 minute' WHERE token_hash=${tokenHash(next.token)}`;
     expect(await readAccount()).toBeNull();
+  });
+});
+
+describe("ECMSG-37: troca de senha e revogação atômica", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const email = `${randomUUID()}@example.test`;
+  const nextPassword = "New integration passphrase 37";
+  let id: string;
+  fixtureRateKey(email, "pwd");
+  fixtureRateKey(email);
+  beforeAll(async () => {
+    const [user] = await database
+      .insert(users)
+      .values({ email, passwordHash })
+      .returning({ id: users.id });
+    id = user.id;
+  });
+  beforeEach(async () => {
+    await client`UPDATE users SET password_hash=${passwordHash} WHERE id=${id}`;
+    await client`DELETE FROM sessions WHERE user_id=${id}`;
+    request.token = undefined;
+    request.lastCookie = undefined;
+    request.headers = new Headers({
+      origin: "http://localhost:3000",
+      host: "localhost:3000",
+    });
+    vi.stubEnv("NODE_ENV", "test");
+  });
+  afterAll(async () => {
+    await client`DELETE FROM users WHERE id=${id}`;
+  });
+  const input = () => ({
+    currentPassword: password,
+    newPassword: nextPassword,
+  });
+  it("exige sessão e rejeita autoridade/campos extras antes do hashing", async () => {
+    const verify = vi.spyOn(passwordOperations, "verifyPassword");
+    expect(await changePasswordAction(input())).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+    request.token = (await createSession(id)).token;
+    for (const value of [
+      { ...input(), userId: id },
+      { ...input(), newPassword: "short" },
+      { ...input(), currentPassword: "x".repeat(257) },
+    ])
+      expect(await changePasswordAction(value)).toEqual({
+        success: false,
+        code: "INVALID_INPUT",
+      });
+    expect(await changePasswordAction(input(), "extra")).toEqual({
+      success: false,
+      code: "INVALID_INPUT",
+    });
+    expect(verify).not.toHaveBeenCalled();
+  });
+  it("senha atual incorreta não altera credencial nem revoga", async () => {
+    const session = await createSession(id);
+    request.token = session.token;
+    expect(
+      await changePasswordAction({
+        ...input(),
+        currentPassword: "Incorrect value",
+      }),
+    ).toEqual({ success: false, code: "INVALID_CREDENTIALS" });
+    const [row] = await client`SELECT password_hash FROM users WHERE id=${id}`;
+    expect(row.password_hash).toBe(passwordHash);
+    expect(await resolveSession(session.token)).not.toBeNull();
+  });
+  it("altera hash, revoga todas as sessões e expira cookie sem expor dados", async () => {
+    const first = await createSession(id);
+    const second = await createSession(id);
+    request.token = first.token;
+    const result = await changePasswordAction(input());
+    expect(result).toEqual({ success: true });
+    const [row] = await client`SELECT password_hash FROM users WHERE id=${id}`;
+    expect(row.password_hash).not.toBe(passwordHash);
+    expect(await verifyPassword(password, row.password_hash)).toBe(false);
+    expect(await verifyPassword(nextPassword, row.password_hash)).toBe(true);
+    expect(await resolveSession(first.token)).toBeNull();
+    expect(await resolveSession(second.token)).toBeNull();
+    expect(request.lastCookie).toMatchObject({
+      value: "",
+      options: { maxAge: 0, httpOnly: true, path: "/" },
+    });
+    expect(await loginAction({ email, password: nextPassword })).toEqual({
+      success: true,
+    });
+    expect(await resolveSession(request.token)).toEqual({ id, email });
+    expect(await loginAction({ email, password })).toEqual({
+      success: false,
+      message: "Credenciais inválidas.",
+    });
+  });
+  it("sessão expirada e replay revogado não mudam senha", async () => {
+    const session = await createSession(id);
+    request.token = session.token;
+    await client`UPDATE sessions SET last_active_at=CURRENT_TIMESTAMP-interval '31 minutes',created_at=CURRENT_TIMESTAMP-interval '1 hour' WHERE token_hash=${tokenHash(session.token)}`;
+    expect(await changePasswordAction(input())).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+    await revokeSession(session.token);
+    expect(await changePasswordAction(input())).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+  });
+  it("quarta tentativa bloqueia antes de verificar senha", async () => {
+    request.token = (await createSession(id)).token;
+    const verify = vi.spyOn(passwordOperations, "verifyPassword");
+    for (let i = 0; i < 3; i++)
+      expect(
+        (
+          await changePasswordAction({
+            ...input(),
+            currentPassword: "Incorrect value",
+          })
+        ).success,
+      ).toBe(false);
+    expect(await changePasswordAction(input())).toEqual({
+      success: false,
+      code: "RATE_LIMITED",
+    });
+    expect(verify).toHaveBeenCalledTimes(3);
+  });
+  it("duas trocas concorrentes com a mesma sessão têm um único sucesso", async () => {
+    request.token = (await createSession(id)).token;
+    const { changePassword } = await import("./change-password");
+    const results = await Promise.all([
+      changePassword(input(), request.token),
+      changePassword(
+        { ...input(), newPassword: "Another integration passphrase" },
+        request.token,
+      ),
+    ]);
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    const [row] =
+      await client`SELECT count(*)::int AS count FROM sessions WHERE user_id=${id}`;
+    expect(row.count).toBe(0);
+  });
+  it("login verificado antes da troca não cria sessão com credencial antiga", async () => {
+    const verified = await login({ email, password });
+    expect(verified.success).toBe(true);
+    if (!verified.success) throw new Error("Fixture de autenticação inválida");
+    request.token = (await createSession(id)).token;
+    expect(await changePasswordAction(input())).toEqual({ success: true });
+    await expect(
+      createSession(verified.userId, undefined, verified.credentialHash),
+    ).rejects.toThrow("Não foi possível processar a sessão.");
+    const [row] =
+      await client`SELECT count(*)::int AS count FROM sessions WHERE user_id=${id}`;
+    expect(row.count).toBe(0);
+  });
+  it("origem indevida não alcança mudança de credencial", async () => {
+    request.token = (await createSession(id)).token;
+    request.headers.set("origin", "https://evil.test");
+    await expect(changePasswordAction(input())).rejects.toThrow(
+      "Requisição inválida.",
+    );
   });
 });

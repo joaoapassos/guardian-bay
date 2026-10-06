@@ -26,6 +26,7 @@ export async function loginAction(
   const session = await createSession(
     result.userId,
     store.get(policy.name)?.value,
+    result.credentialHash,
   );
   store.set(policy.name, session.token, {
     ...policy,

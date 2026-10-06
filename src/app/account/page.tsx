@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { ChangePasswordForm } from "@/features/auth/components/change-password-form";
 import { readAccount } from "@/features/auth/server/read-account";
 
 export const metadata: Metadata = { title: "Sua conta | Guardian Bay" };
@@ -13,6 +14,8 @@ export default async function AccountPage() {
         <dt className="font-medium">E-mail</dt>
         <dd className="mt-2 break-all">{account.email}</dd>
       </dl>
+      <h2 className="mt-10 text-xl font-semibold">Alterar senha</h2>
+      <ChangePasswordForm />
     </main>
   );
 }
