@@ -165,9 +165,17 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
           let nextId = 0;
           const pending = new Map();
           const exceptions = [];
+          let acceptCatalogDialog = true;
+          let catalogDialogs = 0;
           const consoleErrors = [];
           socket.addEventListener("message", ({ data }) => {
             const message = JSON.parse(data);
+            if (message.method === "Page.javascriptDialogOpening") {
+              catalogDialogs++;
+              void call("Page.handleJavaScriptDialog", {
+                accept: acceptCatalogDialog,
+              });
+            }
             if (message.method === "Runtime.exceptionThrown")
               exceptions.push(message.params);
             if (
@@ -292,6 +300,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
               ];
               const tlsDirectory = mkdtempSync(join(root, "identity-tls-"));
               let secure;
+              let catalogCategoryId;
               try {
                 const openssl =
                   process.env.SECURITY_OPENSSL_PATH ??
@@ -596,6 +605,125 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "/api/reset-password",
                 ])
                   assert.equal((await fetch(base + path)).status, 404);
+                await client`DELETE FROM login_rate_limits WHERE key IN ${client(keys)}`;
+                await navigate("/login");
+                await submit({ email, password: newPassword });
+                await waitFor(
+                  "location.pathname === '/account'",
+                  "customer login before administration",
+                );
+                const customerCookie = await cookie();
+                assert.equal(
+                  (
+                    await fetch(`${base}/admin/catalog`, {
+                      headers: {
+                        cookie: `__Host-guardian-session=${customerCookie.value}`,
+                      },
+                    })
+                  ).status,
+                  404,
+                );
+                const [catalogUser] =
+                  await client`SELECT id FROM users WHERE email=${email}`;
+                await client.begin(async (tx) => {
+                  await tx`SELECT id FROM users WHERE id=${catalogUser.id} FOR UPDATE`;
+                  await tx`UPDATE users SET role='admin' WHERE id=${catalogUser.id}`;
+                  await tx`DELETE FROM sessions WHERE user_id=${catalogUser.id}`;
+                });
+                await navigate("/login");
+                await submit({ email, password: newPassword });
+                await waitFor(
+                  "location.pathname === '/account'",
+                  "provisioned admin logs in again",
+                );
+                await navigate("/admin/catalog");
+                const adminSubmit = async (label, values, feedback = true) => {
+                  await evaluate(
+                    `(() => { const form=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(label)}); for(const [name,value] of Object.entries(${JSON.stringify(values)})) { const input=form.elements.namedItem(name); if(input.type==='checkbox') input.checked=value; else input.value=value; input.dispatchEvent(new Event('change',{bubbles:true})); } form.requestSubmit(); })()`,
+                  );
+                  if (feedback)
+                    await waitFor(
+                      `(() => { const form=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(label)}); return form?.getAttribute('aria-busy')==='false' && form.querySelector('output')?.textContent?.includes('salv'); })()`,
+                      `admin form ${label}`,
+                    );
+                };
+                const categoryName = `Browser category ${randomUUID()}`;
+                await adminSubmit("Criar categoria", { name: categoryName });
+                const [category] =
+                  await client`SELECT id FROM categories WHERE name=${categoryName}`;
+                catalogCategoryId = category.id;
+                await waitFor(
+                  `!!document.querySelector('option[value="${category.id}"]')`,
+                  "category available for product",
+                );
+                const catalogName = `Browser product ${randomUUID()}`;
+                await adminSubmit("Criar produto", {
+                  name: catalogName,
+                  description: "<script>window.catalogXss=true</script>",
+                  categoryId: category.id,
+                  amount: "1099",
+                  imageKey: "shield",
+                  isPublished: true,
+                });
+                const [catalogProduct] =
+                  await client`SELECT id,amount,image_key FROM products WHERE category_id=${category.id}`;
+                assert.equal(catalogProduct.amount, 1099);
+                assert.equal(catalogProduct.image_key, "shield");
+                await navigate(`/products/${catalogProduct.id}`);
+                assert.equal(
+                  await evaluate(
+                    "window.catalogXss === undefined && document.querySelector('main').textContent.includes('<script>window.catalogXss=true</script>')",
+                  ),
+                  true,
+                );
+                assert.equal(
+                  await evaluate(
+                    "!!document.querySelector('main svg[role=img][aria-label]')",
+                  ),
+                  true,
+                );
+                await navigate("/admin/catalog");
+                const editLabel = `Editar produto ${catalogName}`;
+                await adminSubmit(editLabel, { amount: "1200" }, false);
+                await waitFor(
+                  `(() => { const form=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(editLabel)}); return form?.elements.namedItem('amount')?.defaultValue==='1200' && form.getAttribute('aria-busy')==='false'; })()`,
+                  "updated product is rendered after save",
+                );
+                const [edited] =
+                  await client`SELECT amount,revision FROM products WHERE id=${catalogProduct.id}`;
+                assert.equal(edited.amount, 1200);
+                assert.equal(edited.revision, 2);
+                await navigate("/admin/catalog");
+                acceptCatalogDialog = false;
+                await adminSubmit(editLabel, { isPublished: false }, false);
+                assert.equal(
+                  (
+                    await client`SELECT is_published FROM products WHERE id=${catalogProduct.id}`
+                  )[0].is_published,
+                  true,
+                );
+                acceptCatalogDialog = true;
+                await adminSubmit(editLabel, { isPublished: false }, false);
+                await waitFor(
+                  `(() => { const form=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(editLabel)}); return form?.elements.namedItem('isPublished')?.defaultChecked===false && form.getAttribute('aria-busy')==='false'; })()`,
+                  "depublication is rendered after confirmation",
+                );
+                assert.equal(
+                  catalogDialogs,
+                  2,
+                  "cancel and confirm use visual confirmation",
+                );
+                assert.equal(
+                  (
+                    await client`SELECT is_published FROM products WHERE id=${catalogProduct.id}`
+                  )[0].is_published,
+                  false,
+                );
+                await navigate(`/products/${catalogProduct.id}`);
+                await waitFor(
+                  "document.querySelector('main')?.textContent.includes('Produto não encontrado')",
+                  "depublication immediately reflected",
+                );
                 assert.equal(
                   exceptions.length,
                   0,
@@ -607,6 +735,10 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "identity workflows must not have hydration errors",
                 );
               } finally {
+                if (catalogCategoryId) {
+                  await client`DELETE FROM products WHERE category_id=${catalogCategoryId}`;
+                  await client`DELETE FROM categories WHERE id=${catalogCategoryId}`;
+                }
                 if (secure) {
                   secure.closeAllConnections();
                   await new Promise((done) => secure.close(done));

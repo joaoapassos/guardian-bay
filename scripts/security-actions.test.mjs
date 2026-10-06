@@ -34,6 +34,7 @@ test(
     );
     let server;
     let closed;
+    let catalogCategoryId;
     try {
       await migrate(drizzle(client), { migrationsFolder: "drizzle" });
       const passwordHash = await hash(password, {
@@ -74,6 +75,16 @@ import { changePasswordAction } from "@/features/auth/actions/change-password.ac
 import { logoutAction } from "@/features/auth/actions/logout.action";
 import { readIdentityAction } from "@/features/auth/actions/read-identity.action";
 import { getAuthenticatedIdentity } from "@/features/auth/server/session-cookie";
+import { manageCatalogAction } from "@/features/catalog/actions/manage-catalog.action";
+async function catalog(form: FormData) {
+  "use server";
+  const input: Record<string, unknown> = Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));
+  if ("amount" in input) input.amount = Number(input.amount);
+  if ("revision" in input) input.revision = Number(input.revision);
+  if ("isPublished" in input) input.isPublished = input.isPublished === "true";
+  const result = await manageCatalogAction(input);
+  redirect("/?result=" + encodeURIComponent(JSON.stringify(result)));
+}
 async function login(form: FormData) {
   "use server";
   const input: Record<string, unknown> = Object.fromEntries(form.entries());
@@ -110,6 +121,7 @@ export default async function Probe() {
     <form action={logout}/><form action={read}><input name="userId"/></form>
     <form action={register}><input name="email"/><input name="password"/></form>
     <form action={changePassword}><input name="currentPassword"/><input name="newPassword"/></form>
+    <form action={catalog}/>
   </main>;
 }
 `,
@@ -155,7 +167,7 @@ export default async function Probe() {
       const actions = [...html.matchAll(/name="(\$ACTION_ID_[^"]+)"/g)].map(
         (match) => match[1],
       );
-      assert.equal(actions.length, 5);
+      assert.equal(actions.length, 6);
       const budget = async () =>
         (
           await client`SELECT attempts FROM login_rate_limits WHERE key='global'`
@@ -191,7 +203,7 @@ export default async function Probe() {
             "https://evil.test",
             "http://127.0.0.1:3108",
           ]) {
-            for (const index of [0, 1, 2, 3, 4]) {
+            for (const index of [0, 1, 2, 3, 4, 5]) {
               const response = await post(index, credentials, {
                 origin,
                 "x-forwarded-host": "evil.test",
@@ -207,7 +219,7 @@ export default async function Probe() {
               );
             }
           }
-          for (const index of [0, 3, 4]) {
+          for (const index of [0, 3, 4, 5]) {
             const tooLarge = await post(index, {
               ...credentials,
               padding: "x".repeat(20000),
@@ -311,10 +323,126 @@ export default async function Probe() {
           });
         },
       );
+      await t.test(
+        "catalog Action authorization, mass assignment and public visibility over HTTP",
+        async () => {
+          const [category] =
+            await client`INSERT INTO categories(name) VALUES (${`HTTP ${randomUUID()}`}) RETURNING id`;
+          catalogCategoryId = category.id;
+          const fields = {
+            operation: "create-product",
+            name: `HTTP public ${randomUUID()}`,
+            description: "<script>window.catalogXss=true</script>",
+            categoryId: category.id,
+            amount: "1099",
+            currency: "BRL",
+            isPublished: "true",
+            imageKey: "lock",
+          };
+          assert.deepEqual(result(await post(5, fields)), {
+            success: false,
+            code: "FORBIDDEN",
+          });
+          const customer = await post(0, credentials);
+          assert.deepEqual(result(customer), { success: true });
+          const customerCookie = customer.headers
+            .get("set-cookie")
+            .split(";")[0];
+          assert.deepEqual(result(await post(5, fields, {}, customerCookie)), {
+            success: false,
+            code: "FORBIDDEN",
+          });
+          await client.begin(async (tx) => {
+            await tx`SELECT id FROM users WHERE id=${user.id} FOR UPDATE`;
+            await tx`UPDATE users SET role='admin' WHERE id=${user.id}`;
+            await tx`DELETE FROM sessions WHERE user_id=${user.id}`;
+          });
+          const admin = await post(0, credentials);
+          assert.deepEqual(result(admin), { success: true });
+          const adminCookie = admin.headers.get("set-cookie").split(";")[0];
+          for (const invalid of [
+            { role: "admin" },
+            { passwordHash: "forged" },
+            { amount: "1.5" },
+            { currency: "USD" },
+            { price: "R$ 0,01" },
+          ])
+            assert.deepEqual(
+              result(await post(5, { ...fields, ...invalid }, {}, adminCookie)),
+              { success: false, code: "INVALID_INPUT" },
+            );
+          assert.deepEqual(result(await post(5, fields, {}, adminCookie)), {
+            success: true,
+          });
+          const [product] =
+            await client`SELECT id,revision FROM products WHERE category_id=${category.id}`;
+          const detail = await fetch(`${base}/products/${product.id}`);
+          const publicHtml = await detail.text();
+          assert.ok(publicHtml.includes(fields.name));
+          assert.ok(publicHtml.includes("&lt;script&gt;"));
+          assert.doesNotMatch(
+            publicHtml,
+            /<script>window\.catalogXss|password_hash|passwordHash/,
+          );
+          assert.ok(!publicHtml.includes(passwordHash));
+          const tampered = await (
+            await fetch(`${base}/products?amount=1&currency=USD`)
+          ).text();
+          assert.match(tampered, /Filtros inválidos/);
+          assert.deepEqual(
+            result(
+              await post(
+                5,
+                {
+                  ...fields,
+                  operation: "update-product",
+                  id: product.id,
+                  revision: "1",
+                  isPublished: "false",
+                },
+                {},
+                adminCookie,
+              ),
+            ),
+            { success: true },
+          );
+          const hidden = await fetch(`${base}/products/${product.id}`);
+          const missing = await fetch(`${base}/products/${randomUUID()}`);
+          assert.equal(hidden.status, missing.status);
+          assert.match(await hidden.text(), /Produto não encontrado/);
+          assert.match(await missing.text(), /Produto não encontrado/);
+          assert.ok(
+            !(await (await fetch(`${base}/products`)).text()).includes(
+              fields.name,
+            ),
+          );
+          await client`UPDATE users SET role='customer' WHERE id=${user.id}`;
+          assert.deepEqual(
+            result(
+              await post(
+                5,
+                {
+                  ...fields,
+                  operation: "update-product",
+                  id: product.id,
+                  revision: "2",
+                },
+                {},
+                adminCookie,
+              ),
+            ),
+            { success: false, code: "FORBIDDEN" },
+          );
+        },
+      );
     } finally {
       if (server) {
         server.kill();
         await closed;
+      }
+      if (catalogCategoryId) {
+        await client`DELETE FROM products WHERE category_id=${catalogCategoryId}`;
+        await client`DELETE FROM categories WHERE id=${catalogCategoryId}`;
       }
       await client`DELETE FROM users WHERE email=${email}`;
       await client`DELETE FROM login_rate_limits WHERE key IN ('global',${keys[0]},${keys[1]})`;

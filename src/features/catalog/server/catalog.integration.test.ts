@@ -436,3 +436,59 @@ describe("revisão concorrente de segurança (ECMSG-51)", () => {
     }
   });
 });
+
+describe("navegação pública com PostgreSQL real (ECMSG-52)", () => {
+  it("ordena, pagina com desempate estável e impede exposição de não publicados", async () => {
+    const prefix = `Sort ${suffix}`;
+    for (const [name, amount, published] of [
+      [`${prefix} A`, 200, true],
+      [`${prefix} B`, 100, true],
+      [`${prefix} C`, 100, true],
+      [`${prefix} hidden`, 1, false],
+      [`Literal %_${suffix}`, 300, true],
+    ] as const)
+      await client`INSERT INTO products(name,category_id,amount,is_published) VALUES (${name},${categoryId},${amount},${published})`;
+    const first = await listProducts({
+      query: prefix,
+      category: categoryId,
+      sort: "price-asc",
+      limit: "2",
+    });
+    const next = await listProducts({
+      query: prefix,
+      category: categoryId,
+      sort: "price-asc",
+      limit: "2",
+      page: "2",
+    });
+    expect(first.success && next.success).toBe(true);
+    if (!first.success || !next.success) throw new Error("Listagem inválida");
+    expect(first.products.map((p) => p.price.amount)).toEqual([100, 100]);
+    expect(first.hasNext).toBe(true);
+    expect(next.products.map((p) => p.price.amount)).toEqual([200]);
+    expect(next.hasNext).toBe(false);
+    expect(
+      new Set([...first.products, ...next.products].map((p) => p.id)).size,
+    ).toBe(3);
+    const descending = await listProducts({
+      query: prefix,
+      category: categoryId,
+      sort: "price-desc",
+    });
+    expect(
+      descending.success && descending.products.map((p) => p.price.amount),
+    ).toEqual([200, 100, 100]);
+    const alphabetical = await listProducts({
+      query: prefix,
+      category: categoryId,
+      sort: "name",
+    });
+    expect(
+      alphabetical.success && alphabetical.products.map((p) => p.name),
+    ).toEqual([`${prefix} A`, `${prefix} B`, `${prefix} C`]);
+    const literal = await listProducts({ query: "%_", category: categoryId });
+    expect(literal.success && literal.products.map((p) => p.name)).toEqual([
+      `Literal %_${suffix}`,
+    ]);
+  });
+});
