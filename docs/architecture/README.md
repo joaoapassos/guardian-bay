@@ -333,21 +333,22 @@ O scaffold tem somente erros de configuração em `lib/env/database-url.ts`, sem
 | Classe | Significado | Tratamento |
 | --- | --- | --- |
 | Esperado | Resultado conhecido da operação: input inválido, ausência legítima de recurso, autenticação necessária, autorização negada, conflito ou regra de negócio rejeitada | Resultado explícito definido pela feature, com código estável e dados mínimos; a boundary projeta mensagem externa controlada |
-| Inesperado | Bug, falha desconhecida de DB/infraestrutura/integração ou configuração indisponível | Exceção interna; a boundary registra contexto server-side seguro e apresenta falha genérica |
+| Inesperado | Bug, falha desconhecida de DB/infraestrutura/integração ou configuração indisponível | Exceção interna; Actions preservam propagação ao Next.js, handlers podem produzir HTTP 500 controlado; observabilidade server-side no ponto apropriado |
 
 A classificação depende da operação, não apenas do tipo da exceção ou de um status de serviço externo. Não crie hierarquia de classes nem catálogo global de códigos hipotéticos. Códigos de negócio e contratos de resultado surgem na feature que os consome e não conhecem HTTP, `Response`, `NextResponse` ou UI.
 
 ```text
 Client → boundary pública → feature/server → infraestrutura
 Esperado:   feature/server → resultado conhecido → boundary → resposta controlada
-Inesperado: infra/feature → exceção → boundary → log seguro + resposta genérica
+Inesperado (Action):  infra/feature → throw → Next.js error handling → boundary/digest + observabilidade server-side
+Inesperado (Handler): infra/feature → exceção → boundary HTTP → 500 genérico + observabilidade server-side
 ```
 
 ### Tradução nas boundaries
 
-**Server Actions:** falhas esperadas retornam resultado discriminado mínimo, por exemplo `{ success: false, error: { code: "INVALID_QUANTITY", message: "Quantidade inválida." } }`, somente quando esse caso real existir. Falhas inesperadas são capturadas ao redor da operação, registradas no servidor e retornam mensagem fixa como `Não foi possível concluir a operação. Tente novamente.`; nunca `error.message` ou objeto `Error`. Não transforme falha em sucesso nem sugira que uma operação foi revertida sem evidência. Em mutations com resultado incerto, a UX de retry depende da segurança/idempotência da operação.
+**Server Actions:** falhas esperadas retornam resultado discriminado mínimo, por exemplo `{ success: false, error: { code: "INVALID_QUANTITY", message: "Quantidade inválida." } }`, somente quando esse caso real existir. Falhas inesperadas permanecem exceções (`throw`) e seguem para o tratamento de erros do Next.js, preservando error boundary e digest, e `instrumentation.onRequestError` quando aplicável. Não capture genericamente para convertê-las em retorno normal `{ success: false, ... }`. A UI de erro usa mensagem controlada; nunca retorne `error.message` bruto ou serialize o objeto interno. Em produção, a sanitização do framework protege os detalhes encaminhados ao Client, conforme os limites documentados abaixo. Não transforme falha em sucesso nem sugira que uma operação foi revertida sem evidência. Em mutations com resultado incerto, a UX de retry depende da segurança/idempotência da operação.
 
-**Route Handlers:** a tradução para status é exclusiva da boundary HTTP. Use 400 para input inválido, 401 para autenticação necessária, 403 para autorização negada, 404 para ausência legítima, 409 para conflito, 429 quando houver rate limit real e 500 para falha inesperada. Respostas continuam mínimas e controladas; `error.tsx` não trata erros do handler. Não envie SQL, stack, cause, códigos/objetos brutos de bibliotecas ou detalhes de infraestrutura em JSON.
+**Route Handlers:** a tradução para status é exclusiva da boundary HTTP. Use 400 para input inválido, 401 para autenticação necessária, 403 para autorização negada, 404 para ausência legítima, 409 para conflito, 429 quando houver rate limit real e 500 para falha inesperada. Diferentemente de Actions, handlers podem capturar falhas inesperadas para produzir HTTP 500 com corpo genérico e observabilidade server-side explícita no ponto apropriado; uma falha capturada e convertida em resposta não deve depender de `onRequestError` para ser observada. Respostas continuam mínimas e controladas; `error.tsx` não trata erros do handler. Não envie SQL, stack, cause, códigos/objetos brutos de bibliotecas ou detalhes de infraestrutura em JSON.
 
 **Server Components:** resultados conhecidos permitem composição de UI segura; ausência legítima pode usar `notFound()`. Falhas inesperadas são observadas no ponto server que conhece a operação e seguem para a boundary de renderização adequada. Não capture indiscriminadamente todo render para transformar erro em 404 ou coleção vazia. Se houver tradução antes do render, preserve a indicação de falha sem copiar detalhes internos para props.
 
@@ -375,7 +376,7 @@ console.error({
 
 Use `error` como `unknown` ao capturar. Não espalhe suas propriedades, nem serialize `message`, `cause`, `detail`, SQL ou parâmetros; até `name` pode ser arbitrário. Se registrar tipo/nome, mapeie tipos reconhecidos para nomes controlados, com fallback neutro. Nunca faça `console.error(error)`/`String(error)` como alternativa quando a classificação falhar. Campos de contexto também são allowlist, não um objeto arbitrário aceito por conveniência.
 
-Falhas esperadas comuns não precisam de `error` logs. Use `warn` somente quando houver evento operacional/de segurança concreto a investigar, e `info` para evento útil definido pela operação, sem ruído de toda leitura. Registre uma falha inesperada uma vez no ponto que conhece a operação; múltiplos eventos precisam representar etapas distintas. Logging não deve substituir a resposta segura nem iniciar efeitos de domínio.
+Falhas esperadas comuns não precisam de `error` logs. Use `warn` somente quando houver evento operacional/de segurança concreto a investigar, e `info` para evento útil definido pela operação, sem ruído de toda leitura. Observe a falha inesperada no ponto apropriado, evitando logs duplicados por camada ou por Action. Quando existir instrumentação central, `onRequestError` poderá observar as exceções server capturadas pelo Next.js; não as engula para evitar propagação. Se uma operação precisar adicionar contexto antes de propagar, use somente campos seguros e preserve a exceção, sem logging bruto nem conversão em resultado esperado. Múltiplos eventos precisam representar etapas distintas. Logging não deve substituir o fluxo de erro nem iniciar efeitos de domínio.
 
 Em produção, mantenha contexto operacional e categoria mesmo sem stack. Em desenvolvimento, detalhes técnicos/stack só são admissíveis após revisão explícita e sanitização; stack de biblioteca pode conter SQL, valores, URLs e caminhos. Não libere dumps automaticamente por `NODE_ENV`. Não envie stack ao Client. Logs nativos do framework/driver são outra superfície a revisar no deployment; a política da aplicação não promete sanitizar automaticamente logs emitidos por terceiros.
 
@@ -385,7 +386,7 @@ Nunca registre senha/hash, cookies de sessão, tokens, Authorization/CSRF, `DATA
 
 Nome, email, endereço e telefone ficam fora dos logs por padrão. Identificadores como `userId`/`orderId` também podem identificar pessoas: registre-os apenas com necessidade operacional concreta, valor validado e mínimo. A futura configuração de armazenamento deve definir acesso e retenção; não crie infraestrutura externa agora.
 
-Quando houver contexto útil, `requestId`/`operationId` pode ser gerado no servidor ou validado na entrada (formato e comprimento delimitados). Nunca reflita header arbitrário, use identificador como autorização ou trate correlação como prova de identidade. A boundary pode enviar uma referência opaca de suporte se o mesmo identificador estiver associado ao evento server. O `digest` nativo do Next.js é correlação de erro, não request ID nem garantia de unicidade por operação. Sem workflows atuais, não implemente IDs globais, middleware, AsyncLocalStorage ou tracing distribuído.
+Quando houver contexto útil, `requestId`/`operationId` pode ser gerado no servidor ou validado na entrada (formato e comprimento delimitados). Nunca reflita header arbitrário, use identificador como autorização ou trate correlação como prova de identidade. A boundary pode enviar uma referência opaca de suporte se o mesmo identificador estiver associado ao evento server. O `digest` nativo do Next.js é correlação de erro, não autorização, dado de negócio, request ID ou garantia de unicidade por operação. Sem workflows atuais, não implemente IDs globais, middleware, AsyncLocalStorage ou tracing distribuído.
 
 ### Boundaries de UI e instrumentação do Next.js 16.3.8
 
@@ -404,7 +405,7 @@ Não adicione OpenTelemetry, Sentry, Datadog, collectors, métricas de negócio 
 
 ### Critérios para a primeira operação real
 
-Verifique resultado esperado com mensagem/campos públicos controlados; falha inesperada de DB/integração com resposta genérica e evento server contextualizado; ausência de secrets/PII mesmo em objetos de erro com `cause`/propriedades extras; sem conversão de falha interna em 404; exceções de navegação preservadas. Quando houver correlação, teste validação e associação entre log/resposta. Esses testes pertencem ao consumidor que tornar o fluxo concreto, sem endpoints fictícios para demonstrá-lo.
+Verifique resultado esperado com mensagem/campos públicos controlados; falha inesperada de DB/integração em Action propagada ao Next.js, preservando boundary/digest e observabilidade quando aplicável; falha inesperada em handler com HTTP 500 genérico e evento server contextualizado; ausência de secrets/PII mesmo em objetos de erro com `cause`/propriedades extras; sem conversão de falha interna em 404; exceções de navegação preservadas. Quando houver correlação, teste validação e associação entre log/resposta. Esses testes pertencem ao consumidor que tornar o fluxo concreto, sem endpoints fictícios para demonstrá-lo.
 
 Referências locais consultadas: `01-app/01-getting-started/10-error-handling.md`, `05-server-and-client-components.md`, `15-route-handlers.md`, `01-app/02-guides/server-actions.md` e `01-app/03-api-reference/03-file-conventions/{error,not-found,instrumentation}.md`, sob `node_modules/next/dist/docs/`.
 
