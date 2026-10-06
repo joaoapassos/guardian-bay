@@ -833,6 +833,24 @@ describe("ECMSG-26: requests, abuso e concorrência real", () => {
     );
     expect(dbSpy).not.toHaveBeenCalled();
   });
+  it("falha do logger no limiar não impede login válido ou revogação", async () => {
+    for (let attempt = 0; attempt < 4; attempt++)
+      expect(await reserveLoginAttempt(emails[0])).toBe(true);
+    const log = vi.spyOn(console, "warn").mockImplementation(() => {
+      throw new Error("private sink failure");
+    });
+    expect(await loginAction({ email: emails[0], password })).toEqual({
+      success: true,
+    });
+    expect(log).toHaveBeenCalledTimes(1);
+    const token = request.token;
+    expect(await resolveSession(token)).toEqual({
+      id: userId,
+      email: emails[0],
+    });
+    expect(await logoutAction()).toEqual({ success: true });
+    expect(await resolveSession(token)).toBeNull();
+  });
   it("produção exige HTTPS; headers IP forjados não alteram chave", async () => {
     vi.stubEnv("NODE_ENV", "production");
     await expect(loginAction({ email: emails[0], password })).rejects.toThrow(
