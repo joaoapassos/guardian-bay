@@ -128,3 +128,7 @@ Ativos/entradas reais: orders/order_items, snapshot comercial, checkoutKey por d
 | Estoque, reserva, frete, gateway/dados financeiros e guest checkout | Não aplicável | Nenhuma dessas superfícies foi implementada; pagamento acadêmico não movimenta dinheiro nem comprova pagamento real |
 
 Evidências completas e limitações estão na [revisão da Epic 6](README.md#revisão-da-epic-6-ecmsg-78). Preservam-se token bearer roubado, e-mail não verificado, CSP parcial, tooling e PostgreSQL 18 para reproduzir todos os gates atuais; PostgreSQL 17 mantém FK RESTRICT, mas retorna 23503 em vez do 23001 esperado pela assertion herdada. Nenhum finding é corrigido automaticamente e a validação local não autoriza exposição pública.
+
+## Estoque: planejamento da Epic 7 (ECMSG-79)
+
+Controles propostos, ainda não existentes: inventory por produto, quantidade não negativa e revisão; estoque zero inicial, ausência falha fechado, disponibilidade independente da publicação. Carrinho não reserva e permanece visível quando insuficiente. Checkout inteiro deve validar/lockar inventory em ordem estável, consumir somente PAID na transação comercial e preservar retry idempotente. Administração exige role atual/contrato estrito/revisão. Overselling, estoque forjado e lost update são ameaças a validar com PostgreSQL real; nenhum controle planejado é evidência de mitigação. Reserva e logística permanecem fora do escopo.

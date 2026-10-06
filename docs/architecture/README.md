@@ -950,3 +950,11 @@ Não há pipeline de CI ou hooks Git configurados. Quando introduzidos, devem ex
 ### Enforcement arquitetural existente
 
 Biome é o formatter, linter principal e mecanismo preferido para enforcement de boundaries quando possível. A configuração atual não impõe o mapa arquitetural; os imports e a fronteira Server × Client são verificados em revisão.
+
+## Modelo de estoque (ECMSG-79)
+
+Contrato aprovado para a Epic 7, ainda não implementado nesta Task: `inventory` possui productId PK/FK RESTRICT, availableQuantity inteiro entre 0 e 2147483647 e revision inteira positiva. Produto existente recebe zero por migration; produto novo recebe zero na mesma transação. Linha ausente falha fechado. Publicação é editorial e independente de estoque: publicado sem estoque continua no catálogo.
+
+Carrinho é intenção, não reserva. Redução de estoque não altera nem remove itens; publicação e suficiência têm indicadores distintos. Total informacional considera apenas itens publicados com quantidade suficiente; checkout recalcula. Qualquer item insuficiente rejeita o checkout inteiro com OUT_OF_STOCK, sem pedido/consumo/limpeza. PAYMENT_FAILED mantém pedido histórico, estoque e carrinho; somente PAID consome estoque, na mesma transação do snapshot/pagamento/limpeza seletiva. Retry da mesma intenção retorna pedido existente antes de tocar estoque. Pedido já guarda quantity comprada; não ganha snapshot adicional de estoque.
+
+Locks seguem usuário → sessão → itens → produtos ordenados por UUID → inventory ordenado por productId. Checkout usa UPDATE lock e decremento condicionado à quantidade disponível; sessão é revalidada após esperas. Administração define quantidade absoluta com role atual, mesma origem, contrato estrito e revisão otimista; consumo pago também incrementa revision. Revisão saturada deve falhar de modo controlado, nunca sofrer overflow. Não há reserva, ledger, depósitos, logística ou reposição automática.
