@@ -1,6 +1,6 @@
 # Arquitetura e fronteiras do sistema
 
-Sistema: E-commerce seguro · Fundação, segurança base e identidade/acesso.
+Sistema: E-commerce seguro · Fundação, segurança base, identidade/acesso e catálogo.
 
 Este documento registra as decisões aprovadas. O [AGENTS.md](../../AGENTS.md) estabelece invariantes; as [skills](../../.agents/skills/) descrevem procedimentos para aplicá-las.
 
@@ -8,35 +8,45 @@ O [threat model](threat-model.md) identifica atores, ativos, entradas externas, 
 
 ## Modelo do catálogo (ECMSG-42)
 
+Catálogo define o que é vendido e apresentado; não gerencia inventory, carrinho, pedidos, estoque ou total de compra. Produto tem UUID gerado pelo servidor/banco, nome plain text de 1–120 caracteres após trim, descrição plain text de até 2.000 caracteres, categoria obrigatória, preço inteiro em centavos e moeda explícita BRL. URLs usam UUID, sem slug ou compatibilidade de renomeação de slug. Nomes de produto não precisam ser únicos.
+
+Uma categoria plana tem UUID e nome de 1–80 caracteres após trim, único sem distinção de maiúsculas segundo `lower` do PostgreSQL. Uma categoria pode conter vários produtos; cada produto pertence a exatamente uma categoria. Não há hierarquia ou estado de categoria: publicabilidade pertence ao produto.
+
+`isPublished` booleano, inicialmente false, basta: false cobre rascunho e produto retirado do público, sem workflow adicional. Toda consulta pública deve restringir `isPublished = true` no SQL; inexistente e não publicado têm resposta pública equivalente. Não há delete físico na UI; FK de categoria é restritiva, sem cascade destrutivo sobre produtos.
+
+Preço é inteiro positivo entre 1 e 2.147.483.647 centavos, BRL, representável em PostgreSQL integer e com segurança em JavaScript. Zero/gratuidade não é requisito. `lib/money/price.ts` valida o contrato estrito e usa Dinero.js 2.0.2 com BRL/escala 2. O DTO contém amount, currency e formatted; a apresentação usa a representação decimal exata do Dinero e Intl, sem cálculo monetário decimal ou arredondamento de entradas fracionárias. Nunca persistir float ou tratar preço reenviado pelo cliente como autoridade. Futuras compras deverão reler o valor no servidor.
+
+Produto/categoria possuem revisão inteira positiva para detectar edição concorrente, sem timestamps sem consumidor. Ilustrações seguem a política ECMSG-50; não há upload ou origem externa. Escritas administrativas exigem capacidade persistida e sessão atual, nunca role ou ownership vindos do cliente. Schemas, constraints e migrations implementam esse modelo.
+
 ### Administração (ECMSG-48)
 
-`users.role` tem somente customer/admin, CHECK no PostgreSQL e default customer. Cadastro não aceita role; a identidade/sessão pública não transporta capacidade administrativa. `auth/server/require-admin.ts` consulta sessão válida e role atual no banco, retornando apenas id autorizado. O catálogo reutilizará essa autoridade de autenticação, uma dependência server explícita necessária, sem engine de permissões.
+`users.role` tem somente customer/admin, CHECK no PostgreSQL e default customer. Cadastro não aceita role; a identidade/sessão pública não transporta capacidade administrativa. `auth/server/require-admin.ts` consulta sessão válida e role atual no banco, retornando apenas id autorizado. O catálogo reutiliza essa autoridade de autenticação, uma dependência server explícita necessária, sem engine de permissões.
 
 O primeiro admin é um usuário cadastrado provisionado por operador com acesso controlado ao PostgreSQL: `BEGIN; SELECT id FROM users WHERE id = '<UUID conferido>' FOR UPDATE; UPDATE users SET role = 'admin' WHERE id = '<mesmo UUID>'; DELETE FROM sessions WHERE user_id = '<mesmo UUID>'; COMMIT;`. O operador deve conferir a identidade antes da alteração e exigir novo login. Remoção de privilégio segue a mesma transação com customer e revogação de sessões; não há endpoint de mudança de role. A consulta da role atual evita autoridade obsoleta em cookies.
 
 `/admin/catalog` cria/edita categorias e produtos, publica/retira produtos sem delete físico. A Action aplica mesma origem, contrato estrito e rejeita argumentos extras; a operação server-only projeta campos explicitamente e verifica admin dentro da transação. Locks seguem identidade → sessão, compartilhando a ordem da troca de senha; role/revogação ficam serializadas com o efeito, e expiração é revalidada com relógio atual antes do commit. Revisão na condição do UPDATE impede lost update; conflito exige recarregar antes de editar. A confirmação de despublicação usa o diálogo nativo do browser, sem biblioteca adicional. Leituras públicas continuam por request; a Action invalida também as rotas afetadas. Falha operacional registra somente timestamp/event/operation/result/correlationId, sem payload/SQL/erro original. A UI atual apresenta até 100 categorias e 50 produtos por página, suficiente para o catálogo acadêmico atual; expansão da navegação de categorias exige consumidor concreto.
 
-Catálogo define o que é vendido e apresentado; não gerencia inventory, carrinho, pedidos, estoque ou total de compra. Produto tem UUID gerado pelo servidor/banco, nome plain text de 1–120 caracteres após trim, descrição plain text de até 2.000 caracteres, categoria obrigatória, preço inteiro em centavos e moeda explícita BRL. URLs usam UUID, sem slug ou compatibilidade de renomeação de slug. Nomes de produto não precisam ser únicos.
-
-Uma categoria plana tem UUID e nome de 1–80 caracteres após trim, único sem distinção de maiúsculas segundo `lower` do PostgreSQL. Uma categoria pode conter vários produtos; cada produto pertence a exatamente uma categoria. Não há hierarquia ou estado de categoria: publicabilidade pertence ao produto.
-
-`isPublished` booleano, inicialmente false, basta: false cobre rascunho e produto retirado do público, sem workflow adicional. Toda consulta pública deve restringir `isPublished = true` no SQL; inexistente e não publicado têm resposta pública equivalente. Não haverá delete físico na UI; FK de categoria é restritiva, sem cascade destrutivo sobre produtos.
-
-Preço é inteiro positivo entre 1 e 2.147.483.647 centavos, BRL, representável em PostgreSQL integer e com segurança em JavaScript. Zero/gratuidade não é requisito. `lib/money/price.ts` valida o contrato estrito e usa Dinero.js 2.0.2 com BRL/escala 2. O DTO contém amount, currency e formatted; a apresentação usa a representação decimal exata do Dinero e Intl, sem cálculo monetário decimal ou arredondamento de entradas fracionárias. Nunca persistir float ou tratar preço reenviado pelo cliente como autoridade. Futuras compras deverão reler o valor no servidor.
-
-Produto/categoria possuem revisão inteira positiva para detectar edição concorrente, sem timestamps sem consumidor. Imagens serão introduzidas com a política específica da ECMSG-50; não há upload ou origem externa antecipados. Escritas administrativas exigirão capacidade persistida e sessão atual, nunca role ou ownership vindos do cliente. Modelagem é decisão aprovada, não implementação existente até as Tasks correspondentes.
-
-## Revisão da Epic 3 (ECMSG-41)
-
 ### Ilustrações do catálogo (ECMSG-50)
 
 Produtos usam a chave opcional lock/shield, validada por allowlist no contrato e CHECK no PostgreSQL. A apresentação usa somente LockKeyhole/ShieldCheck do Lucide React, com ImageOff como fallback e nome acessível escapado pelo React. Não há arquivos SVG próprios, paths/URLs aceitos, fetch de imagem, upload ou origem externa; a CSP permanece inalterada. São ilustrações, sem fotografias de produto neste escopo.
 
-Na revisão ECMSG-51, nomes/descrições/categorias/alt permanecem plain text escapado; sort usa somente colunas conhecidas e busca parametrizada trata `%`, `_` e barra como literais. Input inválido não chega ao banco, preço fracionário/forjado e campos extras são rejeitados. Queries públicas não usam cache persistente nem retornam revisão/publicabilidade. Testes PostgreSQL comprovam rollback se a sessão expirar esperando uma linha e rejeição se for revogada antes da autorização bloqueada, além do conflito de revisão. Administração concede capacidade sobre todo o catálogo; trocar UUID não concede essa capacidade a customer/visitante. Proteção volumétrica de entrada e CSP completa continuam dependências/pêndencias anteriores, sem novos mecanismos simulados.
+Na revisão ECMSG-51, nomes/descrições/categorias/alt permanecem plain text escapado; sort usa somente colunas conhecidas e busca parametrizada trata `%`, `_` e barra como literais. Input inválido não chega ao banco, preço fracionário/forjado e campos extras são rejeitados. Queries públicas não usam cache persistente nem retornam revisão/publicabilidade. Testes PostgreSQL comprovam rollback se a sessão expirar esperando uma linha e rejeição se for revogada antes da autorização bloqueada, além do conflito de revisão. Administração concede capacidade sobre todo o catálogo; trocar UUID não concede essa capacidade a customer/visitante. Proteção volumétrica de entrada e CSP completa continuam dependências/pendências anteriores, sem novos mecanismos simulados.
 
-O catálogo público em `/products` lê pelo server da feature, com publicação restrita no SQL e DTO de id/nome/categoria/preço. Paginação usa 20 itens por padrão, máximo 50 e página máxima 1.000, ordenação estável por UUID e uma linha extra para detectar próxima página. `connection()` exclui a leitura de prerender/cache estático; queries Drizzle não usam cache persistente. Estados vazio, input inválido, loading e falha operacional têm apresentação controlada.
+O catálogo público em `/products` lê pelo server da feature, com publicação restrita no SQL e DTO de id/nome/categoria/preço/ilustração. Paginação usa 20 itens por padrão, máximo 50 e página máxima 1.000, ordenação por nome/preço com UUID como desempate estável e uma linha extra para detectar próxima página. `connection()` exclui a leitura de prerender/cache estático; queries Drizzle não usam cache persistente. Estados vazio, input inválido, loading e falha operacional têm apresentação controlada.
 
-As rotas `/`, `/login`, `/register` e `/account` usam composição Server; somente formulários e botão de logout são Client. RHF/Zod cuidam de UX e contratos, sem importar DB/credenciais/sessão privilegiada. As cinco Actions validam entradas/origem e delegam às operações server-only. Conta expõe somente e-mail próprio; hashes intermediários do login e tokens não integram DTOs públicos. Não há Zustand, roles/admin, recuperação self-service ou operações comerciais.
+## Revisão da Epic 4 (ECMSG-53)
+
+A matriz reutiliza os runners existentes: unitários validam contratos, centavos/precisão, limites e allowlist de imagens; PostgreSQL real valida constraints/FK/unicidade, publicação, busca/sort/paginação, autorização atual, mass assignment e concorrência. Next HTTP real testa Origin/forwarded/body limit na Action administrativa, visitante/customer/admin, role alterada e retirada imediata do público. Chromium/TLS isolado cria categoria/produto, edita preço, cancela/confirma despublicação e verifica escaping, Lucide e hydration. Não há rotas ou fixtures de teste versionadas no produto.
+
+`check`, `test:integration`, `test:security` e `verify` passaram: 90 unitários, 92 testes PostgreSQL e sete testes HTTP/Chromium, sem skips. Nove migrations aplicam do zero e em upgrade desde Epic 3 preservando identidade; colunas/constraints/índices coincidem, snapshots/journal são consistentes e Drizzle não detecta drift. Checks de diff incluem o patch acumulado contra Epic 3 e origin/main.
+
+Dinero.js 2.0.2 e Lucide React 1.52.0 são dependências com consumidores reais. Audit de produção: zero vulnerabilidades. Audit completo: quatro moderados na cadeia Drizzle Kit/esm-loader/core-utils/esbuild 0.18.20, referentes ao servidor `serve` do esbuild; o loader instalado utiliza transform/transformSync, sem consumidor `serve` nos scripts atuais. Não bloqueia este escopo; atualização de tooling permanece pendente. `npm ls esbuild` aponta peer opcional do Vite fora do intervalo, enquanto lockfile/dry-run e gates passam; também pendência de tooling, sem atualização automática.
+
+A revisão security-review e o nextjs-security-scan examinaram conteúdo rastreado, sem `.env` real ou configurações privadas. Os 26 alertas de secret são fixtures sintéticas/atributo password/URL fictícia; 138 alertas de injection correspondem a tags parametrizadas Postgres.js/Drizzle, e o aviso allowedOrigins não justifica ampliar same-origin. Nenhum finding bloqueante foi confirmado na revisão contextual. CSP parcial, e-mail não verificado, proteção volumétrica/HTTPS/deployment, coleta/retenção de logs e limpeza de sessões permanecem limites reais anteriores. A sessão administrativa também expira por atividade persistida: render e mutations do catálogo não renovam a janela, exigindo novo login ao atingir idle timeout. Não se promete proteção completa de entrada, auditoria durável, fotos de produto ou operações de compra.
+
+## Revisão da Epic 3 (ECMSG-41)
+
+Ao encerrar a Epic 3, as rotas `/`, `/login`, `/register` e `/account` usam composição Server; somente formulários e botão de logout são Client. RHF/Zod cuidam de UX e contratos, sem importar DB/credenciais/sessão privilegiada. As cinco Actions validam entradas/origem e delegam às operações server-only. Conta expõe somente e-mail próprio; hashes intermediários do login e tokens não integram DTOs públicos. Não há Zustand, roles/admin, recuperação self-service ou operações comerciais.
 
 Cadastro não autentica nem sobrescreve credencial existente. Login rotaciona, e mudança de senha exige senha atual, atualiza hash e revoga todas as sessões atomicamente. Locks da identidade e conferência do hash verificado impedem criação de sessão com credencial obsoleta após troca concorrente. Ownership, expiração e revogação são verificados na operação; redirect/navegação não concedem autoridade. A correção de reset dos campos foi comprovada pelo browser ao repetir o formulário após senha atual incorreta.
 
@@ -52,13 +62,13 @@ Não bloqueiam a conclusão local, mas continuam pendentes: proteção de entrad
 
 ## Conta e ciclo de vida (ECMSG-32)
 
-Conta é a identidade persistida em `users`: UUID imutável, e-mail canônico único, hash Argon2id da credencial e instante de criação. Não há perfil, papel administrativo, verificação de e-mail ou coluna de status. Toda conta persistida é utilizável; não existem estados pending/active/suspended/deleted/verified/locked. Limites temporários de tentativas não mudam o estado da conta.
+Conta é a identidade persistida em `users`: UUID imutável, e-mail canônico único, hash Argon2id da credencial, instante de criação e role customer/admin adicionada para o catálogo. Não há perfil, verificação de e-mail ou coluna de status. Toda conta persistida é utilizável; não existem estados pending/active/suspended/deleted/verified/locked. Limites temporários de tentativas não mudam o estado da conta.
 
 Criação exige e-mail válido segundo o contrato existente e senha com a política de criação vigente; unicidade pertence ao PostgreSQL. Login verifica a credencial existente sem impor o mínimo de criação e não distingue publicamente conta inexistente de senha incorreta. Identidade não concede autorização. Sessões são registros separados, revogáveis e limitados por expiração absoluta/inatividade.
 
 A alteração de credencial exige identidade/sessão válida e senha atual; persistência da nova credencial e revogação de todas as sessões são atômicas, exigindo novo login. Cadastro não implica privilégios ou verificação de posse do e-mail.
 
-Guardian Bay não possui recuperação self-service de senha: não haverá link de reset, e-mail, OTP, pergunta secreta ou recovery code. Perda de acesso requer contato direto com administrador, por processo externo ainda não implementado. A ECMSG-38 formalizará os requisitos; não existe painel, role, reset privilegiado, senha padrão ou canal de contato configurado. Administração futura deverá verificar identidade e autorização, substituir a credencial sem conhecer a senha original e revogar sessões com auditoria.
+Guardian Bay não possui recuperação self-service de senha: não haverá link de reset, e-mail, OTP, pergunta secreta ou recovery code. Perda de acesso requer contato direto com administrador, por processo externo ainda não implementado. A ECMSG-38 formaliza os requisitos; a administração atual é exclusiva do catálogo, sem reset privilegiado, senha padrão ou canal de recuperação configurado. Administração futura deverá verificar identidade e autorização, substituir a credencial sem conhecer a senha original e revogar sessões com auditoria.
 
 ## Testes de identidade e acesso (ECMSG-40)
 
@@ -79,7 +89,7 @@ Fluxos completos de browser exigem `TEST_DATABASE_URL`, `SECURITY_BROWSER_PATH` 
 
 ## Proteção dos fluxos de identidade (ECMSG-39)
 
-As cinco Actions existentes (cadastro, login, logout, leitura autorizada e alteração de senha) exigem Origin/Host conforme a política same-origin, validam campos/argumentos permitidos e devolvem resultados mínimos. Cadastro e login não confirmam existência de conta; cadastro duplicado executa hash e não sobrescreve credencial. Não se promete tempo constante absoluto, pois banco, concorrência e rede também afetam duração.
+As cinco Actions de identidade (cadastro, login, logout, leitura autorizada e alteração de senha) exigem Origin/Host conforme a política same-origin, validam campos/argumentos permitidos e devolvem resultados mínimos. A Action administrativa do catálogo aplica os mesmos controles e autorização específica. Cadastro e login não confirmam existência de conta; cadastro duplicado executa hash e não sobrescreve credencial. Não se promete tempo constante absoluto, pois banco, concorrência e rede também afetam duração.
 
 Limites por operação são deliberadamente distintos: login 5, cadastro 2 e alteração de senha 3 por identificador/15 minutos, com orçamento global de 20/minuto e dois slots compartilhados. Não há IP confiável: limites internos não substituem proteção de entrada no deployment. Mutations repetidas continuam exigindo sessão/credencial atuais; logout é idempotente, login rotaciona e mudança de senha revoga todas as sessões. Leitura de conta só projeta e-mail próprio, sem mutation durante render.
 
@@ -89,7 +99,7 @@ Os formulários usam texto escapado pelo React, schemas públicos sem implementa
 
 Perda de acesso exige contato com administrador e processo administrativo externo ao fluxo atual. A página de login informa essa decisão sem inventar canal de atendimento. Não há recuperação self-service, e-mail, token/link de reset, OTP, código de recuperação, pergunta secreta, senha padrão ou backdoor.
 
-Não existe painel, papel administrativo ou Action de reset nesta Epic. Uma implementação futura deverá definir autenticação forte do administrador, autorização, auditoria, revogação de sessões e nova credencial temporária ou processo equivalente. Recuperação substitui a credencial; ninguém pode ler ou recuperar a senha original. Conhecer o e-mail não prova identidade nem autoriza substituição de senha.
+Não existe painel ou Action de reset; role admin atual autoriza somente gerenciamento do catálogo. Uma implementação futura deverá definir autenticação forte do administrador, autorização, auditoria, revogação de sessões e nova credencial temporária ou processo equivalente. Recuperação substitui a credencial; ninguém pode ler ou recuperar a senha original. Conhecer o e-mail não prova identidade nem autoriza substituição de senha.
 
 ## Alteração de senha (ECMSG-37)
 
@@ -109,7 +119,7 @@ Cadastro admite duas tentativas por e-mail/15 minutos em chave `reg:` pseudonimi
 
 `/login` e `/register` são páginas Server que compõem um formulário Client compartilhado da feature auth. React Hook Form 7.89.0 trata inputs, pending e foco de validação; schemas Zod seguros são reutilizados somente para UX. As Actions continuam validando no servidor. Labels, erros associados, autocomplete current/new-password e password managers são preservados; a senha não é trimada e é removida do formulário após resposta. Falhas inesperadas recebem mensagem genérica, sem serializar erro interno. Não há estado de sessão no Client.
 
-Inputs e botões nativos com Tailwind atendem aos controles atuais; não há consumidor que justifique adicionar primitives Radix ou Zustand. A única dependência de UI nova é RHF, compatível com React 19. Login navega para a aplicação após sucesso; cadastro orienta login sem revelar duplicidade. A integração de navegação/sessão é responsabilidade da ECMSG-35.
+Inputs e botões nativos com Tailwind atendem aos controles atuais; não há consumidor que justifique adicionar primitives Radix ou Zustand. A interface de autenticação utiliza RHF, compatível com React 19; Lucide tem consumidor nas ilustrações do catálogo. Login navega para a aplicação após sucesso; cadastro orienta login sem revelar duplicidade. A integração de navegação/sessão segue a ECMSG-35.
 
 ## Sessão integrada à aplicação (ECMSG-35)
 
@@ -480,7 +490,7 @@ Props e retornos enviados ao cliente fazem parte da boundary. A feature projeta 
 
 Por exemplo, em vez de enviar `user`, `session` e `product` inteiros a um `CartButton`, passe somente `productId` e `initialQuantity` se forem suficientes. Usuários, endereços, pedidos, sessões, dados administrativos e simulação de pagamento exigem atenção especial à exposição.
 
-Evite instâncias de bibliotecas de domínio quando representações simples bastarem. Dinheiro pode conceitualmente sair de uma instância Dinero no servidor para `{ amount: 12990, currency: "BRL" }`, ou para string formatada quando a UI apenas exibe. Isso é um exemplo de DTO, não a escolha definitiva de dinheiro: a infraestrutura correspondente será decidida posteriormente; Dinero não é implementado aqui.
+Evite instâncias de bibliotecas de domínio quando representações simples bastarem. Dinheiro pode conceitualmente sair de uma instância Dinero no servidor para `{ amount: 12990, currency: "BRL" }`, ou para string formatada quando a UI apenas exibe. O contrato atual de preço do catálogo usa Dinero e projeta `{ amount, currency, formatted }`, conforme o modelo monetário documentado acima.
 
 ### Client → Server: intenção e validação
 
@@ -635,13 +645,13 @@ O cookie usa `HttpOnly`, `SameSite=Lax`, `Path=/`, sem `Domain`, e expiração i
 
 As Actions usam POST, com a checagem Origin/Host (ou X-Forwarded-Host) do Next.js 16.3.8. `requireSameOrigin` é deliberadamente mais restrito: exige Origin válida, igual ao Host público e HTTPS em produção; requests sem Origin são rejeitados. Não usa X-Forwarded-Host como autoridade nem aceita uma allowlist vinda do request. O deployment assumido permite acesso direto ou proxy confiável que preserva o Host público, encaminha a Origin HTTPS e remove/sobrescreve headers forwarded do cliente. O backend atrás de proxy deve ficar inacessível diretamente. Proxy que troca Host por nome interno não é suportado por esta política; sua adoção exige configuração confiável explícita, sem simplesmente confiar em X-Forwarded-*. SameSite complementa a proteção; não há token CSRF próprio nem CORS como defesa. Não há mutations por GET ou Route Handler. Novas surfaces precisam reavaliar CSRF.
 
-Autenticação resolve identidade, não concede autorização. Uma futura mutation de domínio deve verificar sessão atual, permissão e ownership na execução, considerando revogação/expiração concorrentes; a leitura prévia da página não autoriza o efeito. Mudança de privilégio deve rotacionar a sessão. Não há roles ou operações comerciais nesta Task.
+Autenticação resolve identidade, não concede autorização. Uma futura mutation de domínio deve verificar sessão atual, permissão e ownership na execução, considerando revogação/expiração concorrentes; a leitura prévia da página não autoriza o efeito. Mudança de privilégio deve rotacionar a sessão. A base ECMSG-24 não concede capacidade comercial; o catálogo agora adiciona autorização admin explícita.
 
 As Actions são consumidas pelos formulários reais de cadastro/login/conta e pelo botão de logout. O login tem [proteção compartilhada contra abuso](#boundaries-e-requests-ecmsg-26); cada verificação Argon2 continua consumindo 64 MiB. A estratégia de sessão segue as [recomendações OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).
 
 ## Autorização server-side (ECMSG-25)
 
-Autenticação responde quem realizou a requisição; autorização decide se essa identidade pode executar uma operação sobre o recurso em seu estado atual. A política é deny by default: nenhuma sessão, rota, UI, hidden field ou role enviada pelo cliente concede acesso. Não há roles, ACL/RBAC genérica ou tabela universal de permissões; o estágio atual usa identidade autenticada e ownership persistido.
+Autenticação responde quem realizou a requisição; autorização decide se essa identidade pode executar uma operação sobre o recurso em seu estado atual. A política é deny by default: nenhuma sessão, rota, UI, hidden field ou role enviada pelo cliente concede acesso. Identidade própria usa ownership persistido; catálogo exige role admin atual. Não há ACL/RBAC genérica ou tabela universal de permissões.
 
 O recurso de referência é a própria identidade existente. `readIdentityAction({ userId })` valida origem e delega a `readOwnIdentity`: contrato estrito UUID → `requireAuthenticatedIdentity()` → permissão de ler somente a própria identidade → query com ID solicitado, ID autenticado, join `sessions.userId = users.id`, hash do cookie e expiração absoluta/idle. O caller nunca fornece a identidade autenticada. Mesmo chamado diretamente, o módulo server aplica todos esses controles; a Action não depende de página protegida ou botão visível. O DTO autorizado contém somente `{ id, email }`.
 
@@ -651,7 +661,7 @@ A query protegida revalida sessão e ownership no próprio snapshot PostgreSQL: 
 
 ## Boundaries e requests (ECMSG-26)
 
-Entradas implementadas: as cinco Actions abaixo, consumidas pela UI ou disponíveis como leitura autorizada. Não há Route Handler, Proxy/Middleware global ou endpoint comercial. São boundaries públicas; validação/autorização não dependem da navegação.
+Entradas de identidade: as cinco Actions abaixo, consumidas pela UI ou disponíveis como leitura autorizada. A Action administrativa do catálogo segue a mesma política de origem/body e exige autorização admin na operação. Não há Route Handler ou Proxy/Middleware global. São boundaries públicas; validação/autorização não dependem da navegação.
 
 | Action / caller | Entrada e validação | Identidade/autoridade | Custo, repetição e saída |
 | --- | --- | --- | --- |
