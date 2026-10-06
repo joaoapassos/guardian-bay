@@ -20,6 +20,11 @@ it("ECMSG-89: quantidade/revisão inteiras finitas e limitadas", () => {
 it("ECMSG-89: contrato rejeita autoridade adicional e SQLi-like", () => {
   for (const key of [
     "userId",
+    "ownerId",
+    "orderStatus",
+    "snapshot",
+    "checkoutKey",
+    "inventoryRevision",
     "role",
     "price",
     "currency",
