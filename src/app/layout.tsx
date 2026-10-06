@@ -41,6 +41,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               {identity ? (
                 <>
                   <Link href="/cart">Carrinho</Link>
+                  <Link href="/orders">Pedidos</Link>
                   <Link href="/account">Conta</Link>
                   <LogoutButton />
                 </>

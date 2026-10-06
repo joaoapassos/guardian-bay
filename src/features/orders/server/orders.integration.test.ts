@@ -248,3 +248,39 @@ it("ECMSG-72: falha ao persistir itens reverte pedido e preserva carrinho", asyn
     warn.mockRestore();
   }
 });
+it("ECMSG-74: histórico privado, DTO mínimo e paginação limitada", async () => {
+  const { orderHistory } = await import("./order-history");
+  request.token = undefined;
+  expect(await orderHistory()).toEqual({
+    success: false,
+    code: "UNAUTHENTICATED",
+  });
+  request.token = (await createSession(userId)).token;
+  expect(await orderHistory()).toMatchObject({ success: true, orders: [] });
+  await client`INSERT INTO orders(user_id,checkout_key,total_amount,status) SELECT ${otherId},gen_random_uuid(),1,'PAID' FROM generate_series(1,2)`;
+  await client`INSERT INTO orders(user_id,checkout_key,total_amount,status) SELECT ${userId},gen_random_uuid(),1,'PAID' FROM generate_series(1,21)`;
+  const result = await orderHistory();
+  expect(result).toMatchObject({ success: true, hasNext: true });
+  if (result.success) {
+    expect(result.orders).toHaveLength(20);
+    expect(Object.keys(result.orders[0])).toEqual([
+      "orderId",
+      "createdAt",
+      "status",
+      "total",
+    ]);
+  }
+  expect(await orderHistory({ page: 2 })).toMatchObject({
+    success: true,
+    hasNext: false,
+    orders: [expect.anything()],
+  });
+  expect(await orderHistory({ page: 1001 })).toEqual({
+    success: false,
+    code: "INVALID_INPUT",
+  });
+  expect(await orderHistory({ userId: otherId })).toEqual({
+    success: false,
+    code: "INVALID_INPUT",
+  });
+});
