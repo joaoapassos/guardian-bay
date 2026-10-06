@@ -6,6 +6,16 @@ Este documento registra as decisões aprovadas. O [AGENTS.md](../../AGENTS.md) e
 
 O [threat model inicial](threat-model.md) identifica atores, ativos, entradas externas, trust boundaries e ameaças que orientam a Epic 2.
 
+## Contrato de entrada e proteção contra abuso (ECMSG-27)
+
+Não há deployment definido. O link do scaffold para Vercel não configura hospedagem, proxy ou origem confiável. Atualmente `X-Forwarded-For`, `X-Real-IP` e `Forwarded` não identificam o caller; os limites de login funcionam sem eles.
+
+Antes de exposição pública, a entrada deve garantir HTTPS, limitar conexões, taxa e tamanho de requests antes do Next.js e impedir acesso direto ao backend. Um proxy confiável deve remover/sobrescrever headers de origem enviados pelo cliente, preservar o Host público usado pela verificação de Origin e definir uma fonte de endereço autenticada pela topologia. Somente após configurar e testar essa infraestrutura a aplicação poderá consumir um header explicitamente definido; nenhum header está aprovado hoje.
+
+Limitação por origem deverá complementar os cinco logins por identificador/15 minutos, vinte globais/minuto e dois slots Argon2 compartilhados. Não substitui o limite por conta ou transforma bloqueio temporário em estado permanente do usuário. Sem essa entrada, o orçamento global pode ser consumido por terceiros: protege hashing, mas não garante disponibilidade para usuários legítimos nem proteção volumétrica.
+
+Logout é idempotente e a leitura autorizada usa queries limitadas; não executam Argon2. Não recebem novos limitadores por request nesta etapa. Taxa/conexões do tráfego geral pertencem à entrada, enquanto autenticação, ownership e limites de custo permanecem na operação server-side. Os testes PostgreSQL verificam limites, concorrência, slots e spoof de headers sem simular um proxy existente.
+
 ## Precedência das instruções
 
 A ordem entre instruções do projeto é `AGENTS.md → arquitetura aprovada do Guardian Bay → regras de segurança → frontend-patterns e outras recomendações genéricas`. Exemplos genéricos não alteram as decisões específicas. A skill de frontend conserva seu repertório de composição, fetching e performance; aplique-o dentro dos limites abaixo. Essa precedência não dispensa os invariantes de segurança registrados no projeto.
