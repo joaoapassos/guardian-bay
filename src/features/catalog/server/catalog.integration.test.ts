@@ -99,7 +99,7 @@ describe("listagem pública", () => {
     if (visible.success)
       expect(
         Object.keys(visible.products.find((p) => p.id === productId) ?? {}),
-      ).toEqual(["id", "name", "category", "price"]);
+      ).toEqual(["id", "name", "category", "price", "image"]);
     for (const input of [
       { page: "0" },
       { page: "1001" },
@@ -168,6 +168,13 @@ describe("ECMSG-43: constraints reais do catálogo", () => {
     ).rejects.toMatchObject({ code: "23502" });
   });
   it("categoria rejeita nome vazio/espaços e revisão inválida", async () => {
+    await expect(
+      client`UPDATE products SET image_key='../../secret' WHERE id=${productId}`,
+    ).rejects.toMatchObject({ code: "23514" });
+    await client`UPDATE products SET image_key='lock' WHERE id=${productId}`;
+    const [image] =
+      await client`SELECT image_key FROM products WHERE id=${productId}`;
+    expect(image.image_key).toBe("lock");
     for (const name of ["", " padded ", "\t"])
       await expect(
         client`UPDATE categories SET name=${name} WHERE id=${categoryId}`,

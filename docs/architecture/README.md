@@ -28,6 +28,10 @@ Produto/categoria possuem revisão inteira positiva para detectar edição conco
 
 ## Revisão da Epic 3 (ECMSG-41)
 
+### Ilustrações do catálogo (ECMSG-50)
+
+Produtos usam a chave opcional lock/shield, validada por allowlist no contrato e CHECK no PostgreSQL. A apresentação usa somente LockKeyhole/ShieldCheck do Lucide React, com ImageOff como fallback e nome acessível escapado pelo React. Não há arquivos SVG próprios, paths/URLs aceitos, fetch de imagem, upload ou origem externa; a CSP permanece inalterada. São ilustrações, sem fotografias de produto neste escopo.
+
 O catálogo público em `/products` lê pelo server da feature, com publicação restrita no SQL e DTO de id/nome/categoria/preço. Paginação usa 20 itens por padrão, máximo 50 e página máxima 1.000, ordenação estável por UUID e uma linha extra para detectar próxima página. `connection()` exclui a leitura de prerender/cache estático; queries Drizzle não usam cache persistente. Estados vazio, input inválido, loading e falha operacional têm apresentação controlada.
 
 As rotas `/`, `/login`, `/register` e `/account` usam composição Server; somente formulários e botão de logout são Client. RHF/Zod cuidam de UX e contratos, sem importar DB/credenciais/sessão privilegiada. As cinco Actions validam entradas/origem e delegam às operações server-only. Conta expõe somente e-mail próprio; hashes intermediários do login e tokens não integram DTOs públicos. Não há Zustand, roles/admin, recuperação self-service ou operações comerciais.

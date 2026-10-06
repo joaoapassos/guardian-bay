@@ -57,6 +57,13 @@
       "when": 1791272905283,
       "tag": "0007_catalog_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791273371230,
+      "tag": "0008_catalog_images",
+      "breakpoints": true
     }
   ]
 }

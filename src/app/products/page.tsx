@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { connection } from "next/server";
+import { ProductImage } from "@/features/catalog/components/product-image";
 import { listProducts } from "@/features/catalog/server/list-products";
 
 export default async function ProductsPage({
@@ -79,6 +80,7 @@ export default async function ProductsPage({
                   className="rounded border border-zinc-300 p-5"
                 >
                   <h2 className="text-xl font-semibold">
+                    <ProductImage image={product.image} />
                     <Link href={`/products/${product.id}`}>{product.name}</Link>
                   </h2>
                   <p>{product.category}</p>
