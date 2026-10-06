@@ -40,6 +40,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/products">Produtos</Link>
               {identity ? (
                 <>
+                  <Link href="/cart">Carrinho</Link>
                   <Link href="/account">Conta</Link>
                   <LogoutButton />
                 </>
