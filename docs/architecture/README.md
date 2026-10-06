@@ -22,6 +22,12 @@ Guardian Bay não possui recuperação self-service de senha: não haverá link 
 
 Cadastro admite duas tentativas por e-mail/15 minutos em chave `reg:` pseudonimizada, distinta da chave de login. Compartilha vinte operações/minuto globais e os dois slots Argon2 do login, impedindo multiplicação de custo pela nova superfície. Slots indisponíveis/limites produzem RATE_LIMITED antes do hash. Não registra senha/e-mail bruto nem cria perfil/status. Proteção volumétrica e confiança de origem continuam requisitos de deployment.
 
+## Interface de autenticação (ECMSG-34)
+
+`/login` e `/register` são páginas Server que compõem um formulário Client compartilhado da feature auth. React Hook Form 7.89.0 trata inputs, pending e foco de validação; schemas Zod seguros são reutilizados somente para UX. As Actions continuam validando no servidor. Labels, erros associados, autocomplete current/new-password e password managers são preservados; a senha não é trimada e é removida do formulário após resposta. Falhas inesperadas recebem mensagem genérica, sem serializar erro interno. Não há estado de sessão no Client.
+
+Inputs e botões nativos com Tailwind atendem aos controles atuais; não há consumidor que justifique adicionar primitives Radix ou Zustand. A única dependência de UI nova é RHF, compatível com React 19. Login navega para a aplicação após sucesso; cadastro orienta login sem revelar duplicidade. A integração de navegação/sessão é responsabilidade da ECMSG-35.
+
 ## Contrato de entrada e proteção contra abuso (ECMSG-27)
 
 Não há deployment definido. O link do scaffold para Vercel não configura hospedagem, proxy ou origem confiável. Atualmente `X-Forwarded-For`, `X-Real-IP` e `Forwarded` não identificam o caller; os limites de login funcionam sem eles.

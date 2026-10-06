@@ -176,6 +176,54 @@ test("production HTTP headers and scaffold resources", async (t) => {
             0,
             "no hydration/runtime console errors",
           );
+          for (const path of ["/login", "/register"]) {
+            await call("Page.navigate", { url: base + path });
+            let formReady = false;
+            for (let i = 0; i < 100 && !formReady; i++) {
+              const response = await call("Runtime.evaluate", {
+                expression:
+                  "!!document.querySelector('#email') && !!window.next && document.readyState === 'complete'",
+                returnByValue: true,
+              });
+              formReady = response.result?.result?.value === true;
+              if (!formReady) await new Promise((done) => setTimeout(done, 50));
+            }
+            assert.equal(formReady, true, "credential form must render");
+            // Allow hydration, then submit an empty form: no network/DB needed.
+            await new Promise((done) => setTimeout(done, 300));
+            await call("Runtime.evaluate", {
+              expression: "document.querySelector('form').requestSubmit()",
+            });
+            let validation = false;
+            for (let i = 0; i < 100 && !validation; i++) {
+              const response = await call("Runtime.evaluate", {
+                expression:
+                  "document.querySelector('#email-error')?.textContent === 'Informe um e-mail válido.' && document.activeElement.id === 'email'",
+                returnByValue: true,
+              });
+              validation = response.result?.result?.value === true;
+              if (!validation)
+                await new Promise((done) => setTimeout(done, 50));
+            }
+            assert.equal(
+              validation,
+              true,
+              "RHF validation must run and focus its invalid field",
+            );
+            const autocomplete = await call("Runtime.evaluate", {
+              expression: "document.querySelector('#password').autocomplete",
+              returnByValue: true,
+            });
+            assert.equal(
+              autocomplete.result.result.value,
+              path === "/login" ? "current-password" : "new-password",
+            );
+          }
+          assert.equal(
+            consoleErrors.length,
+            0,
+            "forms must hydrate without console errors",
+          );
           await call("Runtime.evaluate", {
             expression: `window.securityViolations=[]; document.addEventListener('securitypolicyviolation', e=>window.securityViolations.push(e.effectiveDirective)); const image=document.createElement('img'); image.src='https://external.invalid/security.png'; document.body.append(image); const frame=document.createElement('iframe'); frame.src=location.origin; document.body.append(frame);`,
           });
