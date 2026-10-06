@@ -79,6 +79,7 @@ if (
 const client = postgres(value, { max: 1, onnotice: () => {} });
 const database = drizzle(client);
 const email = `${randomUUID()}@example.test`;
+const unknownEmail = `${randomUUID()}@example.test`;
 const password = "Integration passphrase 24";
 let passwordHash: string;
 const rateKeys = new Set(["global"]);
@@ -88,6 +89,7 @@ function fixtureRateKey(fixtureEmail: string) {
   return key;
 }
 fixtureRateKey(email);
+fixtureRateKey(unknownEmail);
 
 beforeAll(async () => {
   vi.stubEnv("DATABASE_URL", value);
@@ -183,18 +185,14 @@ describe("autenticação e sessões com PostgreSQL real", () => {
     expect(
       await authenticate({ email, password: "Wrong password value" }),
     ).toBeNull();
-    expect(
-      await authenticate({ email: "absent@example.test", password }),
-    ).toBeNull();
+    expect(await authenticate({ email: unknownEmail, password })).toBeNull();
   });
   it("falhas públicas são equivalentes, sem hash/senha", async () => {
     const wrong = await loginAction({
       email,
       password: "Wrong password value",
     });
-    expect(wrong).toEqual(
-      await loginAction({ email: "absent@example.test", password }),
-    );
+    expect(wrong).toEqual(await loginAction({ email: unknownEmail, password }));
     expect(wrong).toEqual(
       await loginAction({ email, password, role: "admin" }),
     );
@@ -207,10 +205,7 @@ describe("autenticação e sessões com PostgreSQL real", () => {
   it("observa custo real das duas falhas e autenticação concorrente", async () => {
     const durations: number[][] = [[], []];
     for (let sample = 0; sample < 5; sample++) {
-      for (const [index, loginEmail] of [
-        email,
-        "absent@example.test",
-      ].entries()) {
+      for (const [index, loginEmail] of [email, unknownEmail].entries()) {
         const start = performance.now();
         expect(
           await authenticate({

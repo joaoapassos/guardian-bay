@@ -34,6 +34,7 @@ A estratégia de carregamento, validação e acesso está na [arquitetura: vari�
 | `npm run verify` | Gate completo: check seguido do build de produção |
 | `npm test` | Vitest em modo não interativo; adequado para CI |
 | `npm run test:integration` | Migrations e autenticação/sessões em PostgreSQL local dedicado; exige `TEST_DATABASE_URL` |
+| `npm run test:security` | Unitários, PostgreSQL, build e HTTP real da baseline; exige o mesmo banco dedicado |
 | `npm run test:watch` | Vitest em modo watch para desenvolvimento |
 | `npm run build` | Build de produção, incluindo verificação TypeScript do Next.js |
 | `npm run start` | Executa o build de produção existente |

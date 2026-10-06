@@ -32,6 +32,25 @@ Não logamos requests normais, cada tentativa inválida, negação de ownership 
 
 O destino atual é `console.warn` server-side; falha do sink é absorvida e não muda autenticação/autorização ou resultado. Não há entrega durável garantida. Deployment deverá restringir acesso ao coletor, definir retenção e monitorar indisponibilidade do sink; isso não está configurado localmente. Esta é trilha operacional de segurança, não auditoria de domínio ou histórico de cada login.
 
+## Matriz de testes de segurança (ECMSG-30)
+
+`npm run test:security` reúne unitários, integração PostgreSQL, build do produto e testes HTTP. Exige `TEST_DATABASE_URL` local dedicado `guardian_bay_test`, sem fallback ao banco normal; execute sem outra suíte concorrente no mesmo banco, pois o orçamento global é compartilhado. Portas loopback 3107/3108 devem estar livres. Para enforcement/hydration em Chromium real, configure `SECURITY_BROWSER_PATH` com um executável Chromium/Chrome/Edge instalado e use Node.js 22.12+ ou 24+; a porta CDP loopback 3110 deve estar livre. Sem essa variável, o subteste de browser é explicitamente skipped, sem alegar essa garantia. Não há download automático de browser.
+
+| Garantia | Evidência |
+| --- | --- |
+| Argon2id, salt, política de criação/login e erros sem credenciais | `password.test.ts`, `credential.schema.test.ts` e integração ECMSG-23 |
+| PK/NOT NULL/canonicalidade/unicidade/formato, tokens somente como hash, FK/cascade | Migrations reais e `auth.integration.test.ts` |
+| Rotação, expiração absoluta/idle, revogação, leitura sem mutation | Integração ECMSG-24/25; HTTP cobre rotação e replay após logout |
+| Ownership A→A/A→B, IDs/autoridade falsificados, revogação entre resolução e query | Integração ECMSG-25 e HTTP da leitura protegida |
+| Inputs malformados/extras antes de DB/Argon2, budgets, janelas, concorrência e slots | Integração ECMSG-26; spies observam chamadas reais, sem substituir PostgreSQL/Argon2 |
+| Origin ausente/indevida, HTTP em produção, forwarded forjado, payload >16 KiB | Contexto de request simulado na integração e transporte HTTP real no harness |
+| CSP/headers, JS/CSS/fontes/imagens disponíveis | `scripts/security-browser.test.mjs` contra o build de produção real |
+| Allowlist, correlação por evento, sink indisponível sem alterar resultado | Unitários do logger e login/revogação PostgreSQL no limiar |
+
+`security-actions.test.mjs` copia o código para um diretório único ignorado em `.vitest`, substitui somente a composição por formulários de teste e usa o mesmo Next.js/configuração/implementação privilegiada contra DB real. O harness usa webpack e layout mínimo sem fontes; a aplicação real usa Turbopack e é validada separadamente. Form wrappers devolvem resultados via redirect só nesse harness. Processos, diretório e fixtures são limpos ao terminar; nenhuma rota de teste é adicionada a `src/app` do produto.
+
+HTTP loopback envia Origin HTTPS para testar a política de produção, mas não comprova TLS de deployment. O subteste Chromium, quando configurado, usa perfil descartável, verifica runtime/hydration sem exceptions ou erros de console, imagens/fontes locais e violações CSP ao tentar carregar imagem externa e frame. CSP permanece parcial. Assertions negativas exigem ausência de efeitos/cookie nos requests rejeitados e ausência de dados internos no retorno. Testes não atribuem a mocks garantias de transporte ou concorrência do banco.
+
 ## Precedência das instruções
 
 A ordem entre instruções do projeto é `AGENTS.md → arquitetura aprovada do Guardian Bay → regras de segurança → frontend-patterns e outras recomendações genéricas`. Exemplos genéricos não alteram as decisões específicas. A skill de frontend conserva seu repertório de composição, fetching e performance; aplique-o dentro dos limites abaixo. Essa precedência não dispensa os invariantes de segurança registrados no projeto.
