@@ -1,6 +1,6 @@
 # Guardian Bay
 
-Base de um e-commerce seguro, com regras de domínio e segurança executadas no servidor. Esta etapa prepara a infraestrutura; funcionalidades comerciais serão implementadas nas próximas Tasks.
+Base de um e-commerce seguro, com regras de domínio e segurança executadas no servidor. Identidade, catálogo, carrinho autenticado e checkout/pedidos com pagamento acadêmico estão implementados.
 
 ## Pré-requisitos e instalação
 
@@ -33,7 +33,7 @@ A estratégia de carregamento, validação e acesso está na [arquitetura: vari�
 | `npm run check` | Gate rápido: lint, typecheck e unitários, sem autofix ou serviços externos |
 | `npm run verify` | Gate completo: check seguido do build de produção |
 | `npm test` | Vitest em modo não interativo; adequado para CI |
-| `npm run test:integration` | Migrations, identidade, catálogo e carrinho em PostgreSQL local dedicado; exige `TEST_DATABASE_URL` |
+| `npm run test:integration` | Migrations, identidade, catálogo, carrinho e pedidos em PostgreSQL local dedicado; exige `TEST_DATABASE_URL` |
 | `npm run test:security` | Unitários, PostgreSQL, build e HTTP real da baseline; exige o mesmo banco dedicado |
 | `npm run test:watch` | Vitest em modo watch para desenvolvimento |
 | `npm run build` | Build de produção, incluindo verificação TypeScript do Next.js |
@@ -52,7 +52,7 @@ As Actions de autenticação têm [política de requests e abuso](docs/architect
 
 O build baixa Geist e Geist Mono via `next/font/google`; o ambiente de compilação precisa acessar `fonts.googleapis.com` e `fonts.gstatic.com`. As fontes são incluídas no build e servidas pela aplicação, sem acesso ao Google Fonts pelo navegador. `next typegen` e build geram arquivos em `.next/` e `next-env.d.ts`, ignorados pelo Git.
 
-A [estratégia de testes](docs/architecture/README.md#testes-ecmsg-19) mantém unitários em `check` e integração em comando separado. Para mudanças de identidade/autenticação/sessão/catálogo/carrinho, configure `TEST_DATABASE_URL` no ambiente apontando exclusivamente para PostgreSQL local com banco `guardian_bay_test`, diferente de `DATABASE_URL`, e execute `npm run test:integration`. A suíte aplica migrations versionadas, cria fixtures próprias e limpa somente essas fixtures; não cria o banco nem usa a conexão normal como fallback.
+A [estratégia de testes](docs/architecture/README.md#testes-ecmsg-19) mantém unitários em `check` e integração em comando separado. Para mudanças de identidade/autenticação/sessão/catálogo/carrinho/checkout/pedidos, configure `TEST_DATABASE_URL` no ambiente apontando exclusivamente para PostgreSQL local com banco `guardian_bay_test`, diferente de `DATABASE_URL`, e execute `npm run test:integration`. A suíte aplica migrations versionadas, cria fixtures próprias e limpa somente essas fixtures; não cria o banco nem usa a conexão normal como fallback.
 
 ## Configuração da base
 
@@ -60,10 +60,12 @@ Next.js 16.3.8, React 19.2.8, Tailwind CSS 4 e React Compiler habilitado. TypeSc
 
 Biome 2.4.2 é o único linter/formatter, integrado ao `.gitignore`, com regras recomendadas de React/Next e organização de imports. Enforcement completo de boundaries permanece para trabalho posterior.
 
-PostgreSQL usa Drizzle ORM com Postgres.js; Drizzle Kit e `@next/env` preparam a CLI. Há schemas/migrations de `users`, `sessions`, `login_rate_limits`, `categories`, `products` e `cart_items`, contratos Zod, Argon2id e [autenticação/sessões server-side](docs/architecture/README.md#autenticação-e-sessões-ecmsg-24), com limites absoluto/idle e ownership. `/register`, `/login` e `/account` oferecem cadastro, login, conta própria e alteração de senha; logout revoga sessão no servidor. UI usa React Hook Form com validação Zod para UX, repetida nas Actions. O catálogo público está em `/products` e `/products/[id]`, com busca/filtros limitados, preço inteiro BRL/Dinero e ilustrações Lucide. `/admin/catalog` exige role admin persistida e sessão atual para criar/editar/publicar, com revisão concorrente. Cadastro cria somente customer; provisionamento admin é operacional. `/cart` exige sessão e mantém itens persistidos por usuário, com quantidade limitada, preço atual do catálogo e total Dinero server-side; itens despublicados continuam visíveis e removíveis. Não há recuperação self-service, guest cart, estoque, pedidos ou checkout. Consulte o [fluxo de banco e migrations](docs/architecture/README.md#postgresql-e-drizzle-ecmsg-16) antes de executar comandos Drizzle.
+PostgreSQL usa Drizzle ORM com Postgres.js; Drizzle Kit e `@next/env` preparam a CLI. Há schemas/migrations de `users`, `sessions`, `login_rate_limits`, `categories`, `products`, `cart_items`, `orders` e `order_items`, contratos Zod, Argon2id e [autenticação/sessões server-side](docs/architecture/README.md#autenticação-e-sessões-ecmsg-24), com limites absoluto/idle e ownership. `/register`, `/login` e `/account` oferecem cadastro, login, conta própria e alteração de senha; logout revoga sessão no servidor. UI usa React Hook Form com validação Zod para UX, repetida nas Actions. O catálogo público está em `/products` e `/products/[id]`, com busca/filtros limitados, preço inteiro BRL/Dinero e ilustrações Lucide. `/admin/catalog` exige role admin persistida e sessão atual para criar/editar/publicar, com revisão concorrente. Cadastro cria somente customer; provisionamento admin é operacional. `/cart` exige sessão e mantém itens persistidos por usuário, com quantidade limitada, preço atual do catálogo e total Dinero server-side; itens despublicados continuam visíveis e removíveis. `/checkout` confirma preços/publicação novamente no servidor e cria pedido idempotente com snapshot; `/orders` e `/orders/[id]` exibem somente pedidos próprios, sem reler catálogo para histórico. Pagamento é simulado: total inferior a R$ 10.000,00 é aprovado; a partir disso, recusado. Recusa preserva carrinho e nova intenção exige nova confirmação. Não há recuperação self-service, guest cart/checkout, estoque ou pagamento real. Consulte o [fluxo de banco e migrations](docs/architecture/README.md#postgresql-e-drizzle-ecmsg-16) antes de executar comandos Drizzle.
 
 Consulte [AGENTS.md](AGENTS.md) para invariantes e [a arquitetura aprovada](docs/architecture/README.md) para responsabilidades, colocation e fronteira Server × Client. Antes de alterar APIs/configuração Next.js, consulte `node_modules/next/dist/docs/` da versão instalada.
 
 A [revisão da Epic 4](docs/architecture/README.md#revisão-da-epic-4-ecmsg-53) registra controles, evidências e findings não bloqueantes. A base validada localmente ainda exige proteção de entrada, HTTPS e configuração operacional antes de exposição pública. Para executar a suíte completa com browser real, configure também `SECURITY_BROWSER_PATH` com Chromium/Chrome/Edge instalado e OpenSSL disponível (Windows: Git por padrão; `SECURITY_OPENSSL_PATH` permite outro executável). O teste usa HTTPS loopback e certificado/perfil temporários, sem mudar o sistema. Sem browser configurado o subteste informa skip; isso não valida os formulários completos. Consulte a [matriz de identidade/acesso](docs/architecture/README.md#testes-de-identidade-e-acesso-ecmsg-40).
 
 A [revisão da Epic 5](docs/architecture/README.md#revisão-da-epic-5-ecmsg-65) registra testes de ownership, preço derivado e concorrência do carrinho. Para reproduzir todos os gates PostgreSQL atuais, use PostgreSQL 18: a assertion RESTRICT herdada do catálogo usa SQLSTATE 23001 dessa versão. Banco, credenciais e browser são configuração local, nunca conteúdo versionado.
+
+A [revisão da Epic 6](docs/architecture/README.md#revisão-da-epic-6-ecmsg-78) registra idempotência persistente, snapshot monetário, atomicidade do carrinho e races checkout/cart/catalog. Chave de confirmação identifica intenção, nunca ownership; a aplicação não coleta dados financeiros.
