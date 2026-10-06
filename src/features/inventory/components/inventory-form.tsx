@@ -42,8 +42,12 @@ export function InventoryForm({
         });
       }}
     >
+      <p>
+        Estoque atual: {quantity} unidades. Revisão: {revision}.
+      </p>
+      <p>Defina uma quantidade absoluta. O carrinho não reserva unidades.</p>
       <label>
-        Quantidade em estoque de {name}
+        Nova quantidade em estoque de {name}
         <input
           key={`${revision}:${quantity}`}
           name="quantity"
@@ -62,7 +66,7 @@ export function InventoryForm({
         className="ml-3 rounded border p-2"
         type="submit"
       >
-        Definir estoque
+        {pending ? "Atualizando estoque…" : "Definir estoque"}
       </button>
       <output aria-live="polite" className="block">
         {message}
