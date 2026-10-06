@@ -3,6 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
 import { cartItems } from "@/db/schema/cart-items";
+import { inventory } from "@/db/schema/inventory";
 import { products } from "@/db/schema/products";
 import { sessions } from "@/db/schema/sessions";
 import { users } from "@/db/schema/users";
@@ -67,6 +68,11 @@ async function mutateCart(
           "quantity" in parsed.data && typeof parsed.data.quantity === "number"
             ? parsed.data.quantity
             : 0;
+        const [previous] = await tx
+          .select({ quantity: cartItems.quantity })
+          .from(cartItems)
+          .where(ownItem)
+          .for("update");
         const [product] = await tx
           .select({ published: products.isPublished })
           .from(products)
@@ -74,6 +80,27 @@ async function mutateCart(
           .for("share");
         if (!product?.published)
           return { success: false as const, code: "UNAVAILABLE" as const };
+        const [stock] = await tx
+          .select({ quantity: inventory.availableQuantity })
+          .from(inventory)
+          .where(eq(inventory.productId, parsed.data.productId))
+          .for("share");
+        if (
+          !(
+            await tx
+              .select({ id: sessions.userId })
+              .from(sessions)
+              .where(valid())
+              .limit(1)
+          ).length
+        )
+          throw expired;
+        const resulting =
+          operation === "add" ? (previous?.quantity ?? 0) + quantity : quantity;
+        if (resulting > 99)
+          return { success: false as const, code: "LIMIT_REACHED" as const };
+        if (resulting > (stock?.quantity ?? 0))
+          return { success: false as const, code: "OUT_OF_STOCK" as const };
         if (operation === "update") {
           const changed = await tx
             .update(cartItems)
@@ -103,7 +130,7 @@ async function mutateCart(
             .onConflictDoUpdate({
               target: [cartItems.userId, cartItems.productId],
               set: { quantity: sql`${cartItems.quantity} + ${quantity}` },
-              setWhere: sql`${cartItems.quantity} + ${quantity} <= 99`,
+              setWhere: sql`${cartItems.quantity} + ${quantity} <= 99 AND ${cartItems.quantity} + ${quantity} <= ${stock?.quantity ?? 0}`,
             })
             .returning({ quantity: cartItems.quantity });
           if (!changed.length)

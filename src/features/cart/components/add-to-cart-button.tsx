@@ -28,11 +28,13 @@ export function AddToCartButton({
               else if (result.code === "UNAUTHENTICATED") router.push("/login");
               else
                 setMessage(
-                  result.code === "UNAVAILABLE"
-                    ? "Produto indisponível."
-                    : result.code === "LIMIT_REACHED"
-                      ? "Limite do carrinho atingido."
-                      : "Não foi possível adicionar o produto.",
+                  result.code === "OUT_OF_STOCK"
+                    ? "Estoque insuficiente. O carrinho não reserva unidades."
+                    : result.code === "UNAVAILABLE"
+                      ? "Produto indisponível."
+                      : result.code === "LIMIT_REACHED"
+                        ? "Limite do carrinho atingido."
+                        : "Não foi possível adicionar o produto.",
                 );
             } catch {
               setMessage(
