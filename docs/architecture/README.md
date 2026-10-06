@@ -24,6 +24,14 @@ Não há HTML de usuário, `dangerouslySetInnerHTML`, URLs dinâmicas ou scripts
 
 `nosniff`, referrer `strict-origin-when-cross-origin`, Permissions-Policy restritiva e `frame-ancestors 'none'` permanecem. Não adicionamos headers obsoletos ou HSTS sem deployment HTTPS definido. Cookies de produção permanecem `__Host-`, Secure, HttpOnly, SameSite=Lax, Path=/ e sem Domain; desenvolvimento HTTP usa outro nome e não usa Secure. Testes HTTP verificam headers e recursos do build real; integração verifica a política de cookie e logout.
 
+## Trilha mínima de segurança (ECMSG-29)
+
+O logger server-only da feature é compartilhado por login, sessão e leitura autorizada. Registra limiar de rate limit e falhas operacionais inesperadas com somente `timestamp`, `event`, `operation`, `result` e `correlationId` aleatório por evento. Não recebe input, identidade ou objeto de erro. O ID correlaciona o evento no coletor, não usuários ou requests; não há correlação por e-mail. Não registra senhas, hashes, tokens, cookies, SQL, conexão, stack ou payload.
+
+Não logamos requests normais, cada tentativa inválida, negação de ownership ou rejeição de Origin: são respostas esperadas e logging por request criaria amplificação sob abuso. Limiares são registrados somente ao serem atingidos. Falhas internas de login são registradas no controle externo de hashing, evitando duplicação pelo verificador. Falhas de sessão/consulta são registradas na operação que falhou. Erros públicos permanecem genéricos.
+
+O destino atual é `console.warn` server-side; falha do sink é absorvida e não muda autenticação/autorização ou resultado. Não há entrega durável garantida. Deployment deverá restringir acesso ao coletor, definir retenção e monitorar indisponibilidade do sink; isso não está configurado localmente. Esta é trilha operacional de segurança, não auditoria de domínio ou histórico de cada login.
+
 ## Precedência das instruções
 
 A ordem entre instruções do projeto é `AGENTS.md → arquitetura aprovada do Guardian Bay → regras de segurança → frontend-patterns e outras recomendações genéricas`. Exemplos genéricos não alteram as decisões específicas. A skill de frontend conserva seu repertório de composição, fetching e performance; aplique-o dentro dos limites abaixo. Essa precedência não dispensa os invariantes de segurança registrados no projeto.

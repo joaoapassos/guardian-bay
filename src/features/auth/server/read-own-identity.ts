@@ -5,6 +5,7 @@ import { getDb } from "@/db";
 import { sessions } from "@/db/schema/sessions";
 import { users } from "@/db/schema/users";
 import { readIdentitySchema } from "../schemas/read-identity.schema";
+import { securityEvent } from "./security-event";
 import { sessionValidity, tokenHash } from "./session";
 import {
   requireAuthenticatedIdentity,
@@ -43,6 +44,7 @@ export async function readOwnIdentity(input: unknown) {
       ? { success: true as const, identity }
       : { success: false as const, code: "NOT_FOUND" as const };
   } catch {
+    securityEvent("identity-read", "OPERATION_FAILED");
     throw new Error("Não foi possível consultar a identidade.");
   }
 }

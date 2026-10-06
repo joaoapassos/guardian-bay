@@ -1,23 +1,15 @@
 import "server-only";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { and, inArray, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { loginRateLimits } from "@/db/schema/login-rate-limits";
 import { emailSchema } from "../schemas/credential.schema";
 
+import { securityEvent } from "./security-event";
+
 type Transaction = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
 >[0];
-
-function securityEvent(result: "LIMIT_REACHED" | "OPERATION_FAILED") {
-  console.warn({
-    event: "authentication",
-    operation: "login",
-    result,
-    timestamp: new Date().toISOString(),
-    correlationId: randomUUID(),
-  });
-}
 
 async function increment(
   tx: Transaction,
@@ -82,10 +74,10 @@ export async function reserveLoginAttempt(email: unknown): Promise<boolean> {
         thresholdReached: global.attempts === 20 || account?.attempts === 5,
       };
     });
-    if (reservation.thresholdReached) securityEvent("LIMIT_REACHED");
+    if (reservation.thresholdReached) securityEvent("login", "LIMIT_REACHED");
     return reservation.allowed;
   } catch {
-    securityEvent("OPERATION_FAILED");
+    securityEvent("login", "OPERATION_FAILED");
     throw new Error("Não foi possível processar a autenticação.");
   }
 }
@@ -107,7 +99,7 @@ export async function withLoginHashSlot<T>(
       return { admitted: false as const };
     });
   } catch {
-    securityEvent("OPERATION_FAILED");
+    securityEvent("login", "OPERATION_FAILED");
     throw new Error("Não foi possível processar a autenticação.");
   }
 }

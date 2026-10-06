@@ -5,6 +5,8 @@ import { getDb } from "@/db";
 import { sessions } from "@/db/schema/sessions";
 import { users } from "@/db/schema/users";
 
+import { securityEvent } from "./security-event";
+
 export function tokenHash(token: unknown): string | null {
   return typeof token === "string" && /^[0-9a-f]{64}$/.test(token)
     ? createHash("sha256").update(token).digest("hex")
@@ -35,6 +37,7 @@ export async function recordSessionActivity(token: unknown) {
         ),
       );
   } catch {
+    securityEvent("session-activity", "OPERATION_FAILED");
     throw new Error("Não foi possível atualizar a sessão.");
   }
 }
@@ -60,6 +63,7 @@ export async function createSession(userId: string, previousToken?: string) {
     });
     return { token, expiresAt: session.expiresAt };
   } catch {
+    securityEvent("session-create", "OPERATION_FAILED");
     throw new Error("Não foi possível processar a sessão.");
   }
 }
@@ -76,6 +80,7 @@ export async function resolveSession(token: unknown) {
       .limit(1);
     return identity ?? null;
   } catch {
+    securityEvent("session-read", "OPERATION_FAILED");
     throw new Error("Não foi possível consultar a sessão.");
   }
 }
@@ -86,6 +91,7 @@ export async function revokeSession(token: unknown) {
   try {
     await getDb().delete(sessions).where(eq(sessions.tokenHash, hash));
   } catch {
+    securityEvent("logout", "OPERATION_FAILED");
     throw new Error("Não foi possível revogar a sessão.");
   }
 }
