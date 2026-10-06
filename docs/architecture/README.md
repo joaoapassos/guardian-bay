@@ -14,6 +14,106 @@ O projeto contém o scaffold de Next.js 16.3.8 com React 19.2.8, App Router em `
 
 Há infraestrutura PostgreSQL com Drizzle ORM/Kit e Postgres.js em `src/db`, configuração privada validada em `src/lib/env`, testes unitários com Vitest, baseline de headers HTTP e quality gates. Ainda não há tabelas, migrations ou funcionalidades de domínio. Radix UI, Zod, Zustand e React Hook Form permanecem decisões para uso futuro, com instalação somente quando houver consumidor concreto.
 
+## Decisões arquiteturais essenciais
+
+Estas decisões orientam todas as features. O [estado observado](#estado-observado) distingue a infraestrutura existente das implementações ainda ausentes; os links abaixo levam às regras detalhadas.
+
+### Next.js full stack
+
+**Decisão:** frontend e backend da aplicação ficam na mesma base Next.js, com App Router.
+
+**Motivação:** manter composição e operações server próximas, aproveitando o modelo do framework sem uma API intermediária para cada leitura.
+
+**Consequências:** Server Components fazem reads e Server Actions são a entrada padrão de writes. Route Handlers existem somente para uma interface HTTP real; rotas delegam comportamento às features. Veja [reads](#reads-e-data-loading) e [writes](#writes-e-server-actions).
+
+### Server-first
+
+**Decisão:** Server é o padrão; Client fica na menor subtree que precisa de interação ou APIs do navegador.
+
+**Motivação:** reduzir JavaScript e lógica enviados ao browser e manter secrets e implementação privilegiada no servidor.
+
+**Consequências:** páginas/layouts permanecem Server; componentes client não importam DB ou `feature/server`. Fetching client-side exige motivo concreto. Veja [Server-first e componentes](#server-first-e-componentes).
+
+### Organização por feature e dependências dirigidas
+
+**Decisão:** `app` cuida de rotas/composição; `features`, do negócio; `db`, de PostgreSQL/Drizzle; `lib`, de infraestrutura transversal; `components`, de UI compartilhada; `hooks`, de hooks transversais.
+
+**Motivação:** manter regras e contratos próximos de seus responsáveis, com dependências visíveis e sem acoplamento arbitrário entre domínios.
+
+**Consequências:** imports seguem o mapa abaixo, inclusive transitivamente. UI específica fica junto da rota/feature; reutilização concreta justifica compartilhamento. Veja [camadas e responsabilidades](#camadas-e-responsabilidades).
+
+```text
+app        → components, features, lib
+features   → components, db, lib
+components → lib
+hooks      → lib, components
+db         → lib
+```
+
+### Persistência relacional restrita ao servidor
+
+**Decisão:** PostgreSQL com Drizzle ORM e Postgres.js é a persistência; UI e páginas/layouts não acessam Drizzle diretamente.
+
+**Motivação:** combinar queries tipadas e controle explícito de SQL com constraints e transactions, mantendo regras, autorização e persistência desacopladas da UI.
+
+**Consequências:** reads seguem `Server Component → feature/server → db`; writes, `Client → Server Action → feature/server → db`. Módulos privilegiados usam `server-only`; queries são parametrizadas e a operação define controles de concorrência/integridade. Migrations são revisadas e versionadas quando houver tabelas. Veja [PostgreSQL e Drizzle](#postgresql-e-drizzle-ecmsg-16).
+
+### Intenção do cliente e autoridade do servidor
+
+**Decisão:** o cliente é não confiável e envia intenção; o servidor determina ou valida preço, desconto, estoque, total, permissões, ownership e status de pagamento.
+
+**Motivação:** alterações de payload ou estado de UI não podem conceder autoridade sobre dados críticos.
+
+**Consequências:** para `productId + quantidade`, o servidor consulta preço/estoque e calcula o total. Zustand representa estado de UI. Validação frontend serve à UX; a boundary server valida novamente, usando Zod junto dos consumidores reais, sem substituir autorização. Veja [intenção e validação](#client--server-intenção-e-validação).
+
+### Server Actions como boundary pública
+
+**Decisão:** Actions são endpoints públicos finos; a implementação interna privilegiada fica em `feature/server`.
+
+**Motivação:** uma chamada pode ocorrer independentemente da navegação ou da UI prevista.
+
+**Consequências:** toda execução sensível verifica input, autenticação, autorização, ownership e estado atual antes do efeito protegido, delegando checks à implementação server quando adequado. UI escondida, página protegida e Proxy não autorizam a operação. O Client pode importar a referência remota de uma Action apropriada, nunca sua implementação interna. Veja [writes e Server Actions](#writes-e-server-actions).
+
+### DTO mínimo na saída
+
+**Decisão:** Server → Client envia apenas os dados necessários e serializáveis, inclusive nos retornos de Actions.
+
+**Motivação:** reduzir exposição e evitar que contratos de UI dependam da estrutura interna de persistência ou sessão.
+
+**Consequências:** a feature projeta campos explicitamente; entidades completas, secrets e detalhes internos de autorização não atravessam a boundary. Tipos Drizzle permanecem internos. Veja [DTO e serialização](#server--client-dto-e-serialização).
+
+### Erros conforme a boundary
+
+**Decisão:** falhas esperadas têm resultado explícito controlado; inesperadas em Actions propagam com `throw` ao Next.js. Handlers podem produzir HTTP 500 controlado com observabilidade server-side.
+
+**Motivação:** distinguir rejeição de negócio de falha operacional, preservando recuperação e investigação sem expor detalhes internos.
+
+**Consequências:** respostas e logs usam campos seguros; exceptions internas não viram mensagens públicas ou sucesso aparente. Contratos de erro pertencem à feature, sem hierarquia global antecipada. Veja [tratamento de erros](#tratamento-de-erros-e-observabilidade-ecmsg-17).
+
+### Segurança transversal
+
+**Decisão:** segurança é responsabilidade de cada feature e boundary, desde entrada até persistência e resposta.
+
+**Motivação:** headers, proteção de página e scanners isolados não verificam as regras de uma operação.
+
+**Consequências:** cada superfície real exige análise contextual de autenticação/sessão, autorização e IDOR/BOLA, validação, injection, XSS, CSRF, concorrência, integridade e exposição de informação. A [security-review](../../.agents/skills/security-review/SKILL.md) orienta essa revisão; o scan é complementar. A [baseline HTTP](#baseline-de-segurança-http-ecmsg-18) preserva renderização estática com CSP parcial, que não restringe scripts/styles nem substitui esses controles.
+
+### Testes pela garantia e gates pelo risco
+
+**Decisão:** unitários verificam regras puras; componentes, comportamento observável da UI; integração, DB/framework reais; E2E, fluxos críticos completos. `check` é o gate rápido e `verify` acrescenta produção, com gates adicionais conforme o risco.
+
+**Motivação:** obter evidência adequada à mudança, mantendo feedback rápido sem atribuir a mocks garantias que dependem da infraestrutura real.
+
+**Consequências:** constraints, transactions e concorrência exigem PostgreSQL real de teste. Integração/E2E recebem ambientes próprios quando houver consumidores; hoje há somente unitários. Biome é o único linter/formatter, e boundaries de imports ainda são revisadas manualmente. Veja [testes](#testes-ecmsg-19) e [quality gates](#quality-gates-ecmsg-20).
+
+### Evolução incremental
+
+**Decisão:** camadas, dependências e abstrações surgem com necessidade concreta.
+
+**Motivação:** preservar clareza, facilidade de revisão e menor superfície de bugs e segurança.
+
+**Consequências:** não antecipar repositories, services, use-cases ou domain layers genéricas, helpers globais ou diretórios vazios. Uma nova abstração precisa demonstrar o problema e respeitar as boundaries existentes. Zod, Zustand, React Hook Form e Radix UI são escolhas para consumidores futuros, não dependências já instaladas. Veja [colocation e reutilização](#colocation-e-reutilização) e [revisão de novas adições](#revisão-de-novas-adições).
+
 ## Camadas e responsabilidades
 
 A estrutura é conceitual: crie pastas somente quando existir código que as justifique.
