@@ -27,6 +27,7 @@ import { login } from "./login";
 import { reserveLoginAttempt, withLoginHashSlot } from "./login-rate-limit";
 import * as passwordOperations from "./password";
 import { hashPassword, verifyPassword } from "./password";
+import { readAccount } from "./read-account";
 import { readOwnIdentity } from "./read-own-identity";
 import {
   createSession,
@@ -969,5 +970,40 @@ describe("ECMSG-33: cadastro seguro PostgreSQL", () => {
     await expect(
       registerAction({ email: emails[0], password }),
     ).rejects.toThrow("Não foi possível processar a autenticação.");
+  });
+});
+
+describe("ECMSG-36: área da própria conta", () => {
+  const email = `${randomUUID()}@example.test`;
+  let id: string;
+  beforeAll(async () => {
+    const [user] = await database
+      .insert(users)
+      .values({ email, passwordHash })
+      .returning({ id: users.id });
+    id = user.id;
+  });
+  afterAll(async () => {
+    await client`DELETE FROM users WHERE id=${id}`;
+  });
+  it("visitante e token inválido não recebem dado", async () => {
+    request.token = undefined;
+    expect(await readAccount()).toBeNull();
+    request.token = "invalid";
+    expect(await readAccount()).toBeNull();
+  });
+  it("sessão válida recebe somente e-mail próprio", async () => {
+    request.token = (await createSession(id)).token;
+    expect(await readAccount()).toEqual({ email });
+  });
+  it("revogação e expiração impedem leitura", async () => {
+    const session = await createSession(id);
+    request.token = session.token;
+    await revokeSession(session.token);
+    expect(await readAccount()).toBeNull();
+    const next = await createSession(id);
+    request.token = next.token;
+    await client`UPDATE sessions SET created_at=CURRENT_TIMESTAMP-interval '9 hours',last_active_at=CURRENT_TIMESTAMP-interval '1 hour',expires_at=CURRENT_TIMESTAMP-interval '1 minute' WHERE token_hash=${tokenHash(next.token)}`;
+    expect(await readAccount()).toBeNull();
   });
 });

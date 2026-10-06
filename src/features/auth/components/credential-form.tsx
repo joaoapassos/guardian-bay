@@ -47,7 +47,7 @@ export function CredentialForm({ mode }: { mode: "login" | "register" }) {
           } else {
             const result = await loginAction(input);
             if (result.success) {
-              router.replace("/");
+              router.replace("/account");
               router.refresh();
             } else setMessage(result.message);
           }
