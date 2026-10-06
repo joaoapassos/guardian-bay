@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CategoryForm } from "@/features/catalog/components/category-form";
 import { ProductForm } from "@/features/catalog/components/product-form";
 import { readAdminCatalog } from "@/features/catalog/server/read-admin-catalog";
+import { InventoryForm } from "@/features/inventory/components/inventory-form";
 
 export default async function AdminCatalogPage({
   searchParams,
@@ -26,11 +27,26 @@ export default async function AdminCatalogPage({
         <h2 className="text-2xl font-semibold">Produtos</h2>
         <ProductForm categories={result.categories} />
         {result.products.map((product) => (
-          <ProductForm
-            key={`${product.id}:${product.revision}`}
-            product={product}
-            categories={result.categories}
-          />
+          <div
+            key={`${product.id}:${product.revision}:${product.inventoryRevision}`}
+          >
+            <ProductForm
+              key={`${product.id}:${product.revision}`}
+              product={product}
+              categories={result.categories}
+            />
+            {product.inventoryRevision !== null &&
+            product.availableQuantity !== null ? (
+              <InventoryForm
+                productId={product.id}
+                name={product.name}
+                quantity={product.availableQuantity}
+                revision={product.inventoryRevision}
+              />
+            ) : (
+              <p>Estoque indisponível. Requer revisão operacional.</p>
+            )}
+          </div>
         ))}
       </section>
       <nav aria-label="Paginação administrativa" className="flex gap-6">
