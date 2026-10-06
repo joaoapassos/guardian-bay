@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { manageCatalogAction } from "../actions/manage-catalog.action";
+import { catalogImages } from "../images";
 
 type Product = {
   id: string;
@@ -12,6 +13,7 @@ type Product = {
   currency: string;
   isPublished: boolean;
   revision: number;
+  imageKey: string | null;
 };
 export function ProductForm({
   product,
@@ -39,6 +41,7 @@ export function ProductForm({
           amount: Number(form.get("amount")),
           currency: "BRL",
           isPublished: form.has("isPublished"),
+          imageKey: form.get("imageKey") || null,
         };
         if (
           product?.isPublished &&
@@ -123,6 +126,21 @@ export function ProductForm({
           defaultValue={product?.amount}
           className="block w-full border p-2"
         />
+      </label>
+      <label className="block">
+        Imagem
+        <select
+          name="imageKey"
+          defaultValue={product?.imageKey ?? ""}
+          className="block w-full border p-2"
+        >
+          <option value="">Sem imagem</option>
+          {Object.keys(catalogImages).map((key) => (
+            <option key={key} value={key}>
+              {key === "lock" ? "Cadeado" : "Escudo"}
+            </option>
+          ))}
+        </select>
       </label>
       <label className="block">
         <input

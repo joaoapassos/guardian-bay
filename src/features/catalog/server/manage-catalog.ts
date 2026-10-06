@@ -40,6 +40,7 @@ export async function manageCatalog(input: unknown) {
           amount: data.amount,
           currency: data.currency,
           isPublished: data.isPublished,
+          imageKey: data.imageKey,
         };
         if (data.operation === "create-product")
           await tx.insert(products).values(fields);

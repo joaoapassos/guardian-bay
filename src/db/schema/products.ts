@@ -24,6 +24,7 @@ export const products = pgTable(
     currency: varchar("currency", { length: 3 }).default("BRL").notNull(),
     isPublished: boolean("is_published").default(false).notNull(),
     revision: integer("revision").default(1).notNull(),
+    imageKey: varchar("image_key", { length: 16 }),
   },
   (table) => [
     check(
@@ -34,6 +35,7 @@ export const products = pgTable(
     check("products_amount", sql`${table.amount} > 0`),
     check("products_currency", sql`${table.currency} = 'BRL'`),
     check("products_revision", sql`${table.revision} > 0`),
+    check("products_image_key", sql`${table.imageKey} IN ('lock', 'shield')`),
     index("products_public_id_idx")
       .on(table.id)
       .where(sql`${table.isPublished} = true`),

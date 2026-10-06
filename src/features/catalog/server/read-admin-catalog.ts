@@ -31,6 +31,7 @@ export async function readAdminCatalog(input: unknown) {
         currency: products.currency,
         isPublished: products.isPublished,
         revision: products.revision,
+        imageKey: products.imageKey,
       })
       .from(products)
       .orderBy(asc(products.id))

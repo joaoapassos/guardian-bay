@@ -4,6 +4,7 @@ import { getDb } from "@/db";
 import { categories } from "@/db/schema/categories";
 import { products } from "@/db/schema/products";
 import { priceDto } from "@/lib/money/price";
+import { productImage } from "../images";
 import { listQuerySchema } from "../schemas/list-query";
 
 export async function listProducts(input: unknown) {
@@ -33,6 +34,7 @@ export async function listProducts(input: unknown) {
       amount: products.amount,
       currency: products.currency,
       category: categories.name,
+      imageKey: products.imageKey,
     })
     .from(products)
     .innerJoin(categories, eq(products.categoryId, categories.id))
@@ -55,9 +57,12 @@ export async function listProducts(input: unknown) {
     sort,
     categories: publicCategories,
     hasNext: rows.length > limit,
-    products: rows.slice(0, limit).map(({ amount, currency, ...product }) => ({
-      ...product,
-      price: priceDto({ amount, currency }),
-    })),
+    products: rows
+      .slice(0, limit)
+      .map(({ amount, currency, imageKey, ...product }) => ({
+        ...product,
+        price: priceDto({ amount, currency }),
+        image: productImage(imageKey, product.name),
+      })),
   };
 }
