@@ -26,8 +26,9 @@
     "ci": "npm run check && npm run test:integration && npm run build && npm run test:security:http",
     "db:check": "node scripts/check-migrations.mjs",
     "security:dependencies": "node scripts/check-dependencies.mjs",
-    "security:setup": "node --use-env-proxy scripts/install-gitleaks.mjs",
-    "security:secrets": "node scripts/check-secrets.mjs"
+    "security:setup": "node --use-env-proxy scripts/install-gitleaks.mjs && python3 -m venv .vitest/tools/semgrep-venv && .vitest/tools/semgrep-venv/bin/python -m pip install -r .github/security/requirements.txt",
+    "security:secrets": "node scripts/check-secrets.mjs",
+    "security:sast": "node scripts/check-sast.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.1.24",

@@ -1,0 +1,65 @@
+rules:
+  - id: guardian-no-dynamic-evaluation
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Dynamic evaluation requires security review; do not execute untrusted code.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+  - id: guardian-no-raw-html
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Raw HTML sink requires an explicit sanitization contract and contextual review.
+    pattern: <$TAG ... dangerouslySetInnerHTML={$HTML} ... />
+  - id: guardian-no-weak-hash
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: MD5/SHA1 must not implement security-sensitive integrity or credentials.
+    pattern-either:
+      - pattern: createHash("md5", ...)
+      - pattern: createHash("sha1", ...)
+      - pattern: $CRYPTO.createHash("md5", ...)
+      - pattern: $CRYPTO.createHash("sha1", ...)
+  - id: guardian-no-shell-command-string
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Shell command strings require review; prefer fixed executable and argument arrays.
+    pattern-either:
+      - pattern: exec(...)
+      - pattern: execSync(...)
+      - pattern: $CP.exec(...)
+      - pattern: $CP.execSync(...)
+      - pattern: 'spawn(..., { ..., shell: true, ... })'
+      - pattern: 'spawnSync(..., { ..., shell: true, ... })'
+  - id: guardian-no-drizzle-raw-input
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Raw SQL construction is outside the approved parametrized Drizzle contract.
+    pattern: sql.raw(...)
+  - id: guardian-request-to-unsafe-sink
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Request-derived input reaches an unsafe SQL/path/redirect sink; validate the trust boundary.
+    mode: taint
+    pattern-sources:
+      - pattern: $REQ.body
+      - pattern: $REQ.params
+      - pattern: $REQ.query
+      - pattern: $REQ.nextUrl.searchParams.get(...)
+      - pattern: $REQ.json(...)
+      - pattern: $REQ.formData(...)
+      - pattern: $REQ.text(...)
+    pattern-sinks:
+      - pattern: $DB.unsafe($INPUT, ...)
+      - pattern: readFileSync($INPUT, ...)
+      - pattern: readFile($INPUT, ...)
+      - pattern: redirect($INPUT, ...)
+  - id: guardian-no-insecure-security-random
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Security identifiers require cryptographic randomness.
+    patterns:
+      - pattern: $NAME = Math.random(...)
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: (?i).*(token|secret|session|nonce|password|checkoutKey).*

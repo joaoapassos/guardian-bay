@@ -54,6 +54,8 @@ jobs:
         run: npm run security:setup
       - name: Secrets and sensitive indexed files
         run: npm run security:secrets
+      - name: Static security analysis
+        run: npm run security:sast
       - name: Dependency security and triage
         run: npm run security:dependencies
       - name: Migrations and schema
