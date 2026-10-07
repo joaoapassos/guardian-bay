@@ -5,10 +5,11 @@ Base de um e-commerce seguro, com regras de domínio e segurança executadas no 
 ## Pré-requisitos e instalação
 
 - Runtime Next.js: Node.js 20.9 ou superior. Para desenvolvimento e quality gates com Vitest 4.1.11, use Node.js 20.19+ da linha 20, 22.12+ da linha 22 ou 24+.
+- Referência do SDLC/CI: Node.js 24.19.0 e PostgreSQL 18.6; browsers de segurança exigem Node 22.12+ ou 24+.
 - npm; use o `package-lock.json` versionado. Não use outro package manager neste projeto.
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -34,10 +35,18 @@ A estratégia de carregamento, validação e acesso está na [arquitetura: vari�
 | `npm run verify` | Gate completo: check seguido do build de produção |
 | `npm test` | Vitest em modo não interativo; adequado para CI |
 | `npm run test:integration` | Migrations, identidade, catálogo, carrinho, pedidos e estoque em PostgreSQL local dedicado; exige `TEST_DATABASE_URL` |
-| `npm run test:security` | Unitários, PostgreSQL, build e HTTP real da baseline; exige o mesmo banco dedicado |
+| `npm run test:security` | Unitários, PostgreSQL, build e HTTP/Chromium reais; exige banco dedicado e browser executável |
 | `npm run test:watch` | Vitest em modo watch para desenvolvimento |
 | `npm run build` | Build de produção, incluindo verificação TypeScript do Next.js |
 | `npm run start` | Executa o build de produção existente |
+| `npm run ci` | Etapas de runtime do CI: check → PostgreSQL → build → HTTP/browser, uma vez cada |
+| `npm run db:check` | Journal/snapshots/drift em cópia temporária, instalação vazia e upgrade da Epic 9 em PostgreSQL 18 |
+| `npm run security:setup` | Instala ferramentas SDLC fixadas, com checksum dos binários e venv isolado; Linux x64 |
+| `npm run security:dependencies` | Audit produção/tooling com decisões restritas e revisão datada, sem autofix |
+| `npm run security:secrets` | Gitleaks e arquivos sensíveis indexados, sem ler env local |
+| `npm run security:sast` | Semgrep AST/taint local; findings novos exigem triagem |
+| `npm run ci:validate` | Actionlint: sintaxe e expressões do workflow |
+| `npm run ci:integrity` | Manifest/lockfile e ausência de alterações/outputs inesperados após gates |
 
 Durante desenvolvimento, execute `npm run check`, `git diff --check` para alterações não staged e `git diff --cached --check` para alterações staged. Antes de merge da branch da Epic, com todas as mudanças commitadas e `origin/main` atualizado, execute:
 
@@ -64,10 +73,14 @@ PostgreSQL usa Drizzle ORM com Postgres.js; Drizzle Kit e `@next/env` preparam a
 
 Consulte [AGENTS.md](AGENTS.md) para invariantes e [a arquitetura aprovada](docs/architecture/README.md) para responsabilidades, colocation e fronteira Server × Client. Antes de alterar APIs/configuração Next.js, consulte `node_modules/next/dist/docs/` da versão instalada.
 
-A [revisão da Epic 4](docs/architecture/README.md#revisão-da-epic-4-ecmsg-53) registra controles, evidências e findings não bloqueantes. A base validada localmente ainda exige proteção de entrada, HTTPS e configuração operacional antes de exposição pública. Para executar a suíte completa com browser real, configure também `SECURITY_BROWSER_PATH` com Chromium/Chrome/Edge instalado e OpenSSL disponível (Windows: Git por padrão; `SECURITY_OPENSSL_PATH` permite outro executável). O teste usa HTTPS loopback e certificado/perfil temporários, sem mudar o sistema. Sem browser configurado o subteste informa skip; isso não valida os formulários completos. Consulte a [matriz de identidade/acesso](docs/architecture/README.md#testes-de-identidade-e-acesso-ecmsg-40).
+A [revisão da Epic 4](docs/architecture/README.md#revisão-da-epic-4-ecmsg-53) registra controles, evidências e findings não bloqueantes. A base validada localmente ainda exige proteção de entrada, HTTPS e configuração operacional antes de exposição pública. Para executar a suíte completa com browser real, configure também `SECURITY_BROWSER_PATH` com Chromium/Chrome/Edge instalado e OpenSSL disponível (Windows: Git por padrão; `SECURITY_OPENSSL_PATH` permite outro executável). O teste usa HTTPS loopback e certificado/perfil temporários, sem mudar o sistema. O gate completo falha cedo sem browser; execução direta do script isolado pode informar skip e não valida os formulários completos. Consulte a [matriz de identidade/acesso](docs/architecture/README.md#testes-de-identidade-e-acesso-ecmsg-40).
 
 A [revisão da Epic 5](docs/architecture/README.md#revisão-da-epic-5-ecmsg-65) registra testes de ownership, preço derivado e concorrência do carrinho. Para reproduzir todos os gates PostgreSQL atuais, use PostgreSQL 18: a assertion RESTRICT herdada do catálogo usa SQLSTATE 23001 dessa versão. Banco, credenciais e browser são configuração local, nunca conteúdo versionado.
 
 A [revisão da Epic 6](docs/architecture/README.md#revisão-da-epic-6-ecmsg-78) registra idempotência persistente, snapshot monetário, atomicidade do carrinho e races checkout/cart/catalog. Chave de confirmação identifica intenção, nunca ownership; a aplicação não coleta dados financeiros.
 
 A [revisão da Epic 8](docs/architecture/README.md#revisão-da-epic-8-ecmsg-104) registra o backoffice, leitura administrativa privada, filtros allowlisted, conflitos e testes de chamadas diretas/Chromium. Pedidos não possuem edição administrativa de status, itens ou valores. Não há gestão completa de usuários ou refund. Auditoria durável e budgets autenticados são descritos na [revisão da Epic 9](docs/architecture/README.md#revisão-da-epic-9-ecmsg-117); `/admin/audit` é read-only e exige admin atual. Eventos críticos participam da mesma transação do efeito. Retry de checkout existente não consome budget nem duplica evento. Retenção é manutenção operacional manual, sem scheduler.
+
+## SDLC e CI
+
+A [política canônica](docs/architecture/sdlc.md) define PR/revisão, gates bloqueantes, exceções, mudanças críticas e processo de vulnerabilidades. Secure SDLC em `.github/workflows/security.yml` executa em PR, push de main/branch de bootstrap e manualmente; usa npm ci, Node fixado, PostgreSQL 18 isolado, Chromium real e permissões mínimas, sem secrets de produção. Além de ci, executa db:check, dependências, secrets, SAST, actionlint e integridade. Google Fonts, registry e instalação das ferramentas exigem rede; proteção volumétrica/deployment permanece fora desse processo. Branch protection é recomendada/documentada, mas não foi aplicada/verificada. Consulte o template de PR e registre N/A justificado, nunca sucesso fictício.
