@@ -80,3 +80,9 @@ O autor registra classificação e evidência no PR. Revisor/maintainer explicit
 ## Pull Request (ECMSG-127)
 
 O template único .github/PULL_REQUEST_TEMPLATE.md pede mudança/motivo, evidências e classe de risco. O checklist curto cobre validação, autorização/ownership, valores críticos, concorrência/audit, DB/dependências, secrets, testes e documentos. Item inaplicável recebe N/A com justificativa, nunca check fictício. A revisão security-sensitive usa a seção anterior e security-review; findings/exceções ficam rastreáveis no PR sem incluir valores sensíveis. Não há vários templates ou skill duplicando esta política.
+
+## Integridade e proteção da main (ECMSG-128)
+
+`ci:integrity` confere manifest/lockfile, fontes npm HTTPS e integrity por pacote, diff de arquivos rastreados e ausência de outputs não ignorados. Em CI, também rejeita staging inesperado; localmente o índice pode conter a mudança intencional em revisão, mas alterações causadas pelo gate depois de staging falham. npm ci continua sendo a prova de instalação frozen; esta checagem não substitui sua validação da árvore. CI executa integridade ao final de todos os gates; outputs legítimos ficam em .next/.vitest/node_modules e outros caminhos já ignorados. db:check gera somente em cópia temporária e não corrige migrations.
+
+Branch protection de main: **recomendada/documentada, mas não aplicada/verificada nesta Epic**. Recomendar PR obrigatório, status check “Quality and security” obrigatório, force push e deletion bloqueados, branch atualizada quando o fluxo/plano permitir. Deve ser aplicada pelo maintainer nas configurações/rulesets e validada conforme o plano GitHub; documento/CI não fazem enforcement sozinhos. API administrativa não está acessível no ambiente; não alegar proteção configurada. Não criar CODEOWNERS fictício para projeto solo.

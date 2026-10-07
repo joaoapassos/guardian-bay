@@ -68,3 +68,5 @@ jobs:
         run: npm run db:check
       - name: Quality, PostgreSQL and real HTTP/browser
         run: npm run ci
+      - name: Repository integrity after all gates
+        run: npm run ci:integrity
