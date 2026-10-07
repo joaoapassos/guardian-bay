@@ -20,3 +20,9 @@ O autor explica problema, mudança, evidências e riscos; CI executa verificaç�
 Teste/build falhando, migration inconsistente, lockfile incompatível, secret real ou vulnerabilidade Critical/High confirmada bloqueiam merge. Gate obrigatório ausente, skipped ou indisponível não comprova aprovação. Alerta genérico não equivale a vulnerabilidade: exige evidência, contexto e classificação antes da decisão. Não resolver problema fora de escopo silenciosamente nem ignorar para obter CI verde.
 
 Exceção deve registrar finding/local, justificativa, risco, mitigação, responsável e prazo de reavaliação quando aplicável. Falta de análise e “CI vermelho” não são justificativas. O maintainer aprova explicitamente; uma exceção não autoriza remover assertions ou enfraquecer runtime. Branch protection é configuração operacional, não se presume aplicada pela existência desta política.
+
+## Gates locais (ECMSG-119)
+
+`check` permanece lint/tipos/unitários e `verify` acrescenta build. `test:integration` exige banco local guardian_bay_test, sem fallback. `test:security` preserva unitários → PostgreSQL → build → HTTP/Chromium; agora browser ausente é falha antecipada, não sucesso com skip. `test:security:http` é a etapa concreta para reutilizar um build e banco preparados, não substitui sozinho o gate completo. CI pode compor check → integração → build → HTTP uma vez cada, sem executar verify e security completos repetidamente. Abra apenas uma suíte por banco, pois fixtures compartilham budgets de teste.
+
+Pré-requisitos: Node 24, PostgreSQL 18, TEST_DATABASE_URL local exclusivo, SECURITY_BROWSER_PATH executável e OpenSSL para TLS temporário. Typegen/build geram apenas saídas ignoradas. Nenhum gate aplica autofix.
