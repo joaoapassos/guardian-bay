@@ -1,8 +1,8 @@
 # Arquitetura e fronteiras do sistema
 
-Sistema: E-commerce seguro · Fundação, segurança base, identidade/acesso, catálogo, carrinho, checkout, pedidos, estoque, backoffice, auditoria e proteção contra abuso.
+Sistema: E-commerce seguro · Fundação, segurança base, identidade/acesso, catálogo, carrinho, checkout, pedidos, estoque, backoffice, auditoria, proteção contra abuso e SDLC seguro.
 
-Este documento registra as decisões aprovadas. As seções de revisão de Epics anteriores registram evidências e escopo histórico àquela conclusão; o estado atual inclui a Epic 9. O [AGENTS.md](../../AGENTS.md) estabelece invariantes; as [skills](../../.agents/skills/) descrevem procedimentos para aplicá-las.
+Este documento registra as decisões aprovadas. As seções de revisão de Epics anteriores registram evidências e escopo histórico àquela conclusão; o estado atual inclui a Epic 10. O [AGENTS.md](../../AGENTS.md) estabelece invariantes; as [skills](../../.agents/skills/) descrevem procedimentos para aplicá-las.
 
 O [threat model](threat-model.md) identifica atores, ativos, entradas externas, trust boundaries e ameaças dos fluxos existentes.
 
@@ -237,7 +237,7 @@ O destino atual é `console.warn` server-side; falha do sink é absorvida e não
 
 ## Matriz de testes de segurança (ECMSG-30)
 
-`npm run test:security` reúne unitários, integração PostgreSQL, build do produto e testes HTTP. Exige `TEST_DATABASE_URL` local dedicado `guardian_bay_test`, sem fallback ao banco normal; execute sem outra suíte concorrente no mesmo banco, pois o orçamento global é compartilhado. Portas loopback 3107/3108 e, para os fluxos HTTPS da Epic 3, 3447 devem estar livres. Para enforcement/hydration em Chromium real, configure `SECURITY_BROWSER_PATH` com um executável Chromium/Chrome/Edge instalado e use Node.js 22.12+ ou 24+; a porta CDP loopback 3110 deve estar livre. Sem essa variável, o subteste de browser é explicitamente skipped, sem alegar essa garantia. Não há download automático de browser.
+`npm run test:security` reúne unitários, integração PostgreSQL, build do produto e testes HTTP. Exige `TEST_DATABASE_URL` local dedicado `guardian_bay_test`, sem fallback ao banco normal; execute sem outra suíte concorrente no mesmo banco, pois o orçamento global é compartilhado. Portas loopback 3107/3108 e, para os fluxos HTTPS da Epic 3, 3447 devem estar livres. Para enforcement/hydration em Chromium real, configure `SECURITY_BROWSER_PATH` com um executável Chromium/Chrome/Edge instalado e use Node.js 22.12+ ou 24+; a porta CDP loopback 3110 deve estar livre. O gate completo exige a variável e falha antecipadamente; execução direta do subteste sem browser é skipped e não comprova a garantia. Não há download automático de browser.
 
 | Garantia | Evidência |
 | --- | --- |
@@ -903,7 +903,7 @@ Mocks são permitidos em boundaries de integrações externas quando necessário
 
 Segurança entra nos testes normais junto da surface real: validação server-side; usuário A sem acesso/modificação ao recurso de B (IDOR/BOLA); preço/estoque/totais determinados pelo servidor; sessão ausente/inválida; estratégia CSRF; erros externos sem SQL, stack, secrets/connection string ou detalhes internos. Operações críticas devem testar concorrência quando houver risco, como duas compras do último item. Headers HTTP e recursos são testados contra o build real por `test:security`; o subteste Chromium configurável verifica enforcement e runtime.
 
-Não use secrets, tokens/sessões ou PII reais nem produção nos testes; fixtures de autenticação são sintéticas e isoladas. Preserve `.env*` ignorado com única exceção `.env.example`; integração exige configuração explícita, sem reutilizar implicitamente a conexão normal. Evite rede, relógio real, ordem de execução e estado global em unitários; controle aleatoriedade/tempo somente quando necessário. Priorize casos relevantes, sem percentual arbitrário de cobertura ou dependências extras para números. React Testing Library, jsdom, Playwright, MSW, coverage e CI ficam para consumidores concretos.
+Não use secrets, tokens/sessões ou PII reais nem produção nos testes; fixtures de autenticação são sintéticas e isoladas. Preserve `.env*` ignorado com única exceção `.env.example`; integração exige configuração explícita, sem reutilizar implicitamente a conexão normal. Evite rede, relógio real, ordem de execução e estado global em unitários; controle aleatoriedade/tempo somente quando necessário. Priorize casos relevantes, sem percentual arbitrário de cobertura ou dependências extras para números. React Testing Library, jsdom, Playwright, MSW e coverage ficam para consumidores concretos; CI já orquestra as garantias existentes conforme o [SDLC](sdlc.md).
 
 Referência: [guia do Vitest](https://vitest.dev/guide/). Os requisitos npm das versões instaladas definem a compatibilidade de Node.js.
 
@@ -945,7 +945,7 @@ Qualquer secret versionado é grave e bloqueia: `.env` real, token/API key, conn
 
 Gate obrigatório falhou ou não foi executado → não mergear. Corrija somente problemas em escopo; problemas externos devem ser relatados como **Problema → impacto → bloqueia ou não**, com Task separada quando apropriado. Não desative assertions, testes ou proteção de runtime para passar. Skills/revisões não são automatizadas cegamente nem garantias de scanners; registre verificações aplicáveis, resultados e limitações no review.
 
-Não há pipeline de CI ou hooks Git configurados. Quando introduzidos, devem executar os gates desta política, instalar dependências pelo lockfile e preservar exit codes.
+Secure SDLC já orquestra os gates existentes, com instalação frozen e exit codes preservados. A [política canônica de SDLC](sdlc.md) define os novos gates de migrations/dependências/secrets/SAST/workflow/integridade e revisão. Não há hooks Git; branch protection permanece recomendada, não aplicada/verificada.
 
 ### Enforcement arquitetural existente
 
@@ -1071,3 +1071,9 @@ Limites: token bearer roubado, e-mail não verificado, CSP parcial, defesa volum
 ## SDLC seguro (ECMSG-118)
 
 A [política canônica de SDLC](sdlc.md) organiza branch, commits, PR, gates, revisão, merge e exceções. As garantias de runtime permanecem nas features; automação de CI não cria regras comerciais paralelas.
+
+## Revisão da Epic 10 (ECMSG-130)
+
+SDLC é infraestrutura de validação, sem alteração comercial. CI em PR/push/manual usa Node 24.19.0, PostgreSQL 18.6 e Chrome real do runner, contents:read somente no job, Actions por SHA, npm ci, sem credenciais privilegiadas/fork target/cache/artefatos sensíveis. Biome/Vitest/Next continuam os gates de produto; tools isoladas Gitleaks 8.24.3, Semgrep 1.140.0 e actionlint 1.7.7 têm consumidores concretos, sem nova dependência npm. A [política SDLC](sdlc.md) é fonte única para exceções, review e atualização; branch protection não é alegada como implementada.
+
+Nove mutantes temporários de assertion/tipos/lint/drift/secret sintético/SAST/lockfile/integridade/workflow foram detectados por falha específica, um por vez e restaurados. Schema/migrations não mudam nesta Epic; zero/upgrade 46be877 preservam dados e fingerprints físicos equivalentes, journal/snapshots encadeados e generate/check somente em cópia temporária. PostgreSQL 18 é necessário aos gates herdados; no 17 FK RESTRICT funciona com SQLSTATE diferente. Produção tem zero findings; quatro Moderate de tooling são risco aceito restrito/datado, não removidos. Gitleaks/Semgrep atuais não têm findings pendentes; a triagem complementar dos 28 alertas de secrets e 661 templates SQL + um aviso genérico NextJS está registrada no SDLC; scanner genérico continua complementar, sujeito a triagem. CSP parcial, bearer roubado, e-mail não verificado, defesa volumétrica/HTTPS/deployment, logs não duráveis e limpeza de sessões permanecem limites reais.

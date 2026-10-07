@@ -2,7 +2,7 @@
 
 ## Política (ECMSG-118)
 
-Fluxo: branch de feature/Epic → commits pequenos e gates locais → push → Pull Request → CI → revisão → merge. Preservar a sequência de commits exigida por cada Epic. Nunca implementar diretamente em main ou alterar a base aprovada. Esta seção define o processo; CI será introduzido nas Tasks seguintes, não é controle existente nesta base.
+Fluxo: branch de feature/Epic → commits pequenos e gates locais → push → Pull Request → CI → revisão → merge. Preservar a sequência de commits exigida por cada Epic. Nunca implementar diretamente em main ou alterar a base aprovada. A política foi definida antes da automação; CI já foi introduzido na ECMSG-120 e reforçado nas Tasks seguintes.
 
 O autor explica problema, mudança, evidências e riscos; CI executa verificações reproduzíveis; revisor confere comportamento e limites de confiança; maintainer decide merge e exceções. Em projeto solo, a revisão explícita continua obrigatória, sem alegar independência de um segundo reviewer.
 
@@ -12,7 +12,7 @@ O autor explica problema, mudança, evidências e riscos; CI executa verificaç�
 | PostgreSQL | `npm run test:integration`, PostgreSQL 18 local dedicado; constraints, transações e concorrência reais |
 | HTTP/browser | `npm run test:security`, aplicação e Chromium reais, sem skips como evidência |
 | Produção | `npm run verify`, check e build; Google Fonts exige rede durante compilação |
-| Migrations/schema | Instalação vazia, upgrade da base suportada, journal/snapshots, Drizzle check e drift; automatização nas próximas Tasks |
+| Migrations/schema | Instalação vazia, upgrade da base suportada, journal/snapshots, Drizzle check e drift; automatizado por db:check |
 | Dependências | Lockfile, produção versus tooling e triagem de advisories; nenhum audit fix automático |
 | Secrets e SAST | Detecção mais revisão contextual; scanners complementam security-review, não substituem autorização ou threat model |
 | Integridade | Diff/whitespace, lockfile e arquivos versionados sem alterações causadas pelos gates |
@@ -31,7 +31,7 @@ Pré-requisitos: Node 24, PostgreSQL 18, TEST_DATABASE_URL local exclusivo, SECU
 
 `.github/workflows/security.yml` define Secure SDLC / Quality and security: PRs, push em main e nesta branch de bootstrap, além de execução manual. O push de bootstrap permite validar antes do primeiro PR; para futuras branches de feature basta o PR, evitando duplicação indiscriminada em todo push. Um job sequencial usa Ubuntu 24.04, Node 24.19.0 e PostgreSQL 18.6 isolado. `npm ci` respeita lockfile; `npm run ci` compõe check → integração → build → HTTP/browser uma vez cada. Chrome instalado na imagem do runner e OpenSSL são verificados, sem browser omitido. Google Fonts/registry exigem rede; versão do Chrome da imagem é variável, registrada na execução.
 
-Actions checkout v6.0.2 e setup-node v6.3.0 são fixadas por SHA verificado contra tags oficiais. Permissão global contents:read; checkout não persiste credencial, sem cache de dependências/build, sem secrets privilegiados e sem pull_request_target. Credencial do service PostgreSQL é fictícia/efêmera, não de aplicação ou produção. Configuração versionada não comprova execução remota: o resultado do run deve ser observado antes de alegar CI verde.
+Actions checkout v6.0.2 e setup-node v6.3.0 são fixadas por SHA verificado contra tags oficiais. Na base ECMSG-120, permissão global contents:read; a ECMSG-125 restringe global a vazio e leitura somente ao job; checkout não persiste credencial, sem cache de dependências/build, sem secrets privilegiados e sem pull_request_target. Credencial do service PostgreSQL é fictícia/efêmera, não de aplicação ou produção. Configuração versionada não comprova execução remota: o resultado do run deve ser observado antes de alegar CI verde.
 
 ## Migrations/schema (ECMSG-121)
 
@@ -71,7 +71,7 @@ Permissão global vazia; somente o job que faz checkout recebe contents:read. SH
 | Security-sensitive | Auth, cart/orders/inventory/audit, lib/audit ou lib/abuse, qualquer Server Action, privacidade/headers | security-review: autenticação, role atual, autorização/ownership/IDOR, contrato strict, valores server-owned, DTO/erros, audit/logging, transação/concorrência e sessão após lock; testes negativos e threat model |
 | Infrastructure-sensitive | src/db, drizzle, environment, scripts de gates, .github/workflows, políticas de scanners, package.json/lockfile | Permissões, secrets, código não confiável, exit codes e bypass; provenance/instalação, migration/drift, integridade e evidência do CI |
 
-Classes podem se acumular. Paths críticos concretos: src/features/auth/**, cart/**, orders/**, inventory/**, audit/**, catalog/server/** e actions/**; src/lib/audit/**, abuse/**, env/**; src/db/**; drizzle/**; next.config.ts; scripts/**; .github/**; .gitleaks.toml/.semgrep.yml; manifest/lockfile. Um arquivo fora da lista também pode alterar confiança; a lista não dispensa revisão contextual.
+Classes podem se acumular. Paths críticos concretos: src/features/{auth,cart,orders,inventory,audit,catalog}/**, src/app/admin/** e todas as Actions; src/lib/{audit,abuse,env}/**; src/db/**; drizzle/**; next.config.ts; scripts/**; .github/**; .gitleaks.toml/.semgrep.yml, .gitignore, vitest*.config.mts, biome.json e tsconfig.json; manifest/lockfile. Um arquivo fora da lista também pode alterar confiança; a lista não dispensa revisão contextual.
 
 DB/migration exige revisar constraints, FKs/delete behavior, upgrade, preservação de dados e alterações destrutivas. Rollback automático de SQL não é presumido; defina recuperação/forward fix conforme mudança real e backups operacionais. Não executar migrations de teste sobre desenvolvimento/produção. CI/políticas podem eliminar um gate: comparar checks/permissions/triggers, pinnings e exceções com a base antes de aprovar.
 
@@ -96,3 +96,9 @@ Registrar regra/advisory e local sem secret/source payload sensível, cenário r
 Atualização: identificar patch e pacote pai → ler changelog/breaking changes → alterar manifest/lock intencionalmente → npm ci → gates completos/migrations/segurança pertinentes → revisar diff e PR. Major não é auto-merge. Transitivas devem ser corrigidas no pai quando possível; override somente com justificativa/compatibilidade/testes, nunca para silenciar finding. Remover exceção apenas depois de evidência de correção e reexecutar auditoria.
 
 Registro herdado: quatro entradas Moderate de tooling em Drizzle Kit 0.31.11, esm-loader 2.6.5, core-utils 3.3.2 e esbuild 0.18.20, propagadas pelo advisory GHSA-67mh-4wv8-2f99 (serve do esbuild). Runtime/produção: zero no audit validado da base. Loader usa transform/transformSync, sem consumidor do serve afetado; não expor servidores de desenvolvimento. Accepted risk restrito, responsável repository maintainer, revisão até 2026-11-06, acompanhada por .github/security/dependency-policy.json. Atualização de tooling permanece pendência; devDependency não é dispensa automática. O peer opcional Vite/esbuild fora do intervalo continua limitação herdada; npm ci e gates atuais passam, sem override/autofix. Novos advisories ou mudança de consumidor exigem nova triagem.
+
+## Evidência final (ECMSG-130)
+
+Nove mutantes temporários foram rejeitados por exit code não zero e evidência específica: assertion unitária, TS2322, noDebugger, drift, token sintético fora de exceções, eval AST, manifest/lockfile, alteração do tree e workflow inválido. Todos restaurados antes dos gates positivos; nenhum secret real ou mutante foi commitado. CI verde depende de run observado do SHA, não apenas YAML válido. Nenhum bypass/auto-fix foi usado e nenhum gate comercial foi enfraquecido. Branch protection permanece configuração operacional pendente; compromisso de conta/maintainer, pacote, runner/plataforma ou deployment continua risco residual.
+
+Triagem complementar do nextjs-security-scan na árvore rastreada: 28 alertas de secrets são fixtures sintéticas/atributo password de formulário/exemplo proibido da skill e credencial loopback efêmera de CI; nenhum secret real confirmado. Os 661 alertas Injection são templates SQL parametrizados, incluindo inserts de fixtures em DBs temporários; um alerta NextJS de allowedOrigins é recomendação genérica incompatível com a política same-origin e não justifica abrir origens. Classificação false positive/tool limitation, sem ignore global de SQL e sem pending não analisado. Gitleaks e Semgrep AST atuais retornam zero findings.
