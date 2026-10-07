@@ -50,6 +50,8 @@ jobs:
           test -x "$SECURITY_BROWSER_PATH"
           "$SECURITY_BROWSER_PATH" --version
           openssl version
+      - name: Dependency security and triage
+        run: npm run security:dependencies
       - name: Migrations and schema
         run: npm run db:check
       - name: Quality, PostgreSQL and real HTTP/browser
