@@ -29,7 +29,8 @@
     "security:setup": "node --use-env-proxy scripts/install-security-tools.mjs && python3 -m venv .vitest/tools/semgrep-venv && .vitest/tools/semgrep-venv/bin/python -m pip install -r .github/security/requirements.txt",
     "security:secrets": "node scripts/check-secrets.mjs",
     "security:sast": "node scripts/check-sast.mjs",
-    "ci:validate": ".vitest/tools/actionlint -color"
+    "ci:validate": ".vitest/tools/actionlint -color",
+    "ci:integrity": "node scripts/check-integrity.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.1.24",
