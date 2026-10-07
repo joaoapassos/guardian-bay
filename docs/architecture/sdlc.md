@@ -62,3 +62,17 @@ O ganho em relação ao pattern-scanner complementar é parsing estrutural/taint
 Permissão global vazia; somente o job que faz checkout recebe contents:read. SHA pins oficiais, credenciais não persistidas, sem secrets/deployment/ID token, sem pull_request_target, sem execução shell de título/branch/body/commit. Expressões de concorrência não viram comandos. Runner hospedado efêmero, timeout explícito e shell bash com falha propagada; não há continue-on-error, || true ou exit 0 em gates bloqueantes. Nenhum artefato é publicado: DB, browser profile, .env e logs operacionais permanecem locais/temporários. Npm ci executa scripts de dependências necessárias no contexto sem privilégios; não elimina risco de supply chain.
 
 `ci:validate` executa actionlint 1.7.7 para sintaxe/contextos/expressões do GitHub Actions, complemento específico de workflow, não outro linter de aplicação. Binário tem versão e SHA256 do release verificados pelo mesmo instalador concreto de ferramentas. Findings de segurança exigem também revisão manual; actionlint não confirma privilégio mínimo por si. Primeiro run remoto da base foi observado com sucesso (37552751664); a revisão final deve observar novamente o HEAD completo. API indisponível não é ausência de Git authentication: a página pública de Actions fornece evidência de run. Branch protection não foi aplicada.
+
+## Revisão de mudanças críticas (ECMSG-126)
+
+| Classe | Quando | Revisão exigida |
+| --- | --- | --- |
+| Normal | Texto/UI sem alteração de autoridade ou infraestrutura | Comportamento, acessibilidade aplicável, check/build e documentação |
+| Security-sensitive | Auth, cart/orders/inventory/audit, lib/audit ou lib/abuse, qualquer Server Action, privacidade/headers | security-review: autenticação, role atual, autorização/ownership/IDOR, contrato strict, valores server-owned, DTO/erros, audit/logging, transação/concorrência e sessão após lock; testes negativos e threat model |
+| Infrastructure-sensitive | src/db, drizzle, environment, scripts de gates, .github/workflows, políticas de scanners, package.json/lockfile | Permissões, secrets, código não confiável, exit codes e bypass; provenance/instalação, migration/drift, integridade e evidência do CI |
+
+Classes podem se acumular. Paths críticos concretos: src/features/auth/**, cart/**, orders/**, inventory/**, audit/**, catalog/server/** e actions/**; src/lib/audit/**, abuse/**, env/**; src/db/**; drizzle/**; next.config.ts; scripts/**; .github/**; .gitleaks.toml/.semgrep.yml; manifest/lockfile. Um arquivo fora da lista também pode alterar confiança; a lista não dispensa revisão contextual.
+
+DB/migration exige revisar constraints, FKs/delete behavior, upgrade, preservação de dados e alterações destrutivas. Rollback automático de SQL não é presumido; defina recuperação/forward fix conforme mudança real e backups operacionais. Não executar migrations de teste sobre desenvolvimento/produção. CI/políticas podem eliminar um gate: comparar checks/permissions/triggers, pinnings e exceções com a base antes de aprovar.
+
+O autor registra classificação e evidência no PR. Revisor/maintainer explicita resultado e riscos; em projeto solo, checklist e revisão deliberada continuam obrigatórios, sem inventar segundo reviewer ou enforcement GitHub indisponível. Role admin da aplicação não dá permissão de alterar política de SDLC. Gate verde não substitui revisão nem autoriza exceção silenciosa. Consulte AGENTS.md → arquitetura → security-review; exemplos de scanner não substituem os invariantes.
