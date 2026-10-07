@@ -76,3 +76,7 @@ Classes podem se acumular. Paths críticos concretos: src/features/auth/**, cart
 DB/migration exige revisar constraints, FKs/delete behavior, upgrade, preservação de dados e alterações destrutivas. Rollback automático de SQL não é presumido; defina recuperação/forward fix conforme mudança real e backups operacionais. Não executar migrations de teste sobre desenvolvimento/produção. CI/políticas podem eliminar um gate: comparar checks/permissions/triggers, pinnings e exceções com a base antes de aprovar.
 
 O autor registra classificação e evidência no PR. Revisor/maintainer explicita resultado e riscos; em projeto solo, checklist e revisão deliberada continuam obrigatórios, sem inventar segundo reviewer ou enforcement GitHub indisponível. Role admin da aplicação não dá permissão de alterar política de SDLC. Gate verde não substitui revisão nem autoriza exceção silenciosa. Consulte AGENTS.md → arquitetura → security-review; exemplos de scanner não substituem os invariantes.
+
+## Pull Request (ECMSG-127)
+
+O template único .github/PULL_REQUEST_TEMPLATE.md pede mudança/motivo, evidências e classe de risco. O checklist curto cobre validação, autorização/ownership, valores críticos, concorrência/audit, DB/dependências, secrets, testes e documentos. Item inaplicável recebe N/A com justificativa, nunca check fictício. A revisão security-sensitive usa a seção anterior e security-review; findings/exceções ficam rastreáveis no PR sem incluir valores sensíveis. Não há vários templates ou skill duplicando esta política.
