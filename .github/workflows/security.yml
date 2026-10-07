@@ -1,0 +1,54 @@
+name: Secure SDLC
+
+on:
+  pull_request:
+  push:
+    branches: [main, epic-10-seguranca-do-sdlc]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdlc-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-security:
+    name: Quality and security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18.6
+        env:
+          POSTGRES_DB: guardian_bay_test
+          POSTGRES_USER: postgres
+          # Disposable service-only credential, never a deployment secret.
+          POSTGRES_PASSWORD: ci-local-only
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d guardian_bay_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:ci-local-only@127.0.0.1:5432/guardian_bay_test
+      SECURITY_BROWSER_PATH: /usr/bin/google-chrome
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 24.19.0
+          package-manager-cache: false
+      - name: Install frozen dependencies
+        run: npm ci
+      - name: Verify browser prerequisite
+        run: |
+          test -x "$SECURITY_BROWSER_PATH"
+          "$SECURITY_BROWSER_PATH" --version
+          openssl version
+      - name: Quality, PostgreSQL and real HTTP/browser
+        run: npm run ci
