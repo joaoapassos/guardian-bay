@@ -24,7 +24,8 @@
     "pretest:security:http": "node scripts/test-environment.mjs browser",
     "test:security:http": "node --test --test-concurrency=1 scripts/security-browser.test.mjs scripts/security-actions.test.mjs",
     "ci": "npm run check && npm run test:integration && npm run build && npm run test:security:http",
-    "db:check": "node scripts/check-migrations.mjs"
+    "db:check": "node scripts/check-migrations.mjs",
+    "security:dependencies": "node scripts/check-dependencies.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.1.24",

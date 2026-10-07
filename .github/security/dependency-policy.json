@@ -1,0 +1,13 @@
+{
+  "reviewBy": "2026-11-06",
+  "owner": "repository maintainer",
+  "advisory": "https://github.com/advisories/GHSA-67mh-4wv8-2f99",
+  "severity": "moderate",
+  "packages": {
+    "drizzle-kit": "0.31.11",
+    "@esbuild-kit/esm-loader": "2.6.5",
+    "@esbuild-kit/core-utils": "3.3.2",
+    "esbuild": "0.18.20"
+  },
+  "rationale": "Development-only Drizzle loader uses transform/transformSync; no consumer of the affected esbuild serve API. Do not expose development servers. Reassess tooling updates and any new serve consumer."
+}
