@@ -1,0 +1,2 @@
+# Isolated SDLC tooling only; never part of the application's npm/runtime graph.
+semgrep==1.140.0
