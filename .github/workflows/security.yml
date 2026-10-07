@@ -50,6 +50,10 @@ jobs:
           test -x "$SECURITY_BROWSER_PATH"
           "$SECURITY_BROWSER_PATH" --version
           openssl version
+      - name: Install verified security tools
+        run: npm run security:setup
+      - name: Secrets and sensitive indexed files
+        run: npm run security:secrets
       - name: Dependency security and triage
         run: npm run security:dependencies
       - name: Migrations and schema
