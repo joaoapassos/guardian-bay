@@ -86,7 +86,7 @@ try {
   const config = join(temporary, "drizzle.config.mjs");
   writeFileSync(
     config,
-    `export default ${JSON.stringify({ dialect: "postgresql", schema: join(root, "src/db/schema/**/*.ts"), out: "./drizzle" })};\n`,
+    `export default ${JSON.stringify({ dialect: "postgresql", schema: join(root, "src/db/schema/**/*.ts").replaceAll("\\", "/"), out: "./drizzle" })};\n`,
   );
   stage = "drizzle-check";
   run(["node_modules/drizzle-kit/bin.cjs", "check", `--config=${config}`]);

@@ -131,37 +131,130 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
             // Only this isolated test profile accepts its ephemeral local TLS cert.
             "--ignore-certificate-errors",
             "--remote-debugging-address=127.0.0.1",
-            "--remote-debugging-port=3110",
+            "--remote-debugging-port=0",
             `--user-data-dir=${profile}`,
             "about:blank",
           ],
-          { stdio: "ignore", windowsHide: true },
+          { stdio: ["ignore", "ignore", "pipe"], windowsHide: true },
         );
-        const browserClosed = once(browser, "close");
+        const browserClosed = new Promise((done) =>
+          browser.once("close", done),
+        );
+        let launchError;
+        browser.on("error", (error) => {
+          launchError = error.code || "unknown spawn error";
+        });
+        // Keep only the last 4 KiB; never expose URLs, credentials or control codes.
+        let browserStderr = Buffer.alloc(0);
+        browser.stderr.on("data", (chunk) => {
+          browserStderr = Buffer.from(
+            Buffer.concat([browserStderr, chunk]).subarray(-4096),
+          );
+        });
+        const diagnostic = (state) => {
+          const stderr = browserStderr
+            .toString("utf8")
+            .replace(
+              /\b(?:https?|wss?|postgres(?:ql)?):\/\/\S+/gi,
+              "[URL redacted]",
+            )
+            .replace(
+              /\b(?:Bearer\s+\S+|(?:password|token|cookie|secret|DATABASE_URL)\s*[=:]\s*\S+)/gi,
+              "[credential redacted]",
+            )
+            .split("")
+            .filter(
+              (character) =>
+                character === "\n" ||
+                character === "\t" ||
+                (character.charCodeAt(0) >= 32 &&
+                  character.charCodeAt(0) !== 127),
+            )
+            .join("");
+          return `state=${state}; exitCode=${browser.exitCode}; signal=${browser.signalCode}; spawnError=${launchError ?? "none"}; stderr=${stderr || "(empty)"}`;
+        };
         let socket;
         try {
-          let targets;
-          for (
-            let i = 0;
-            i < 50 && !targets && browser.exitCode === null;
-            i++
-          ) {
+          // Chromium writes the OS-selected CDP port into its isolated profile.
+          // One deadline covers profile creation, HTTP readiness and a usable page.
+          const deadline = Date.now() + 15_000;
+          let page;
+          let state = "waiting for DevToolsActivePort";
+          while (Date.now() < deadline && !page) {
+            if (
+              launchError ||
+              browser.exitCode !== null ||
+              browser.signalCode !== null
+            )
+              throw new Error(
+                `Chromium exited before DevTools became ready: ${diagnostic(state)}`,
+              );
             try {
-              targets = await (
-                await fetch("http://127.0.0.1:3110/json/list", {
-                  signal: AbortSignal.timeout(300),
-                })
-              ).json();
+              const port = readFileSync(
+                join(profile, "DevToolsActivePort"),
+                "utf8",
+              ).split(/\r?\n/)[0];
+              if (
+                !/^\d+$/.test(port) ||
+                Number(port) < 1 ||
+                Number(port) > 65535
+              ) {
+                state = "invalid DevToolsActivePort";
+              } else {
+                state = "waiting for /json/list";
+                const response = await fetch(
+                  `http://127.0.0.1:${port}/json/list`,
+                  {
+                    signal: AbortSignal.timeout(
+                      Math.max(1, Math.min(300, deadline - Date.now())),
+                    ),
+                  },
+                );
+                if (!response.ok) {
+                  state = `/json/list HTTP ${response.status}`;
+                } else {
+                  state = "invalid /json/list JSON";
+                  const targets = await response.json();
+                  state = Array.isArray(targets)
+                    ? "waiting for page target with WebSocket URL"
+                    : "invalid /json/list target array";
+                  if (Array.isArray(targets))
+                    page = targets.find(
+                      (target) =>
+                        target?.type === "page" &&
+                        typeof target.webSocketDebuggerUrl === "string" &&
+                        target.webSocketDebuggerUrl.trim().length > 0,
+                    );
+                }
+              }
             } catch {
-              await new Promise((done) => setTimeout(done, 100));
+              // Preserve the last readiness stage; transient startup errors are polled.
             }
+            if (!page)
+              await new Promise((done) =>
+                setTimeout(
+                  done,
+                  Math.max(0, Math.min(100, deadline - Date.now())),
+                ),
+              );
           }
-          assert.ok(targets);
-          socket = new WebSocket(
-            targets.find((target) => target.type === "page")
-              .webSocketDebuggerUrl,
-          );
-          await once(socket, "open", { signal: AbortSignal.timeout(5000) });
+          if (!page) {
+            const reason =
+              launchError ||
+              browser.exitCode !== null ||
+              browser.signalCode !== null
+                ? "Chromium exited before DevTools became ready"
+                : "Chromium DevTools readiness timed out after 15000ms";
+            throw new Error(`${reason}: ${diagnostic(state)}`);
+          }
+          try {
+            socket = new WebSocket(page.webSocketDebuggerUrl);
+            await once(socket, "open", { signal: AbortSignal.timeout(5000) });
+          } catch {
+            throw new Error(
+              `Chromium DevTools WebSocket connection failed: ${diagnostic("page target ready")}`,
+            );
+          }
           let nextId = 0;
           const pending = new Map();
           const exceptions = [];
