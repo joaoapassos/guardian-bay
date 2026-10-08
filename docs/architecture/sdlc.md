@@ -2,7 +2,7 @@
 
 ## Política (ECMSG-118)
 
-Fluxo: branch de feature/Epic → commits pequenos e gates locais → push → Pull Request → CI → revisão → merge. Preservar a sequência de commits exigida por cada Epic. Nunca implementar diretamente em main ou alterar a base aprovada. A política foi definida antes da automação; CI já foi introduzido na ECMSG-120 e reforçado nas Tasks seguintes.
+Fluxo: branch de feature/Epic → commits pequenos e gates locais → push → Pull Request → CI → revisão → merge. Preservar a sequência de commits exigida por cada Epic. Nunca implementar diretamente em main ou alterar a base aprovada.
 
 O autor explica problema, mudança, evidências e riscos; CI executa verificações reproduzíveis; revisor confere comportamento e limites de confiança; maintainer decide merge e exceções. Em projeto solo, a revisão explícita continua obrigatória, sem alegar independência de um segundo reviewer.
 
@@ -23,15 +23,17 @@ Exceção deve registrar finding/local, justificativa, risco, mitigação, respo
 
 ## Gates locais (ECMSG-119)
 
-`check` permanece lint/tipos/unitários e `verify` acrescenta build. `test:integration` exige banco local guardian_bay_test, sem fallback. `test:security` preserva unitários → PostgreSQL → build → HTTP/Chromium; agora browser ausente é falha antecipada, não sucesso com skip. `test:security:http` é a etapa concreta para reutilizar um build e banco preparados, não substitui sozinho o gate completo. CI pode compor check → integração → build → HTTP uma vez cada, sem executar verify e security completos repetidamente. Abra apenas uma suíte por banco, pois fixtures compartilham budgets de teste.
+`check` permanece lint/tipos/unitários e `verify` acrescenta build. `test:integration` exige banco local guardian_bay_test, sem fallback. `test:security` preserva unitários → PostgreSQL → build → HTTP/Chromium; browser ausente é falha antecipada. `test:security:http` é a etapa concreta para reutilizar um build e banco preparados, não substitui sozinho o gate completo. CI pode compor check → integração → build → HTTP uma vez cada, sem executar verify e security completos repetidamente. Abra apenas uma suíte por banco, pois fixtures compartilham budgets de teste.
 
 Pré-requisitos: Node 24, PostgreSQL 18, TEST_DATABASE_URL local exclusivo, SECURITY_BROWSER_PATH executável e OpenSSL para TLS temporário. Typegen/build geram apenas saídas ignoradas. Nenhum gate aplica autofix.
+
+O harness inicia Chromium/Chrome real com perfil temporário e porta CDP dinâmica, lê `DevToolsActivePort` e aguarda `/json/list` com target page e WebSocket utilizável, sob deadline único de 15 segundos. Encerramento antecipado ou timeout falham com estágio conhecido e últimos 4 KiB de stderr sanitizado; não há retry do gate nem relaxamento de runtime/CSP.
 
 ## CI base (ECMSG-120)
 
 `.github/workflows/security.yml` define Secure SDLC / Quality and security: PRs, push em main e nesta branch de bootstrap, além de execução manual. O push de bootstrap permite validar antes do primeiro PR; para futuras branches de feature basta o PR, evitando duplicação indiscriminada em todo push. Um job sequencial usa Ubuntu 24.04, Node 24.19.0 e PostgreSQL 18.6 isolado. `npm ci` respeita lockfile; `npm run ci` compõe check → integração → build → HTTP/browser uma vez cada. Chrome instalado na imagem do runner e OpenSSL são verificados, sem browser omitido. Google Fonts/registry exigem rede; versão do Chrome da imagem é variável, registrada na execução.
 
-Actions checkout v6.0.2 e setup-node v6.3.0 são fixadas por SHA verificado contra tags oficiais. Na base ECMSG-120, permissão global contents:read; a ECMSG-125 restringe global a vazio e leitura somente ao job; checkout não persiste credencial, sem cache de dependências/build, sem secrets privilegiados e sem pull_request_target. Credencial do service PostgreSQL é fictícia/efêmera, não de aplicação ou produção. Configuração versionada não comprova execução remota: o resultado do run deve ser observado antes de alegar CI verde.
+Actions checkout v6.0.2 e setup-node v6.3.0 são fixadas por SHA verificado contra tags oficiais. Permissão global vazia e contents:read somente no job; checkout não persiste credencial, sem cache de dependências/build, sem secrets privilegiados e sem pull_request_target. Credencial do service PostgreSQL é fictícia/efêmera, não de aplicação ou produção. Configuração versionada não comprova execução remota: o resultado do run deve ser observado antes de alegar CI verde.
 
 ## Migrations/schema (ECMSG-121)
 
@@ -55,13 +57,15 @@ O gate rejeita .env rastreado exceto template vazio, chaves/arquivos de credenci
 
 Semgrep 1.140.0, instalado em venv isolado com TLS preservado, executa regras AST locais revisadas para TS/React/Node: eval/Function, HTML bruto, hash fraco, shell command strings, Drizzle raw SQL, request → SQL/path/redirect e RNG em identificador sensível. Não baixa regras móveis do registry nem envia métricas/versão/código ao serviço Semgrep. `security:sast` exige versão/configuração/parsing válidos e arquivos realmente analisados; relatório sanitizado contém regra/local, não dump da fonte.
 
+A instalação das ferramentas SDLC suporta Linux x64, inclusive ambiente Linux local no Windows. Semgrep tem versão direta fixada, mas suas dependências transitivas pip não possuem hash lock. Isso permanece risco residual não bloqueante de supply chain e reprodutibilidade do SAST, separado das dependências de produção.
+
 O ganho em relação ao pattern-scanner complementar é parsing estrutural/taint local, não repetir todo alerta de template SQL parametrizado. Drizzle/Postgres.js tagged templates não são sinks raw. A criação/drop de DB temporário em db:check tem identificador server-generated com regex e conexão explicitamente de teste; não recebe input HTTP. Não há ignore global de SQL. Resultados são pending triage, classificados em confirmed, false positive, accepted risk ou tool limitation; Critical/High confirmado bloqueia. Nova exceção deve ser localizada, justificada e revisada; scanner sem alcance interprocedural completo não prova autorização ou ausência de vulnerabilidade. security-review permanece obrigatório nas mudanças de confiança.
 
 ## Segurança do workflow (ECMSG-125)
 
 Permissão global vazia; somente o job que faz checkout recebe contents:read. SHA pins oficiais, credenciais não persistidas, sem secrets/deployment/ID token, sem pull_request_target, sem execução shell de título/branch/body/commit. Expressões de concorrência não viram comandos. Runner hospedado efêmero, timeout explícito e shell bash com falha propagada; não há continue-on-error, || true ou exit 0 em gates bloqueantes. Nenhum artefato é publicado: DB, browser profile, .env e logs operacionais permanecem locais/temporários. Npm ci executa scripts de dependências necessárias no contexto sem privilégios; não elimina risco de supply chain.
 
-`ci:validate` executa actionlint 1.7.7 para sintaxe/contextos/expressões do GitHub Actions, complemento específico de workflow, não outro linter de aplicação. Binário tem versão e SHA256 do release verificados pelo mesmo instalador concreto de ferramentas. Findings de segurança exigem também revisão manual; actionlint não confirma privilégio mínimo por si. Primeiro run remoto da base foi observado com sucesso (37552751664); a revisão final deve observar novamente o HEAD completo. API indisponível não é ausência de Git authentication: a página pública de Actions fornece evidência de run. Branch protection não foi aplicada.
+`ci:validate` executa actionlint 1.7.7 para sintaxe/contextos/expressões do GitHub Actions, complemento específico de workflow, não outro linter de aplicação. Binário tem versão e SHA256 do release verificados pelo mesmo instalador concreto de ferramentas. Findings de segurança exigem também revisão manual; actionlint não confirma privilégio mínimo por si. A aprovação exige observar o resultado do CI para o SHA completo em revisão.
 
 ## Revisão de mudanças críticas (ECMSG-126)
 
@@ -85,7 +89,7 @@ O template único .github/PULL_REQUEST_TEMPLATE.md pede mudança/motivo, evidên
 
 `ci:integrity` confere manifest/lockfile, fontes npm HTTPS e integrity por pacote, diff de arquivos rastreados e ausência de outputs não ignorados. Em CI, também rejeita staging inesperado; localmente o índice pode conter a mudança intencional em revisão, mas alterações causadas pelo gate depois de staging falham. npm ci continua sendo a prova de instalação frozen; esta checagem não substitui sua validação da árvore. CI executa integridade ao final de todos os gates; outputs legítimos ficam em .next/.vitest/node_modules e outros caminhos já ignorados. db:check gera somente em cópia temporária e não corrige migrations.
 
-Branch protection de main: **recomendada/documentada, mas não aplicada/verificada nesta Epic**. Recomendar PR obrigatório, status check “Quality and security” obrigatório, force push e deletion bloqueados, branch atualizada quando o fluxo/plano permitir. Deve ser aplicada pelo maintainer nas configurações/rulesets e validada conforme o plano GitHub; documento/CI não fazem enforcement sozinhos. API administrativa não está acessível no ambiente; não alegar proteção configurada. Não criar CODEOWNERS fictício para projeto solo.
+Branch protection de main: **recomendada; sua configuração efetiva deve ser verificada operacionalmente**. Recomendar PR obrigatório, status check “Quality and security” obrigatório, force push e deletion bloqueados, branch atualizada quando o fluxo/plano permitir. Deve ser aplicada pelo maintainer nas configurações/rulesets e validada conforme o plano GitHub; documento/CI não fazem enforcement sozinhos. Não alegar proteção configurada sem verificar as regras efetivas. Não criar CODEOWNERS fictício para projeto solo.
 
 ## Vulnerabilidades e atualizações (ECMSG-129)
 
@@ -97,8 +101,8 @@ Atualização: identificar patch e pacote pai → ler changelog/breaking changes
 
 Registro herdado: quatro entradas Moderate de tooling em Drizzle Kit 0.31.11, esm-loader 2.6.5, core-utils 3.3.2 e esbuild 0.18.20, propagadas pelo advisory GHSA-67mh-4wv8-2f99 (serve do esbuild). Runtime/produção: zero no audit validado da base. Loader usa transform/transformSync, sem consumidor do serve afetado; não expor servidores de desenvolvimento. Accepted risk restrito, responsável repository maintainer, revisão até 2026-11-06, acompanhada por .github/security/dependency-policy.json. Atualização de tooling permanece pendência; devDependency não é dispensa automática. O peer opcional Vite/esbuild fora do intervalo continua limitação herdada; npm ci e gates atuais passam, sem override/autofix. Novos advisories ou mudança de consumidor exigem nova triagem.
 
-## Evidência final (ECMSG-130)
+## Validação dos controles (ECMSG-130)
 
-Nove mutantes temporários foram rejeitados por exit code não zero e evidência específica: assertion unitária, TS2322, noDebugger, drift, token sintético fora de exceções, eval AST, manifest/lockfile, alteração do tree e workflow inválido. Todos restaurados antes dos gates positivos; nenhum secret real ou mutante foi commitado. CI verde depende de run observado do SHA, não apenas YAML válido. Nenhum bypass/auto-fix foi usado e nenhum gate comercial foi enfraquecido. Branch protection permanece configuração operacional pendente; compromisso de conta/maintainer, pacote, runner/plataforma ou deployment continua risco residual.
+Negative testing deve cobrir assertion unitária, erro de tipos, lint, drift/schema, secret sintético, sink SAST inseguro, manifest/lockfile incompatível, alteração do tree pelo gate e workflow inválido. Aplicar um mutante temporário por vez, exigir falha específica do gate e restaurá-lo antes do próximo; nunca usar secret real ou commitar mutantes. Registrar a evidência no PR. CI verde depende de run observado do SHA, não apenas YAML válido; nenhum bypass/auto-fix ou enfraquecimento de assertions comprova aprovação.
 
-Triagem complementar do nextjs-security-scan na árvore rastreada: 28 alertas de secrets são fixtures sintéticas/atributo password de formulário/exemplo proibido da skill e credencial loopback efêmera de CI; nenhum secret real confirmado. Os 661 alertas Injection são templates SQL parametrizados, incluindo inserts de fixtures em DBs temporários; um alerta NextJS de allowedOrigins é recomendação genérica incompatível com a política same-origin e não justifica abrir origens. Classificação false positive/tool limitation, sem ignore global de SQL e sem pending não analisado. Gitleaks e Semgrep AST atuais retornam zero findings.
+Scanners complementares exigem triagem contextual: atributo password de formulário, fixtures sintéticas e credencial loopback efêmera não são, por si, secrets reais; tagged templates SQL parametrizados não são concatenação insegura. Recomendações genéricas de allowedOrigins não justificam abrir origens contra a política same-origin. Não criar ignores globais para essas categorias. Compromisso de conta/maintainer, pacote, runner/plataforma ou deployment continua risco residual.
