@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import { orderItems } from "@/db/schema/order-items";
+import { orderPayments } from "@/db/schema/order-payments";
 import { orders } from "@/db/schema/orders";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
 import { moneyDto } from "@/lib/money/price";
@@ -22,12 +23,15 @@ export async function adminOrderDetail(input: unknown) {
           createdAt: orders.createdAt,
           status: orders.status,
           total: orders.totalAmount,
+          paymentMethod: orderPayments.method,
+          paymentExpiresAt: orderPayments.expiresAt,
           productName: orderItems.productName,
           quantity: orderItems.quantity,
           unitAmount: orderItems.unitAmount,
           subtotal: orderItems.subtotalAmount,
         })
         .from(orders)
+        .leftJoin(orderPayments, eq(orderPayments.orderId, orders.id))
         .innerJoin(orderItems, eq(orderItems.orderId, orders.id))
         .where(eq(orders.id, parsed.data))
         .orderBy(orderItems.productId)
@@ -44,6 +48,12 @@ export async function adminOrderDetail(input: unknown) {
           createdAt: order.createdAt.toISOString(),
           status: order.status,
           total: moneyDto(order.total),
+          ...(order.paymentMethod
+            ? {
+                paymentMethod: order.paymentMethod,
+                paymentExpiresAt: order.paymentExpiresAt?.toISOString(),
+              }
+            : {}),
           items: rows.map((row) => ({
             productName: row.productName,
             quantity: row.quantity,

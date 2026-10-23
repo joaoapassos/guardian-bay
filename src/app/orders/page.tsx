@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { orderStatusLabel } from "@/features/orders/order-status";
+import {
+  orderStatusLabel,
+  paymentMethodLabel,
+} from "@/features/orders/order-status";
 import { orderHistory } from "@/features/orders/server/order-history";
 export default async function OrdersPage({
   searchParams,
@@ -32,6 +35,7 @@ export default async function OrdersPage({
                     </time>
                   </p>
                   <p>{orderStatusLabel(order.status)}</p>
+                  <p>{paymentMethodLabel(order.paymentMethod)}</p>
                   <p>Total: {order.total.formatted}</p>
                 </li>
               ))}

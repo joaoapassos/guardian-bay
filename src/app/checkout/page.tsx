@@ -26,7 +26,7 @@ export default async function CheckoutPage() {
         carrinho não reserva estoque nem congela preços.
       </p>
       <p className="mt-3">
-        Pagamento exclusivamente simulado, sem dados financeiros. Totais a
+        Pagamento exclusivamente simulado, sem movimentação financeira. Totais a
         partir de R$ 10.000,00 são recusados pela regra acadêmica.
       </p>
       {preview.success ? (

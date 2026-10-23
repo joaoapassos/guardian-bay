@@ -3,6 +3,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { getDb } from "@/db";
+import { orderPayments } from "@/db/schema/order-payments";
 import { orders } from "@/db/schema/orders";
 import { sessions } from "@/db/schema/sessions";
 import { sessionValidity, tokenHash } from "@/features/auth/server/session";
@@ -34,8 +35,10 @@ export async function orderHistory(input: unknown = {}) {
         createdAt: orders.createdAt,
         status: orders.status,
         amount: orders.totalAmount,
+        paymentMethod: orderPayments.method,
       })
       .from(orders)
+      .leftJoin(orderPayments, eq(orderPayments.orderId, orders.id))
       .innerJoin(sessions, eq(orders.userId, sessions.userId))
       .where(
         and(
@@ -56,6 +59,7 @@ export async function orderHistory(input: unknown = {}) {
         createdAt: row.createdAt.toISOString(),
         status: row.status,
         total: moneyDto(row.amount),
+        ...(row.paymentMethod ? { paymentMethod: row.paymentMethod } : {}),
       })),
     };
   } catch {

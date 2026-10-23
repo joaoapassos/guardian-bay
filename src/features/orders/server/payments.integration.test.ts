@@ -8,6 +8,8 @@ import { hashPassword } from "@/features/auth/server/password";
 import { createSession } from "@/features/auth/server/session";
 import { confirmPayment } from "./confirm-payment";
 import { createOrder } from "./create-order";
+import { orderHistory } from "./order-history";
+import { readPayment } from "./read-payment";
 import { readTestCards, removeTestCard, saveTestCard } from "./test-cards";
 
 vi.mock("server-only", () => ({}));
@@ -167,7 +169,15 @@ it("payments: persists pending intent, denies early approval and concurrent retr
 });
 it("payments: BOLA, expiration and insufficient stock are decided by the server", async () => {
   const { orderId } = await pending("BOLETO");
+  expect(await readPayment(orderId)).toMatchObject({
+    method: "BOLETO",
+    status: "PENDING",
+    cardLast4: null,
+  });
+  const history = await orderHistory();
+  expect(history.success && history.orders[0].paymentMethod).toBe("BOLETO");
   request.token = (await createSession(otherId)).token;
+  expect(await readPayment(orderId)).toBeNull();
   expect(await confirmPayment({ orderId })).toEqual({
     success: false,
     code: "NOT_FOUND",

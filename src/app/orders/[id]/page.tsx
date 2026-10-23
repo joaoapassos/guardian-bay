@@ -3,7 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { BoletoPayment } from "@/features/orders/components/boleto-payment";
 import { PaymentControls } from "@/features/orders/components/payment-controls";
 import { PixPayment } from "@/features/orders/components/pix-payment";
-import { orderStatusLabel } from "@/features/orders/order-status";
+import {
+  orderStatusLabel,
+  paymentMethodLabel,
+} from "@/features/orders/order-status";
 import { orderDetail } from "@/features/orders/server/order-detail";
 import { readPayment } from "@/features/orders/server/read-payment";
 export default async function OrderDetailPage({
@@ -22,6 +25,10 @@ export default async function OrderDetailPage({
       <h1 className="mb-6 text-3xl font-semibold">Pedido {order.orderId}</h1>
       <p>{orderStatusLabel(order.status)}</p>
       <p>
+        {paymentMethodLabel(payment?.method)}
+        {payment?.cardLast4 ? ` •••• ${payment.cardLast4}` : ""}
+      </p>
+      <p>
         <time dateTime={order.createdAt}>
           {new Date(order.createdAt).toLocaleString("pt-BR", {
             timeZone: "UTC",
@@ -35,8 +42,15 @@ export default async function OrderDetailPage({
       </p>
       {order.status === "PAYMENT_FAILED" && (
         <p role="alert">
-          Pagamento simulado recusado. Seu carrinho foi preservado. Corrija-o e
-          inicie uma nova confirmação.
+          {payment?.method === "PIX" || payment?.method === "BOLETO"
+            ? "Pagamento simulado não aprovado por valor ou indisponibilidade. Os itens já foram convertidos em pedido; monte um novo carrinho se desejar tentar novamente."
+            : "Pagamento simulado recusado. Seu carrinho foi preservado. Corrija-o e inicie uma nova confirmação."}
+        </p>
+      )}
+      {order.status === "PAYMENT_EXPIRED" && (
+        <p role="alert">
+          Prazo encerrado. Nenhum pagamento foi realizado. Para tentar
+          novamente, monte um novo carrinho e crie outro pedido.
         </p>
       )}
       <ul className="mt-6 grid gap-4">

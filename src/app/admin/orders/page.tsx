@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { orderStatusLabel } from "@/features/orders/order-status";
+import {
+  orderStatusLabel,
+  paymentMethodLabel,
+} from "@/features/orders/order-status";
 import { adminOrderList } from "@/features/orders/server/admin-order-list";
 export default async function AdminOrdersPage({
   searchParams,
@@ -32,6 +35,7 @@ export default async function AdminOrdersPage({
             <option value="PAID">Aprovado</option>
             <option value="PAYMENT_FAILED">Recusado</option>
             <option value="PENDING_PAYMENT">Pendente</option>
+            <option value="PAYMENT_EXPIRED">Expirado</option>
           </select>
         </label>
         <label>
@@ -82,6 +86,7 @@ export default async function AdminOrdersPage({
                 </time>
               </p>
               <p>{orderStatusLabel(order.status)}</p>
+              <p>{paymentMethodLabel(order.paymentMethod)}</p>
               <p>Total: {order.total.formatted}</p>
             </li>
           ))}

@@ -3,5 +3,17 @@ export function orderStatusLabel(status: string) {
     ? "Pagamento simulado aprovado"
     : status === "PAYMENT_FAILED"
       ? "Pagamento simulado recusado"
-      : "Pagamento pendente";
+      : status === "PAYMENT_EXPIRED"
+        ? "Pagamento simulado expirado"
+        : "Pagamento pendente";
+}
+
+export function paymentMethodLabel(method?: string) {
+  return method === "CARD"
+    ? "Cartão fictício"
+    : method === "PIX"
+      ? "Pix fictício"
+      : method === "BOLETO"
+        ? "Boleto fictício"
+        : "Simulação legada";
 }

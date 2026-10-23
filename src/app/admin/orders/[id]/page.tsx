@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { orderStatusLabel } from "@/features/orders/order-status";
+import {
+  orderStatusLabel,
+  paymentMethodLabel,
+} from "@/features/orders/order-status";
 import { adminOrderDetail } from "@/features/orders/server/admin-order-detail";
 export default async function AdminOrderDetailPage({
   params,
@@ -15,6 +18,18 @@ export default async function AdminOrderDetailPage({
     <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
       <h1 className="mb-6 text-3xl font-semibold">Pedido {order.orderId}</h1>
       <p>{orderStatusLabel(order.status)}</p>
+      <p>{paymentMethodLabel(order.paymentMethod)}</p>
+      {order.paymentExpiresAt && (
+        <p>
+          Prazo da simulação:{" "}
+          <time dateTime={order.paymentExpiresAt}>
+            {new Date(order.paymentExpiresAt).toLocaleString("pt-BR", {
+              timeZone: "America/Sao_Paulo",
+            })}{" "}
+            (Brasília)
+          </time>
+        </p>
+      )}
       <p>
         <time dateTime={order.createdAt}>
           {new Date(order.createdAt).toLocaleString("pt-BR", {

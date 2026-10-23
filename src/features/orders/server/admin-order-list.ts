@@ -1,6 +1,7 @@
 import "server-only";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
+import { orderPayments } from "@/db/schema/order-payments";
 import { orders } from "@/db/schema/orders";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
 import { moneyDto } from "@/lib/money/price";
@@ -22,8 +23,10 @@ export async function adminOrderList(input: unknown = {}) {
           createdAt: orders.createdAt,
           status: orders.status,
           amount: orders.totalAmount,
+          paymentMethod: orderPayments.method,
         })
         .from(orders)
+        .leftJoin(orderPayments, eq(orderPayments.orderId, orders.id))
         .where(
           and(
             query.data.status
@@ -46,6 +49,7 @@ export async function adminOrderList(input: unknown = {}) {
           createdAt: row.createdAt.toISOString(),
           status: row.status,
           total: moneyDto(row.amount),
+          ...(row.paymentMethod ? { paymentMethod: row.paymentMethod } : {}),
         })),
       };
     });

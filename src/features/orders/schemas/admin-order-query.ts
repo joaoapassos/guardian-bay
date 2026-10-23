@@ -6,7 +6,7 @@ const positive = z
   .transform(Number);
 export const adminOrderQuerySchema = z.strictObject({
   status: z
-    .enum(["", "PENDING_PAYMENT", "PAID", "PAYMENT_FAILED"])
+    .enum(["", "PENDING_PAYMENT", "PAID", "PAYMENT_FAILED", "PAYMENT_EXPIRED"])
     .optional()
     .default(""),
   orderId: z
