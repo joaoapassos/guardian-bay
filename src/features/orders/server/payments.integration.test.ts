@@ -237,3 +237,40 @@ it("payments: expiration while audit is blocked rolls back approval, stock and a
     status: "PAYMENT_EXPIRED",
   });
 });
+it("card checkout: owner and expiry are checked, masked payment survives removal and replay", async () => {
+  await saveTestCard(card);
+  const [saved] = await readTestCards();
+  request.token = (await createSession(otherId)).token;
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${otherId},${productId},1)`;
+  expect(
+    await createOrder({
+      checkoutKey: randomUUID(),
+      payment: { method: "CARD", cardId: saved.id },
+    }),
+  ).toEqual({ success: false, code: "INVALID_CARD" });
+  request.token = token;
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},1)`;
+  const input = {
+    checkoutKey: randomUUID(),
+    payment: { method: "CARD", cardId: saved.id },
+  };
+  const result = await createOrder(input);
+  expect(result).toMatchObject({ success: true, status: "PAID" });
+  if (!result.success) throw new Error("Order failed");
+  const [payment] =
+    await client`SELECT method,status,card_last4 FROM order_payments WHERE order_id=${result.orderId}`;
+  expect(payment).toEqual({
+    method: "CARD",
+    status: "APPROVED",
+    card_last4: "0001",
+  });
+  await removeTestCard({ cardId: saved.id });
+  expect(await createOrder(input)).toEqual(result);
+  expect(
+    await client`SELECT * FROM order_payments WHERE order_id=${result.orderId}`,
+  ).toHaveLength(1);
+  expect(await createOrder({ ...input, checkoutKey: randomUUID() })).toEqual({
+    success: false,
+    code: "INVALID_CARD",
+  });
+});

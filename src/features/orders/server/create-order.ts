@@ -8,6 +8,7 @@ import { orderItems } from "@/db/schema/order-items";
 import { orderPayments } from "@/db/schema/order-payments";
 import { orders } from "@/db/schema/orders";
 import { products } from "@/db/schema/products";
+import { savedTestCards } from "@/db/schema/saved-test-cards";
 import { sessions } from "@/db/schema/sessions";
 import { users } from "@/db/schema/users";
 import { tokenHash } from "@/features/auth/server/session";
@@ -86,6 +87,23 @@ export async function createOrder(input: unknown) {
             ).length
           )
             throw expired;
+          let cardLast4: string | null = null;
+          if (parsed.data.payment?.method === "CARD") {
+            const [card] = await tx
+              .select({ last4: savedTestCards.last4 })
+              .from(savedTestCards)
+              .where(
+                and(
+                  eq(savedTestCards.id, parsed.data.payment.cardId),
+                  eq(savedTestCards.userId, user.id),
+                  sql`(${savedTestCards.expiryYear} * 12 + ${savedTestCards.expiryMonth}) >= (extract(year from clock_timestamp() at time zone 'UTC')::int * 12 + extract(month from clock_timestamp() at time zone 'UTC')::int)`,
+                ),
+              )
+              .for("update");
+            if (!card)
+              return { success: false as const, code: "INVALID_CARD" as const };
+            cardLast4 = card.last4;
+          }
           const items = await tx
             .select({
               productId: cartItems.productId,
@@ -179,18 +197,28 @@ export async function createOrder(input: unknown) {
             ).length
           )
             throw expired;
-          const status = parsed.data.payment
-            ? "PENDING_PAYMENT"
-            : simulatePayment({
-                status: order.status,
-                totalAmount: checked.snapshot.total.amount,
-              });
+          const status =
+            parsed.data.payment && parsed.data.payment.method !== "CARD"
+              ? "PENDING_PAYMENT"
+              : simulatePayment({
+                  status: order.status,
+                  totalAmount: checked.snapshot.total.amount,
+                });
           if (parsed.data.payment) {
             const pix = parsed.data.payment.method === "PIX";
             await tx.insert(orderPayments).values({
               orderId: order.orderId,
               method: parsed.data.payment.method,
-              approvableAt: sql`clock_timestamp() + ${pix ? 30 : 60} * interval '1 second'`,
+              status:
+                status === "PENDING_PAYMENT"
+                  ? "PENDING"
+                  : status === "PAID"
+                    ? "APPROVED"
+                    : "DECLINED",
+              cardLast4,
+              completedAt:
+                status === "PENDING_PAYMENT" ? null : sql`clock_timestamp()`,
+              approvableAt: sql`clock_timestamp() + ${parsed.data.payment.method === "CARD" ? 0 : pix ? 30 : 60} * interval '1 second'`,
               expiresAt: sql`clock_timestamp() + ${pix ? 600 : 86400} * interval '1 second'`,
             });
           }

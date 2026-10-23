@@ -3,13 +3,16 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { readCart } from "@/features/cart/server/read-cart";
 import { CheckoutConfirmation } from "@/features/orders/components/checkout-confirmation";
+import { TestCardForm } from "@/features/orders/components/test-card-form";
 import { checkoutPreview } from "@/features/orders/server/checkout-preview";
+import { readTestCards } from "@/features/orders/server/test-cards";
 import { moneyDto } from "@/lib/money/price";
 
 export default async function CheckoutPage() {
   const preview = await checkoutPreview();
   if (!preview.success && preview.code === "UNAUTHENTICATED")
     redirect("/login");
+  const cards = preview.success ? await readTestCards() : [];
   const cart =
     !preview.success &&
     (preview.code === "UNAVAILABLE" || preview.code === "OUT_OF_STOCK")
@@ -41,7 +44,8 @@ export default async function CheckoutPage() {
           <p className="mt-6 font-semibold">
             Total: {preview.snapshot.total.formatted}
           </p>
-          <CheckoutConfirmation checkoutKey={randomUUID()} />
+          <CheckoutConfirmation checkoutKey={randomUUID()} cards={cards} />
+          <TestCardForm />
         </>
       ) : (
         <>
