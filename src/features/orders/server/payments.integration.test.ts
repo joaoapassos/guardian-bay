@@ -6,6 +6,8 @@ import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { getDb } from "@/db";
 import { hashPassword } from "@/features/auth/server/password";
 import { createSession } from "@/features/auth/server/session";
+import { confirmPayment } from "./confirm-payment";
+import { createOrder } from "./create-order";
 import { readTestCards, removeTestCard, saveTestCard } from "./test-cards";
 
 vi.mock("server-only", () => ({}));
@@ -26,6 +28,8 @@ const client = postgres(value, { max: 1, onnotice: () => {} });
 let userId: string;
 let otherId: string;
 let token: string;
+let productId: string;
+let categoryId: string;
 beforeAll(async () => {
   vi.stubEnv("DATABASE_URL", value);
   await migrate(drizzle(client), { migrationsFolder: "drizzle" });
@@ -33,21 +37,52 @@ beforeAll(async () => {
   const rows =
     await client`INSERT INTO users(email,password_hash) VALUES (${`${randomUUID()}@payment.example.test`},${hash}),(${`${randomUUID()}@payment.example.test`},${hash}) RETURNING id`;
   [userId, otherId] = rows.map((row) => row.id);
+  const [category] =
+    await client`INSERT INTO categories(name) VALUES (${`Payments ${randomUUID()}`}) RETURNING id`;
+  categoryId = category.id;
+  const [product] =
+    await client`INSERT INTO products(name,category_id,amount,is_published) VALUES ('Payment fixture',${categoryId},1099,true) RETURNING id`;
+  productId = product.id;
+  await client`INSERT INTO inventory(product_id,available_quantity) VALUES (${productId},10)`;
 });
 beforeEach(async () => {
+  await cleanupOrders();
+  await client`UPDATE inventory SET available_quantity=10,revision=1 WHERE product_id=${productId}`;
+  await client`UPDATE products SET amount=1099,is_published=true WHERE id=${productId}`;
   await client`DELETE FROM saved_test_cards WHERE user_id IN (${userId},${otherId})`;
   await client`DELETE FROM abuse_budgets WHERE user_id IN (${userId},${otherId})`;
   token = (await createSession(userId)).token;
   request.token = token;
 });
 afterAll(async () => {
+  await cleanupOrders();
   await client`DELETE FROM saved_test_cards WHERE user_id IN (${userId},${otherId})`;
   await client`DELETE FROM abuse_budgets WHERE user_id IN (${userId},${otherId})`;
   await client`DELETE FROM users WHERE id IN (${userId},${otherId})`;
+  await client`DELETE FROM inventory WHERE product_id=${productId}`;
+  await client`DELETE FROM products WHERE id=${productId}`;
+  await client`DELETE FROM categories WHERE id=${categoryId}`;
   await client.end();
   await getDb().$client.end();
   vi.unstubAllEnvs();
 });
+async function cleanupOrders() {
+  await client`DELETE FROM audit_events WHERE actor_user_id IN (${userId},${otherId})`;
+  await client`DELETE FROM order_payments WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (${userId},${otherId}))`;
+  await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (${userId},${otherId}))`;
+  await client`DELETE FROM orders WHERE user_id IN (${userId},${otherId})`;
+  await client`DELETE FROM cart_items WHERE user_id IN (${userId},${otherId})`;
+}
+async function pending(method: "PIX" | "BOLETO" = "PIX") {
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2)`;
+  const input = { checkoutKey: randomUUID(), payment: { method } };
+  const result = await createOrder(input);
+  if (!result.success) throw new Error("Order fixture failed");
+  return { input, orderId: result.orderId };
+}
+async function ready(orderId: string) {
+  await client`UPDATE order_payments SET created_at=clock_timestamp()-interval '2 minutes', approvable_at=clock_timestamp()-interval '1 second' WHERE order_id=${orderId}`;
+}
 const card = { fixtureId: "test-1", expiryMonth: 12, expiryYear: 2099 };
 it("cards: deduplicates concurrent registrations and exposes only masked DTOs", async () => {
   const results = await Promise.all([saveTestCard(card), saveTestCard(card)]);
@@ -90,5 +125,115 @@ it("cards: PostgreSQL constraints reject arbitrary metadata and budget caps muta
   expect(await saveTestCard(card)).toEqual({
     success: false,
     code: "RATE_LIMITED",
+  });
+});
+it("payments: persists pending intent, denies early approval and concurrent retries consume once", async () => {
+  const { input, orderId } = await pending();
+  expect(await createOrder(input)).toEqual({
+    success: true,
+    orderId,
+    status: "PENDING_PAYMENT",
+  });
+  expect(await confirmPayment({ orderId })).toEqual({
+    success: false,
+    code: "NOT_READY",
+  });
+  const [before] =
+    await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`;
+  expect(before.available_quantity).toBe(10);
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},1)`;
+  await client`UPDATE products SET amount=999999 WHERE id=${productId}`;
+  await ready(orderId);
+  const results = await Promise.all([
+    confirmPayment({ orderId }),
+    confirmPayment({ orderId }),
+  ]);
+  expect(results).toEqual([
+    { success: true, status: "PAID" },
+    { success: true, status: "PAID" },
+  ]);
+  const [after] =
+    await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`;
+  expect(after.available_quantity).toBe(8);
+  expect(
+    await client`SELECT * FROM cart_items WHERE user_id=${userId}`,
+  ).toHaveLength(1);
+  const [order] =
+    await client`SELECT total_amount FROM orders WHERE id=${orderId}`;
+  expect(Number(order.total_amount)).toBe(2198);
+  expect(
+    await client`SELECT * FROM audit_events WHERE target_id=${orderId} AND event_type='order.completed'`,
+  ).toHaveLength(1);
+});
+it("payments: BOLA, expiration and insufficient stock are decided by the server", async () => {
+  const { orderId } = await pending("BOLETO");
+  request.token = (await createSession(otherId)).token;
+  expect(await confirmPayment({ orderId })).toEqual({
+    success: false,
+    code: "NOT_FOUND",
+  });
+  request.token = token;
+  await client`UPDATE order_payments SET created_at=clock_timestamp()-interval '2 days', approvable_at=clock_timestamp()-interval '1 day', expires_at=clock_timestamp()-interval '1 second' WHERE order_id=${orderId}`;
+  expect(await confirmPayment({ orderId })).toEqual({
+    success: true,
+    status: "PAYMENT_EXPIRED",
+  });
+  expect(await confirmPayment({ orderId })).toEqual({
+    success: true,
+    status: "PAYMENT_EXPIRED",
+  });
+  const next = await pending();
+  await ready(next.orderId);
+  await client`UPDATE inventory SET available_quantity=1 WHERE product_id=${productId}`;
+  expect(await confirmPayment({ orderId: next.orderId })).toEqual({
+    success: true,
+    status: "PAYMENT_FAILED",
+  });
+  const [stock] =
+    await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`;
+  expect(stock.available_quantity).toBe(1);
+});
+it("payments: expiration while audit is blocked rolls back approval, stock and audit", async () => {
+  const { orderId } = await pending();
+  await ready(orderId);
+  await client`UPDATE order_payments SET expires_at=clock_timestamp()+interval '2 seconds' WHERE order_id=${orderId}`;
+  const blocker = postgres(value, { max: 1, onnotice: () => {} });
+  await blocker`BEGIN`;
+  await blocker`LOCK TABLE audit_events IN EXCLUSIVE MODE`;
+  const outcome = confirmPayment({ orderId }).then(
+    () => "unexpected-success",
+    () => "rolled-back",
+  );
+  try {
+    let waiting = false;
+    for (let i = 0; i < 100; i++) {
+      const [state] =
+        await client`SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE '%insert into "audit_events"%') AS waiting`;
+      if (state.waiting) {
+        waiting = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(waiting).toBe(true);
+    await client`SELECT pg_sleep(2.1)`;
+  } finally {
+    await blocker`ROLLBACK`;
+    await blocker.end();
+  }
+  expect(await outcome).toBe("rolled-back");
+  const [state] =
+    await client`SELECT o.status,p.status AS payment_status,i.available_quantity FROM orders o JOIN order_payments p ON p.order_id=o.id CROSS JOIN inventory i WHERE o.id=${orderId} AND i.product_id=${productId}`;
+  expect(state).toMatchObject({
+    status: "PENDING_PAYMENT",
+    payment_status: "PENDING",
+    available_quantity: 10,
+  });
+  expect(
+    await client`SELECT * FROM audit_events WHERE target_id=${orderId}`,
+  ).toHaveLength(0);
+  expect(await confirmPayment({ orderId })).toEqual({
+    success: true,
+    status: "PAYMENT_EXPIRED",
   });
 });

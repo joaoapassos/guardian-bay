@@ -5,6 +5,7 @@ import { getDb } from "@/db";
 import { cartItems } from "@/db/schema/cart-items";
 import { inventory } from "@/db/schema/inventory";
 import { orderItems } from "@/db/schema/order-items";
+import { orderPayments } from "@/db/schema/order-payments";
 import { orders } from "@/db/schema/orders";
 import { products } from "@/db/schema/products";
 import { sessions } from "@/db/schema/sessions";
@@ -178,10 +179,21 @@ export async function createOrder(input: unknown) {
             ).length
           )
             throw expired;
-          const status = simulatePayment({
-            status: order.status,
-            totalAmount: checked.snapshot.total.amount,
-          });
+          const status = parsed.data.payment
+            ? "PENDING_PAYMENT"
+            : simulatePayment({
+                status: order.status,
+                totalAmount: checked.snapshot.total.amount,
+              });
+          if (parsed.data.payment) {
+            const pix = parsed.data.payment.method === "PIX";
+            await tx.insert(orderPayments).values({
+              orderId: order.orderId,
+              method: parsed.data.payment.method,
+              approvableAt: sql`clock_timestamp() + ${pix ? 30 : 60} * interval '1 second'`,
+              expiresAt: sql`clock_timestamp() + ${pix ? 600 : 86400} * interval '1 second'`,
+            });
+          }
           await tx
             .update(orders)
             .set({ status })
@@ -210,7 +222,9 @@ export async function createOrder(input: unknown) {
                 .returning({ productId: inventory.productId });
               if (!changed.length) throw inventoryConflict;
             }
-            // Identity lock serializes cart mutations; delete only snapshot products.
+          }
+          if (status === "PAID" || status === "PENDING_PAYMENT") {
+            // Pending asynchronous orders convert the cart now, never on later confirmation.
             await tx.delete(cartItems).where(
               and(
                 eq(cartItems.userId, user.id),
@@ -231,13 +245,14 @@ export async function createOrder(input: unknown) {
             ).length
           )
             throw expired;
-          await writeAuditEvent(tx, {
-            eventType: "order.completed",
-            outcome: status === "PAID" ? "SUCCESS" : "FAILED",
-            actorUserId: user.id,
-            targetType: "order",
-            targetId: order.orderId,
-          });
+          if (status !== "PENDING_PAYMENT")
+            await writeAuditEvent(tx, {
+              eventType: "order.completed",
+              outcome: status === "PAID" ? "SUCCESS" : "FAILED",
+              actorUserId: user.id,
+              targetType: "order",
+              targetId: order.orderId,
+            });
           return { success: true as const, orderId: order.orderId, status };
         })
         .catch((error) => {
