@@ -6,6 +6,8 @@ Este documento registra as decisões aprovadas. As seções de revisão de Epics
 
 O [threat model](threat-model.md) identifica atores, ativos, entradas externas, trust boundaries e ameaças dos fluxos existentes.
 
+O [contrato de pagamentos da Epic 11](payments.md) define a evolução para cartões fictícios, Pix e boleto simulados; prevalece sobre as descrições históricas de checkout síncrono abaixo para os novos métodos.
+
 ## Modelo do pedido e checkout (ECMSG-66)
 
 Pedido pertence ao usuário da sessão, nunca a userId externo. Checkout consome somente uma chave UUID de intenção, gerada no servidor para a confirmação e validada como identificador sem autoridade. UNIQUE(userId, checkoutKey) garante no máximo um pedido por intenção, incluindo double submit/retry; chave igual de outro usuário é independente. Nova intenção usa nova chave.
