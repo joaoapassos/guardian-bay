@@ -27,6 +27,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Use Drizzle de forma parametrizada, evite SQL inseguro e considere concorrência e integridade em operações críticas.
 - Biome é formatter, linter principal e quality gate; prefira seus recursos para enforcement de boundaries quando possível. Não introduza ESLint ou configuração extensa sem necessidade da Task.
 
+## Orquestração do Codex
+
+- Preserve `Sistema → Epic → Tasks → Task atual → Implementação → Validação`. O agente principal entende o escopo, decide delegação, consolida resultados e valida; não avance para outra Task.
+- Execute Tasks simples no principal. Delegue apenas uma pergunta delimitada cujo custo de contexto seja justificado pela complexidade, risco ou trabalho independente. Não delegue por rotina nem duplique investigações.
+- Reutilize `explorer` nativo para localização/padrões e `worker` nativo para implementação delimitada. Arquitetura fica no principal com a Skill `architecture`; delegue análise complexa ao agente nativo geral apenas quando necessário. Use `reviewer` de `.codex/agents/` para revisão independente de segurança/regressões quando o risco justificar, sem dispensar revisões obrigatórias nas demais alterações.
+- Envie objetivo, arquivos relevantes, restrições e resultado esperado; evite histórico completo, dumps e logs extensos. Subagentes não criam outros subagentes por padrão e retornam conclusões, referências, riscos e checks/limitações de forma compacta.
+- Para exploração e trabalho previsível, prefira `gpt-6-luna` com esforço `low` ou `medium` se disponível no catálogo/conta; caso contrário, herde o modelo disponível. Use esforço `high` apenas para análise complexa ou segurança crítica, inclusive ao chamar `reviewer`; os padrões nativos de modelo/esforço não são redefinidos pelo projeto.
+- O limite local é dois subagentes simultâneos, não uma meta. Paralelize somente atividades independentes com benefício concreto; atribua arquivos exclusivos a cada escritor e revise após estabilizar o diff. Nunca permita edições simultâneas nos mesmos arquivos.
+- Reutilize Skills e instruções existentes sob demanda, sem copiá-las para prompts. Execute checks proporcionais à mudança e relate evidências; redução de tokens ou latência exige medição.
+
 ## Skills do projeto
 
 Workflows complementares em `.agents/skills/<skill>/SKILL.md`:
