@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { BoletoPayment } from "@/features/orders/components/boleto-payment";
 import { PaymentControls } from "@/features/orders/components/payment-controls";
 import { PixPayment } from "@/features/orders/components/pix-payment";
 import { orderStatusLabel } from "@/features/orders/order-status";
@@ -53,6 +54,14 @@ export default async function OrderDetailPage({
       </ul>
       <p className="mt-6 font-semibold">Total: {order.total.formatted}</p>
       {payment?.method === "PIX" && <PixPayment reference={payment.id} />}
+      {payment?.method === "BOLETO" && (
+        <BoletoPayment
+          reference={payment.id}
+          orderId={order.orderId}
+          total={order.total.formatted}
+          expiresAt={payment.expiresAt}
+        />
+      )}
       {payment?.status === "PENDING" && (
         <PaymentControls
           key={`${payment.id}-${payment.serverNow}`}
