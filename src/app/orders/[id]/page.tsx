@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { PaymentControls } from "@/features/orders/components/payment-controls";
+import { PixPayment } from "@/features/orders/components/pix-payment";
 import { orderStatusLabel } from "@/features/orders/order-status";
 import { orderDetail } from "@/features/orders/server/order-detail";
+import { readPayment } from "@/features/orders/server/read-payment";
 export default async function OrderDetailPage({
   params,
 }: PageProps<"/orders/[id]">) {
@@ -12,6 +15,7 @@ export default async function OrderDetailPage({
     notFound();
   }
   const order = result.order;
+  const payment = await readPayment(order.orderId);
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
       <h1 className="mb-6 text-3xl font-semibold">Pedido {order.orderId}</h1>
@@ -48,6 +52,16 @@ export default async function OrderDetailPage({
         ))}
       </ul>
       <p className="mt-6 font-semibold">Total: {order.total.formatted}</p>
+      {payment?.method === "PIX" && <PixPayment reference={payment.id} />}
+      {payment?.status === "PENDING" && (
+        <PaymentControls
+          key={`${payment.id}-${payment.serverNow}`}
+          orderId={order.orderId}
+          approvableAt={payment.approvableAt}
+          expiresAt={payment.expiresAt}
+          serverNow={payment.serverNow}
+        />
+      )}
       <Link href="/orders" className="mt-6 block underline">
         Histórico de pedidos
       </Link>
