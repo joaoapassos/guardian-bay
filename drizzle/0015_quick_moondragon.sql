@@ -1,0 +1,4 @@
+ALTER TABLE "abuse_budgets" DROP CONSTRAINT "abuse_operation";--> statement-breakpoint
+ALTER TABLE "abuse_budgets" DROP CONSTRAINT "abuse_attempts";--> statement-breakpoint
+ALTER TABLE "abuse_budgets" ADD CONSTRAINT "abuse_operation" CHECK ("abuse_budgets"."operation" IN ('checkout','admin.catalog','admin.inventory','payment.cards','payment.confirm'));--> statement-breakpoint
+ALTER TABLE "abuse_budgets" ADD CONSTRAINT "abuse_attempts" CHECK ("abuse_budgets"."attempts" BETWEEN 1 AND CASE "abuse_budgets"."operation" WHEN 'checkout' THEN 5 WHEN 'payment.cards' THEN 10 WHEN 'payment.confirm' THEN 20 ELSE 30 END);
