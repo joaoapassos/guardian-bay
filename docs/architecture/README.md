@@ -79,7 +79,7 @@ Features futuras podem ser `auth`, `catalog`, `cart`, `checkout` e `orders`. Cad
 
 `lib/money/` é transversal a catálogo, carrinho, checkout e pedidos. Já `get-cart-total.ts` pertence ao domínio do carrinho e fica na feature, não em `lib`. A mesma lógica vale para hooks: `features/cart/hooks/use-cart-drawer.ts` é específico.
 
-## Diretórios e convenções (ECMSG-14)
+## Diretórios e convenções
 
 Esta seção complementa as responsabilidades e o mapa de dependências acima; não cria outra arquitetura. Atualmente, os arquivos versionados de aplicação estão somente em `src/app`. Não há schemas Zod, Drizzle, Actions, handlers ou módulos `server-only` a migrar. Os exemplos abaixo são destinos para código futuro, não diretórios a criar antecipadamente.
 
