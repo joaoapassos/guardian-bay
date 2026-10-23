@@ -2,11 +2,11 @@
 
 Sistema: E-commerce seguro · Fundação, segurança base, identidade/acesso, catálogo, carrinho, checkout, pedidos, estoque, backoffice, auditoria, proteção contra abuso e SDLC seguro.
 
-Este documento registra as decisões aprovadas. As seções de revisão de Epics anteriores registram evidências e escopo histórico àquela conclusão; o estado atual inclui a Epic 10. O [AGENTS.md](../../AGENTS.md) estabelece invariantes; as [skills](../../.agents/skills/) descrevem procedimentos para aplicá-las.
+Este documento registra as decisões aprovadas. As seções de revisão de Epics anteriores registram evidências e escopo histórico àquela conclusão; o estado atual inclui a Epic 11. O [AGENTS.md](../../AGENTS.md) estabelece invariantes; as [skills](../../.agents/skills/) descrevem procedimentos para aplicá-las.
 
 O [threat model](threat-model.md) identifica atores, ativos, entradas externas, trust boundaries e ameaças dos fluxos existentes.
 
-O [contrato de pagamentos da Epic 11](payments.md) define a evolução para cartões fictícios, Pix e boleto simulados; prevalece sobre as descrições históricas de checkout síncrono abaixo para os novos métodos.
+O [contrato de pagamentos da Epic 11](payments.md) define a implementação de cartões fictícios, Pix e boleto simulados e sua revisão; prevalece sobre as descrições históricas de checkout síncrono abaixo para os novos métodos.
 
 ## Modelo do pedido e checkout (ECMSG-66)
 

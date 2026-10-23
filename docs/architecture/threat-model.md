@@ -1,6 +1,14 @@
 # Threat model e trust boundaries
 
-Guardian Bay é um e-commerce de simulação. Este modelo reflete a revisão da Epic 10 e aplica as [decisões arquiteturais aprovadas](README.md#decisões-arquiteturais-essenciais), sem antecipar funcionalidades de domínio.
+Guardian Bay é um e-commerce de simulação. Este modelo inclui a Epic 11 e aplica as [decisões arquiteturais aprovadas](README.md#decisões-arquiteturais-essenciais).
+
+## Pagamentos simulados — Epic 11
+
+Novas entradas: fixtureId/validade para cadastro, cardId para remoção/seleção, método no checkout e orderId na confirmação. Nunca aceitar userId, preço, status, horário ou aprovação como autoridade externa. Actions validam same-origin, contratos Zod strict, sessão atual e dono na própria operação. PAN/CVV/titular não fazem parte do contrato servidor; qualquer payload com esses campos é rejeitado sem eco/log.
+
+Ativos adicionais: cartões sintéticos mascarados por dono, referência de pagamento e horários server-side. Ameaças: BOLA, replay, adulteração monetária, confirmação precoce/expirada, corrida pelo último estoque e vazamento de payload. Controles: consultas por dono, locks identidade/sessão/pedido/pagamento/produtos/estoque em ordem estável, unicidade, transições condicionais e auditoria/estoque/estado atômicos. Rechecks após esperas de auditoria impedem commit com sessão/pagamento vencidos. Remoção de cartão preserva snapshot histórico; novas adições ao carrinho não são apagadas pela confirmação posterior.
+
+QR/código Pix são texto prefixado de simulação; boleto contém linha alfanumérica não pagável e aviso permanente, sem banco/beneficiário/CPF real. Clipboard só copia esse texto. Contador Client é informativo; Action decide usando clock_timestamp. Leituras não mudam estado. Sem gateway, reserva ou execução em background; expiração persistida sob demanda, uma tentativa por pedido. Endpoint legado sem método mantém somente a regra acadêmica original, sem autoridade financeira do cliente.
 
 ## Escopo e estado atual
 

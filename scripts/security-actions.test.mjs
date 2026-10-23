@@ -79,11 +79,16 @@ import { readIdentityAction } from "@/features/auth/actions/read-identity.action
 import { getAuthenticatedIdentity } from "@/features/auth/server/session-cookie";
 import { manageCatalogAction } from "@/features/catalog/actions/manage-catalog.action";
 import { checkoutAction } from "@/features/orders/actions/checkout.action";
+import { saveTestCardAction, removeTestCardAction } from "@/features/orders/actions/test-cards.action";
+import { confirmPaymentAction } from "@/features/orders/actions/confirm-payment.action";
 import { setInventoryQuantityAction } from "@/features/inventory/actions/set-inventory.action";
 import { addToCartAction } from "@/features/cart/actions/add-to-cart.action";
 import { updateCartItemAction, removeCartItemAction } from "@/features/cart/actions/cart-item.action";
 async function stock(form:FormData) {"use server"; const input:Record<string,unknown>=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_"))); if("quantity" in input) input.quantity=Number(input.quantity);if("revision" in input) input.revision=Number(input.revision);const result=await setInventoryQuantityAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
 async function checkout(form:FormData) {"use server"; const input=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_"))); const result=await checkoutAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
+async function cardSave(form:FormData) {"use server"; const input:Record<string,unknown>=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));if("expiryMonth" in input) input.expiryMonth=Number(input.expiryMonth);if("expiryYear" in input) input.expiryYear=Number(input.expiryYear);const result=await saveTestCardAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
+async function cardRemove(form:FormData) {"use server"; const input=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));const result=await removeTestCardAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
+async function paymentConfirm(form:FormData) {"use server"; const input=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));const result=await confirmPaymentAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
 function cartInput(form: FormData) {
  const input: Record<string,unknown> = Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));
  if("quantity" in input) input.quantity=Number(input.quantity);
@@ -138,6 +143,7 @@ export default async function Probe() {
     <form action={register}><input name="email"/><input name="password"/></form>
     <form action={changePassword}><input name="currentPassword"/><input name="newPassword"/></form>
     <form action={catalog}/><form action={cartAdd}/><form action={cartUpdate}/><form action={cartRemove}/><form action={checkout}/><form action={stock}/>
+    <form action={cardSave}/><form action={cardRemove}/><form action={paymentConfirm}/>
   </main>;
 }
 `,
@@ -183,7 +189,7 @@ export default async function Probe() {
       const actions = [...html.matchAll(/name="(\$ACTION_ID_[^"]+)"/g)].map(
         (match) => match[1],
       );
-      assert.equal(actions.length, 11);
+      assert.equal(actions.length, 14);
       const budget = async () =>
         (
           await client`SELECT attempts FROM login_rate_limits WHERE key='global'`
@@ -210,6 +216,81 @@ export default async function Probe() {
           ),
         );
       const credentials = { email, password };
+      await t.test(
+        "payment Actions: real HTTP origin, strict inputs, ownership and no financial payload",
+        async () => {
+          const raw = randomBytes(32).toString("hex");
+          const hashed = createHash("sha256").update(raw).digest("hex");
+          const cookie = `__Host-guardian-session=${raw}`;
+          await client`INSERT INTO sessions(token_hash,user_id,expires_at) VALUES (${hashed},${user.id},now()+interval '1 hour')`;
+          const card = {
+            fixtureId: "test-1",
+            expiryMonth: "12",
+            expiryYear: "2099",
+          };
+          try {
+            for (const [index, input] of [
+              [11, card],
+              [12, { cardId: randomUUID() }],
+              [13, { orderId: randomUUID() }],
+            ]) {
+              assert.deepEqual(result(await post(index, input)), {
+                success: false,
+                code: "UNAUTHENTICATED",
+              });
+              for (const origin of [
+                "",
+                "null",
+                "https://attacker.test",
+                "http://127.0.0.1:3108",
+              ])
+                assert.ok(
+                  (await post(index, input, { origin }, cookie)).status >= 400,
+                );
+              assert.deepEqual(
+                result(
+                  await post(index, { ...input, userId: user.id }, {}, cookie),
+                ),
+                { success: false, code: "INVALID_INPUT" },
+              );
+            }
+            assert.deepEqual(
+              result(
+                await post(
+                  11,
+                  { ...card, pan: "4111111111111111", cvv: "123" },
+                  {},
+                  cookie,
+                ),
+              ),
+              { success: false, code: "INVALID_INPUT" },
+            );
+            assert.deepEqual(result(await post(11, card, {}, cookie)), {
+              success: true,
+            });
+            const [saved] =
+              await client`SELECT id FROM saved_test_cards WHERE user_id=${user.id}`;
+            assert.deepEqual(
+              result(await post(13, { orderId: randomUUID() }, {}, cookie)),
+              { success: false, code: "NOT_FOUND" },
+            );
+            assert.deepEqual(
+              result(await post(12, { cardId: saved.id }, {}, cookie)),
+              { success: true },
+            );
+            assert.equal(
+              (
+                await client`SELECT * FROM saved_test_cards WHERE user_id=${user.id}`
+              ).length,
+              0,
+            );
+          } finally {
+            await client`DELETE FROM saved_test_cards WHERE user_id=${user.id}`;
+            await client`DELETE FROM abuse_budgets WHERE user_id=${user.id} AND operation IN ('payment.cards','payment.confirm')`;
+            await client`DELETE FROM sessions WHERE token_hash=${hashed}`;
+          }
+        },
+      );
       await t.test(
         "inventory Action: admin, strict contract, Origin/Host, body and revision",
         async () => {

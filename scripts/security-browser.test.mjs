@@ -765,7 +765,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                     `hydrated admin form ${label}`,
                   );
                   await evaluate(
-                    `(() => { const form=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(label)}); for(const [name,value] of Object.entries(${JSON.stringify(values)})) { const input=form.elements.namedItem(name); if(input.type==='checkbox') input.checked=value; else input.value=value; input.dispatchEvent(new Event('change',{bubbles:true})); } form.requestSubmit(); })()`,
+                    `(() => { const form=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(label)}); for(const [name,value] of Object.entries(${JSON.stringify(values)})) { const input=form.elements.namedItem(name); const property=input.type==='checkbox'?'checked':'value'; const proto=Object.getPrototypeOf(input); Object.getOwnPropertyDescriptor(proto,property).set.call(input,value); input.dispatchEvent(new Event('input',{bubbles:true})); input.dispatchEvent(new Event('change',{bubbles:true})); } form.requestSubmit(); })()`,
                   );
                   if (feedback)
                     await waitFor(
@@ -888,6 +888,22 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "current catalogue price, no snapshot",
                 );
                 // ECMSG-77: real checkout, current prices, frozen history and cart finalization.
+                // Epic 11: register an authorized synthetic card through the real UI.
+                await navigate("/account");
+                await adminSubmit(
+                  "Cadastrar cartão fictício",
+                  {
+                    number: "0000 0000 0000 0001",
+                    holder: "PESSOA DE TESTE",
+                    expiry: "12/2099",
+                    cvv: "111",
+                  },
+                  false,
+                );
+                await waitFor(
+                  "document.querySelector('main').textContent.includes('TEST •••• 0001')",
+                  "synthetic card registered and masked",
+                );
                 await navigate("/checkout");
                 await waitFor(
                   "!!document.querySelector('form[aria-label=\"Confirmar checkout\"]')",
@@ -1107,6 +1123,71 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "document.querySelector('main')?.textContent.includes('Produto não encontrado')",
                   "depublication immediately reflected",
                 );
+                // Epic 11: pending Pix/boleto, non-bank artifacts and backend approval.
+                await client`UPDATE products SET is_published=true,amount=1200 WHERE id=${catalogProduct.id}`;
+                await client`UPDATE inventory SET available_quantity=4 WHERE product_id=${catalogProduct.id}`;
+                await client`DELETE FROM abuse_budgets WHERE user_id=${catalogUser.id} AND operation='checkout'`;
+                for (const method of ["PIX", "BOLETO"]) {
+                  await navigate(`/products/${catalogProduct.id}`);
+                  await evaluate(
+                    "[...document.querySelectorAll('button')].find(b=>b.textContent==='Adicionar ao carrinho').click()",
+                  );
+                  await waitFor(
+                    "[...document.querySelectorAll('output')].some(o=>o.textContent.includes('Produto adicionado ao carrinho.'))",
+                    "async payment cart setup",
+                  );
+                  await navigate("/checkout");
+                  await waitFor(
+                    "!!document.querySelector('form[aria-label=\"Confirmar checkout\"] select')",
+                    "payment method selector",
+                  );
+                  await evaluate(
+                    `(() => {const s=document.querySelector('form[aria-label="Confirmar checkout"] select');s.value=${JSON.stringify(method)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`,
+                  );
+                  await adminSubmit("Confirmar checkout", {}, false);
+                  await waitFor(
+                    "/^\\/orders\\/[0-9a-f-]+$/.test(location.pathname) && !!document.querySelector('[role=timer]')",
+                    "pending payment page",
+                  );
+                  const path = await evaluate("location.pathname");
+                  const id = path.split("/").at(-1);
+                  assert.equal(
+                    await evaluate(
+                      `document.querySelector('main').textContent.includes(${JSON.stringify(method === "PIX" ? "GUARDIAN-BAY-SIMULACAO:PIX:" : "SIMULACAO-BOLETO-")})`,
+                    ),
+                    true,
+                  );
+                  if (method === "PIX")
+                    assert.equal(
+                      await evaluate(
+                        "!!document.querySelector('svg[aria-label*=\"QR Code\"]')",
+                      ),
+                      true,
+                    );
+                  assert.equal(
+                    await evaluate(
+                      "[...document.querySelectorAll('button')].some(b=>b.disabled && b.textContent==='Aguardando intervalo de simulação')",
+                    ),
+                    true,
+                  );
+                  // Test fixture advances backend eligibility, never browser authority.
+                  await client`UPDATE order_payments SET created_at=clock_timestamp()-interval '2 minutes',approvable_at=clock_timestamp()-interval '1 second' WHERE order_id=${id}`;
+                  await navigate(path);
+                  await waitFor(
+                    "[...document.querySelectorAll('button')].some(b=>b.textContent==='Confirmar pagamento simulado' && !b.disabled)",
+                    "server eligibility reflected",
+                  );
+                  await evaluate(
+                    "[...document.querySelectorAll('button')].find(b=>b.textContent==='Confirmar pagamento simulado').click()",
+                  );
+                  await waitFor(
+                    "document.querySelector('main').textContent.includes('Pagamento simulado aprovado') && !document.querySelector('[role=timer]')",
+                    "async payment approved by backend",
+                  );
+                  const [payment] =
+                    await client`SELECT status FROM order_payments WHERE order_id=${id}`;
+                  assert.equal(payment.status, "APPROVED");
+                }
                 assert.equal(
                   exceptions.length,
                   0,
@@ -1118,6 +1199,8 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "identity workflows must not have hydration errors",
                 );
               } finally {
+                await client`DELETE FROM order_payments WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (SELECT id FROM users WHERE email=${email}))`;
+                await client`DELETE FROM saved_test_cards WHERE user_id IN (SELECT id FROM users WHERE email=${email})`;
                 await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (SELECT id FROM users WHERE email=${email}))`;
                 await client`DELETE FROM orders WHERE user_id IN (SELECT id FROM users WHERE email=${email})`;
                 if (catalogCategoryId) {

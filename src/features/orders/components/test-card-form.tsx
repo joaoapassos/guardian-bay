@@ -35,6 +35,7 @@ export function TestCardForm() {
         ))}
       </ul>
       <form
+        aria-label="Cadastrar cartão fictício"
         autoComplete="off"
         noValidate
         aria-busy={isSubmitting}

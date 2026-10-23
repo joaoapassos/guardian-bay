@@ -22,6 +22,7 @@ import { orderFailure } from "./order-event";
 
 const expired = Symbol("session-expired");
 const inventoryConflict = Symbol("inventory-conflict");
+const invalidCard = Symbol("invalid-card");
 export async function createOrder(input: unknown) {
   const parsed = checkoutSchema.safeParse(input);
   if (!parsed.success)
@@ -281,6 +282,33 @@ export async function createOrder(input: unknown) {
               targetType: "order",
               targetId: order.orderId,
             });
+          if (
+            !(
+              await tx
+                .select({ id: sessions.userId })
+                .from(sessions)
+                .where(valid())
+                .limit(1)
+            ).length
+          )
+            throw expired;
+          if (
+            parsed.data.payment?.method === "CARD" &&
+            !(
+              await tx
+                .select({ id: savedTestCards.id })
+                .from(savedTestCards)
+                .where(
+                  and(
+                    eq(savedTestCards.id, parsed.data.payment.cardId),
+                    eq(savedTestCards.userId, user.id),
+                    sql`(${savedTestCards.expiryYear} * 12 + ${savedTestCards.expiryMonth}) >= (extract(year from clock_timestamp() at time zone 'UTC')::int * 12 + extract(month from clock_timestamp() at time zone 'UTC')::int)`,
+                  ),
+                )
+                .limit(1)
+            ).length
+          )
+            throw invalidCard;
           return { success: true as const, orderId: order.orderId, status };
         })
         .catch((error) => {
@@ -291,6 +319,8 @@ export async function createOrder(input: unknown) {
     if (result === null) throw failure;
     return result;
   } catch (error) {
+    if (error === invalidCard)
+      return { success: false as const, code: "INVALID_CARD" as const };
     if (error === expired)
       return { success: false as const, code: "UNAUTHENTICATED" as const };
     if (error === inventoryConflict)

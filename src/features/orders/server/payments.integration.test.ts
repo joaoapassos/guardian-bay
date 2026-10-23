@@ -14,8 +14,14 @@ import { readTestCards, removeTestCard, saveTestCard } from "./test-cards";
 
 vi.mock("server-only", () => ({}));
 const request = vi.hoisted(() => ({ token: "" }));
+const requestContext = await vi.hoisted(async () => {
+  const { AsyncLocalStorage } = await import("node:async_hooks");
+  return new AsyncLocalStorage<{ token: string }>();
+});
 vi.mock("next/headers", () => ({
-  cookies: async () => ({ get: () => ({ value: request.token }) }),
+  cookies: async () => ({
+    get: () => ({ value: requestContext.getStore()?.token ?? request.token }),
+  }),
 }));
 const value = process.env.TEST_DATABASE_URL;
 if (
@@ -203,15 +209,24 @@ it("payments: BOLA, expiration and insufficient stock are decided by the server"
     await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`;
   expect(stock.available_quantity).toBe(1);
 });
-it("payments: expiration while audit is blocked rolls back approval, stock and audit", async () => {
+it.each([
+  "payment",
+  "session",
+])("payments: %s expiry while audit is blocked rolls back approval, stock and audit", async (expiry) => {
   const { orderId } = await pending();
   await ready(orderId);
-  await client`UPDATE order_payments SET expires_at=clock_timestamp()+interval '2 seconds' WHERE order_id=${orderId}`;
+  if (expiry === "payment")
+    await client`UPDATE order_payments SET expires_at=clock_timestamp()+interval '2 seconds' WHERE order_id=${orderId}`;
+  else
+    await client`UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE user_id=${userId}`;
   const blocker = postgres(value, { max: 1, onnotice: () => {} });
   await blocker`BEGIN`;
   await blocker`LOCK TABLE audit_events IN EXCLUSIVE MODE`;
   const outcome = confirmPayment({ orderId }).then(
-    () => "unexpected-success",
+    (result) =>
+      !result.success && result.code === "UNAUTHENTICATED"
+        ? "session-expired"
+        : "unexpected-success",
     () => "rolled-back",
   );
   try {
@@ -231,7 +246,9 @@ it("payments: expiration while audit is blocked rolls back approval, stock and a
     await blocker`ROLLBACK`;
     await blocker.end();
   }
-  expect(await outcome).toBe("rolled-back");
+  expect(await outcome).toBe(
+    expiry === "payment" ? "rolled-back" : "session-expired",
+  );
   const [state] =
     await client`SELECT o.status,p.status AS payment_status,i.available_quantity FROM orders o JOIN order_payments p ON p.order_id=o.id CROSS JOIN inventory i WHERE o.id=${orderId} AND i.product_id=${productId}`;
   expect(state).toMatchObject({
@@ -242,9 +259,10 @@ it("payments: expiration while audit is blocked rolls back approval, stock and a
   expect(
     await client`SELECT * FROM audit_events WHERE target_id=${orderId}`,
   ).toHaveLength(0);
+  request.token = (await createSession(userId)).token;
   expect(await confirmPayment({ orderId })).toEqual({
     success: true,
-    status: "PAYMENT_EXPIRED",
+    status: expiry === "payment" ? "PAYMENT_EXPIRED" : "PAID",
   });
 });
 it("card checkout: owner and expiry are checked, masked payment survives removal and replay", async () => {
@@ -282,5 +300,138 @@ it("card checkout: owner and expiry are checked, masked payment survives removal
   expect(await createOrder({ ...input, checkoutKey: randomUUID() })).toEqual({
     success: false,
     code: "INVALID_CARD",
+  });
+});
+it("payments: two owners competing for the last units cannot oversell", async () => {
+  const first = await pending();
+  request.token = (await createSession(otherId)).token;
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${otherId},${productId},2)`;
+  const second = await createOrder({
+    checkoutKey: randomUUID(),
+    payment: { method: "BOLETO" },
+  });
+  if (!second.success) throw new Error("Second order failed");
+  await ready(first.orderId);
+  await ready(second.orderId);
+  await client`UPDATE inventory SET available_quantity=2 WHERE product_id=${productId}`;
+  const otherToken = (await createSession(otherId)).token;
+  const a = requestContext.run({ token }, () =>
+    confirmPayment({ orderId: first.orderId }),
+  );
+  const b = requestContext.run({ token: otherToken }, () =>
+    confirmPayment({ orderId: second.orderId }),
+  );
+  const outcomes = await Promise.all([a, b]);
+  expect(outcomes.map((r) => (r.success ? r.status : r.code)).sort()).toEqual([
+    "PAID",
+    "PAYMENT_FAILED",
+  ]);
+  const [stock] =
+    await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`;
+  expect(stock.available_quantity).toBe(0);
+});
+it("payments: malicious authority and direct invalid transitions are rejected", async () => {
+  const { orderId } = await pending();
+  for (const field of ["status", "total", "userId", "approved", "expiresAt"])
+    expect(await confirmPayment({ orderId, [field]: "untrusted" })).toEqual({
+      success: false,
+      code: "INVALID_INPUT",
+    });
+  await expect(
+    client`UPDATE order_payments SET status='APPROVED' WHERE order_id=${orderId}`,
+  ).rejects.toMatchObject({ code: "23514" });
+  request.token = "";
+  expect(await confirmPayment({ orderId })).toEqual({
+    success: false,
+    code: "UNAUTHENTICATED",
+  });
+});
+it("card checkout: an expired saved card is rejected without converting cart", async () => {
+  await saveTestCard(card);
+  const [saved] = await readTestCards();
+  await client`UPDATE saved_test_cards SET expiry_year=2026,expiry_month=1 WHERE id=${saved.id}`;
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},1)`;
+  expect(
+    await createOrder({
+      checkoutKey: randomUUID(),
+      payment: { method: "CARD", cardId: saved.id },
+    }),
+  ).toEqual({ success: false, code: "INVALID_CARD" });
+  expect(
+    await client`SELECT * FROM orders WHERE user_id=${userId}`,
+  ).toHaveLength(0);
+  expect(
+    await client`SELECT * FROM cart_items WHERE user_id=${userId}`,
+  ).toHaveLength(1);
+});
+it("card checkout: session expiring during audit rolls back the entire checkout", async () => {
+  await saveTestCard(card);
+  const [saved] = await readTestCards();
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},1)`;
+  await client`UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE user_id=${userId}`;
+  const blocker = postgres(value, { max: 1, onnotice: () => {} });
+  await blocker`BEGIN`;
+  await blocker`LOCK TABLE audit_events IN EXCLUSIVE MODE`;
+  const outcome = createOrder({
+    checkoutKey: randomUUID(),
+    payment: { method: "CARD", cardId: saved.id },
+  });
+  try {
+    let waiting = false;
+    for (let i = 0; i < 100; i++) {
+      const [state] =
+        await client`SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE '%insert into "audit_events"%') AS waiting`;
+      if (state.waiting) {
+        waiting = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(waiting).toBe(true);
+    await client`SELECT pg_sleep(2.1)`;
+  } finally {
+    await blocker`ROLLBACK`;
+    await blocker.end();
+  }
+  expect(await outcome).toEqual({ success: false, code: "UNAUTHENTICATED" });
+  expect(
+    await client`SELECT * FROM orders WHERE user_id=${userId}`,
+  ).toHaveLength(0);
+  expect(
+    await client`SELECT * FROM cart_items WHERE user_id=${userId}`,
+  ).toHaveLength(1);
+  const [stock] =
+    await client`SELECT available_quantity FROM inventory WHERE product_id=${productId}`;
+  expect(stock.available_quantity).toBe(10);
+});
+it("payments: a PostgreSQL audit failure rolls back approval but retains abuse budget", async () => {
+  const { orderId } = await pending();
+  await ready(orderId);
+  await client`CREATE FUNCTION pg_temp.reject_payment_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.event_type='order.completed' THEN RAISE EXCEPTION 'synthetic audit failure'; END IF; RETURN NEW; END $$`;
+  await client`CREATE TRIGGER payment_audit_test BEFORE INSERT ON audit_events FOR EACH ROW EXECUTE FUNCTION pg_temp.reject_payment_audit()`;
+  try {
+    await expect(confirmPayment({ orderId })).rejects.toThrow(
+      "Não foi possível confirmar o pagamento simulado.",
+    );
+    const [row] =
+      await client`SELECT o.status,p.status AS payment_status,i.available_quantity FROM orders o JOIN order_payments p ON p.order_id=o.id CROSS JOIN inventory i WHERE o.id=${orderId} AND i.product_id=${productId}`;
+    expect(row).toMatchObject({
+      status: "PENDING_PAYMENT",
+      payment_status: "PENDING",
+      available_quantity: 10,
+    });
+    const [budget] =
+      await client`SELECT attempts FROM abuse_budgets WHERE user_id=${userId} AND operation='payment.confirm'`;
+    expect(budget.attempts).toBe(1);
+    expect(
+      await client`SELECT * FROM audit_events WHERE target_id=${orderId}`,
+    ).toHaveLength(0);
+  } finally {
+    await client`DROP TRIGGER payment_audit_test ON audit_events`;
+    await client`DROP FUNCTION pg_temp.reject_payment_audit()`;
+  }
+  expect(await confirmPayment({ orderId })).toEqual({
+    success: true,
+    status: "PAID",
   });
 });

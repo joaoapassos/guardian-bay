@@ -2,9 +2,11 @@
 
 Base de um e-commerce seguro, com regras de domínio e segurança executadas no servidor. Identidade, catálogo, carrinho autenticado e checkout/pedidos com pagamento acadêmico e estoque server-side estão implementados. O backoffice reúne catálogo/estoque, consulta administrativa de pedidos e auditoria durável selecionada. Budgets server-side limitam novas intenções de checkout e mutations administrativas.
 
+Cartões fictícios, Pix e boleto são exclusivamente simulados, sem movimentação financeira. Veja o [contrato de pagamentos](docs/architecture/payments.md).
+
 ## Pré-requisitos e instalação
 
-- Runtime Next.js: Node.js 20.9 ou superior. Para desenvolvimento e quality gates com Vitest 4.1.11, use Node.js 20.19+ da linha 20, 22.12+ da linha 22 ou 24+.
+- Runtime Next.js: Node.js 20.9 ou superior. Para desenvolvimento e quality gates com Vitest 4.1.12, use Node.js 20.19+ da linha 20, 22.12+ da linha 22 ou 24+.
 - Referência do SDLC/CI: Node.js 24.19.0 e PostgreSQL 18.6; browsers de segurança exigem Node 22.12+ ou 24+.
 - npm; use o `package-lock.json` versionado. Não use outro package manager neste projeto.
 
