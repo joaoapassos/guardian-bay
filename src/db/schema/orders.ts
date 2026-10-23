@@ -32,7 +32,7 @@ export const orders = pgTable(
     unique("orders_user_checkout_unique").on(table.userId, table.checkoutKey),
     check(
       "orders_status",
-      sql`${table.status} IN ('PENDING_PAYMENT', 'PAID', 'PAYMENT_FAILED')`,
+      sql`${table.status} IN ('PENDING_PAYMENT', 'PAID', 'PAYMENT_FAILED', 'PAYMENT_EXPIRED')`,
     ),
     check(
       "orders_total",
