@@ -1,5 +1,7 @@
 # Task 4 — cobertura e execução dos gates
 
+Registro histórico anterior à correção autorizada. O resultado atualizado do Zod e a repetição dos gates estão em [correção e reteste](zod-retest.md); preservar os findings abaixo como evidência da campanha original.
+
 Data: 2026-10-23. Base comercial f1252b4; harness d4a34db. Ferramentas existentes executadas no Node 24 Linux local, sem instalar outro scanner ou relaxar regras.
 
 | Controle | Observado | Decisão |

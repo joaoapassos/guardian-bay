@@ -8,4 +8,4 @@ Não autenticar todos os usuários pelo endpoint de login durante a subida: isso
 
 Capturar RPS, p50/p95/p99, erros inesperados/resultado comercial, CPU/memória do host e app, conexões e lock waiters. Conservar relatório e integridade mesmo se k6 abortar. A operação usa máquina compartilhada com o gerador; saturação do gerador exige classificação inconclusiva, não limite comprovado do servidor.
 
-Estado inicial: execução acima de 2 VUs bloqueada pelo finding SCA-01 (Zod). Guard pode ser verificado sem enviar carga: runner deve produzir INCONCLUSIVE e exit 2, registrando zero tráfego de capacidade. Atualização corretiva e retestes dependem de autorização específica; não declarar patamares aprovados enquanto bloqueados.
+Estado histórico inicial: execução acima de 2 VUs bloqueada pelo finding SCA-01 (Zod); runner produziu INCONCLUSIVE e exit 2, com zero tráfego de capacidade. A correção foi posteriormente autorizada e aplicada no commit 4883e34. Consultar [reteste](zod-retest.md) e [resultados atuais](results.json) para os patamares efetivamente executados; o bloqueio original permanece na evidência histórica.

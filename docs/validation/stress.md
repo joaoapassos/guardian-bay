@@ -6,4 +6,4 @@ Plano delimitado: repetir baseline estável por 30s, subir ao próximo patamar a
 
 Este runner oferece um ensaio de pico curto. Estresse sustentado e repetições longas dependem da capacidade/recursos demonstrados e escopo operacional renovado; não equivale a DDoS nem a teste de infraestrutura externa. A comparação de recuperação é de requisições locais, não tempo de renderização/browser completo. Gerador compartilha host e deve ser considerado na análise.
 
-Observado nesta entrega: preflight bloqueou estresse, com um finding de produção e zero patamares de capacidade aprovados. Nenhum pico foi enviado; tempo de recuperação após saturação e limite de capacidade permanecem desconhecidos. Smokes da Task 11 não são reclassificados como ensaio de estresse.
+Observado na entrega original: preflight bloqueou estresse, com um finding de produção e zero patamares de capacidade aprovados. Nenhum pico foi enviado nessa campanha. A correção posterior autorizada e seus resultados estão em [reteste](zod-retest.md). Smokes da Task 11 não são reclassificados como ensaio de estresse.

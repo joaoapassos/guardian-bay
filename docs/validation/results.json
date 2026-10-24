@@ -1,28 +1,31 @@
 {
   "schemaVersion": 1,
-  "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
+  "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
   "verdict": "NOT_APPROVED_PENDING_RETESTS",
   "counts": {
-    "PASS": 52,
-    "LIMITATION": 1,
-    "INCONCLUSIVE": 2
+    "PASS": 64,
+    "LIMITATION": 2,
+    "FAIL": 4
+  },
+  "dependencyAssessment": {
+    "zod": "4.6.7",
+    "productionFindings": 0
   },
   "limitations": [
-    "Production Zod High advisory remains unresolved; capacity and stress were blocked before traffic.",
     "Burp Community human execution remains pending; HTTP replay is not a substitute.",
     "Natural 24-hour boleto expiration and timing side channels were not measured.",
     "ZAP active coverage was limited to two GET rules; no complete WSTG/ASVS claim.",
-    "Two-user short calibration does not establish supported capacity or DDoS resistance."
+    "Measured plateaus apply only to this shared local environment; no deployment capacity or DDoS resistance claim."
   ],
   "reports": [
     {
       "schemaVersion": 1,
       "task": "task-05-real-surface",
-      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
-      "capturedAt": "2026-10-24T00:58:42.110Z",
-      "harnessSha": "915178e69c763e060fa1a9ef70f63463473c0850",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T04:48:34.871Z",
+      "harnessSha": "4883e34f985f192dfeb53da5fe6525401887c505",
       "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
-      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
       "cases": [
         {
           "id": "CAPTURE_LOGIN",
@@ -49,33 +52,12 @@
     },
     {
       "schemaVersion": 1,
-      "task": "task-06-zap",
-      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
-      "capturedAt": "2026-10-24T01:05:34.191Z",
-      "harnessSha": "a07330117187710fad8e2efc2ce22744d509ac25",
-      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
-      "buildId": "54eYskY3uVCV99WBBvu-c",
-      "cases": [
-        {
-          "id": "ZAP_CAMPAIGN",
-          "expected": "Scoped passive authenticated reads and two low-strength GET active rules finish",
-          "observed": "exit=0; timeout=false; report=true; alertTypes=7",
-          "status": "PASS"
-        }
-      ],
-      "metrics": {
-        "alertTypes": 7,
-        "activeMessages": 40
-      }
-    },
-    {
-      "schemaVersion": 1,
       "task": "task-07-identity",
-      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
-      "capturedAt": "2026-10-24T01:07:34.102Z",
-      "harnessSha": "78e9220f7aae0853d028919117e7b8612c652626",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T04:48:44.998Z",
+      "harnessSha": "4883e34f985f192dfeb53da5fe6525401887c505",
       "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
-      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
       "cases": [
         {
           "id": "IDENTITY_VISITOR",
@@ -160,6 +142,12 @@
           "expected": "Global commercial invariants preserved",
           "observed": "All integrity counters zero",
           "status": "PASS"
+        },
+        {
+          "id": "BURP_OPERATOR",
+          "expected": "Human operator repeats cases in Burp Community",
+          "observed": "Reproducible guide delivered; no human Burp session executed here",
+          "status": "LIMITATION"
         }
       ],
       "metrics": {}
@@ -167,11 +155,11 @@
     {
       "schemaVersion": 1,
       "task": "task-08-abuse-input",
-      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
-      "capturedAt": "2026-10-24T01:10:04.968Z",
-      "harnessSha": "258a82d12d0ac958c301e1c37af795c916da6e68",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T04:49:34.987Z",
+      "harnessSha": "4883e34f985f192dfeb53da5fe6525401887c505",
       "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
-      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
       "cases": [
         {
           "id": "INPUT_CARD_0",
@@ -239,11 +227,11 @@
     {
       "schemaVersion": 1,
       "task": "task-09-business",
-      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
-      "capturedAt": "2026-10-24T01:12:27.735Z",
-      "harnessSha": "7f9bf73cf81a4a4f0ed593f98954d4298c2fb7d4",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T04:50:39.813Z",
+      "harnessSha": "4883e34f985f192dfeb53da5fe6525401887c505",
       "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
-      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
       "cases": [
         {
           "id": "BUSINESS_AMOUNT",
@@ -353,11 +341,11 @@
     {
       "schemaVersion": 1,
       "task": "task-10-concurrency",
-      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
-      "capturedAt": "2026-10-24T01:13:43.652Z",
-      "harnessSha": "9d8fa36be3db79a327fda1993c2c10a978943e1b",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T04:50:40.059Z",
+      "harnessSha": "4883e34f985f192dfeb53da5fe6525401887c505",
       "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
-      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
       "cases": [
         {
           "id": "RACE_LAST_UNIT",
@@ -394,30 +382,12 @@
     },
     {
       "schemaVersion": 1,
-      "task": "task-11-browser-safety",
-      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
-      "capturedAt": "2026-10-24T01:17:52.806Z",
-      "harnessSha": "0d18e176caef63f5a811113ddaeceefa5cd237a1",
-      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
-      "buildId": "54eYskY3uVCV99WBBvu-c",
-      "cases": [
-        {
-          "id": "BROWSER_EGRESS",
-          "expected": "External fetch intercepted and blocked before network",
-          "observed": "intercepted=true; fetch rejected; local TLS SPKI only",
-          "status": "PASS"
-        }
-      ],
-      "metrics": {}
-    },
-    {
-      "schemaVersion": 1,
       "task": "task-11-perf-commerce-2",
-      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
-      "capturedAt": "2026-10-24T01:18:20.821Z",
-      "harnessSha": "0d18e176caef63f5a811113ddaeceefa5cd237a1",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T04:51:12.382Z",
+      "harnessSha": "4883e34f985f192dfeb53da5fe6525401887c505",
       "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
-      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
       "cases": [
         {
           "id": "PERFORMANCE",
@@ -430,13 +400,13 @@
         "vus": 2,
         "seconds": 15,
         "requests": 32,
-        "rps": 2.1121222889235574,
-        "p50": 7.9397,
-        "p95": 13.49296,
-        "p99": 17.988582000000008,
+        "rps": 2.110931620354542,
+        "p50": 8.4957,
+        "p95": 10.836535,
+        "p99": 13.478608000000005,
         "unexpectedFailureRate": 0,
-        "maxCpuPercent": 2.253603735703491,
-        "maxMemoryPercent": 42.84534210933908,
+        "maxCpuPercent": 16.577540106951872,
+        "maxMemoryPercent": 44.85960111757198,
         "maxConnections": 13,
         "maxLockWaiters": 0
       }
@@ -444,11 +414,11 @@
     {
       "schemaVersion": 1,
       "task": "task-11-perf-read-2",
-      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
-      "capturedAt": "2026-10-24T01:27:17.217Z",
-      "harnessSha": "e369bbb194dd60debf5089cd137f0c3990e0ab4d",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T04:56:36.654Z",
+      "harnessSha": "047cd96552a0a2765645ffb426706b51b6ef349b",
       "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
-      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
       "cases": [
         {
           "id": "PERFORMANCE",
@@ -461,52 +431,377 @@
         "vus": 2,
         "seconds": 10,
         "requests": 40,
-        "rps": 3.939732687758229,
-        "p50": 6.99545,
-        "p95": 9.160054999999998,
-        "p99": 11.591868999999999,
+        "rps": 3.9437878897572856,
+        "p50": 5.997199999999999,
+        "p95": 8.950779999999991,
+        "p99": 13.514265999999997,
         "unexpectedFailureRate": 0,
-        "maxCpuPercent": 3.83419689119171,
-        "maxMemoryPercent": 43.19197192382549,
-        "maxConnections": 13,
+        "maxCpuPercent": 17.166782972784368,
+        "maxMemoryPercent": 45.66091991974805,
+        "maxConnections": 19,
         "maxLockWaiters": 0
       }
     },
     {
       "schemaVersion": 1,
       "task": "task-12-capacity",
-      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
-      "capturedAt": "2026-10-24T01:21:02.286Z",
-      "harnessSha": "49a372559d185b7c05c9d20f49b2978fb3a047f2",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T05:04:52.631Z",
+      "harnessSha": "047cd96552a0a2765645ffb426706b51b6ef349b",
       "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
-      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
       "cases": [
         {
-          "id": "CAPACITY_SCA_PREFLIGHT",
-          "expected": "No unresolved production dependency findings before escalation",
-          "observed": "1 unresolved production finding; no capacity traffic sent",
-          "status": "INCONCLUSIVE"
+          "id": "CAPACITY_READ_10",
+          "expected": "Measured plateau, resource limits and integrity pass",
+          "observed": "exit=0; p95=26.43ms; p99=29.55ms; rps=19.20; safe=true",
+          "status": "PASS"
+        },
+        {
+          "id": "CAPACITY_COMMERCE_10",
+          "expected": "Measured plateau, resource limits and integrity pass",
+          "observed": "exit=0; p95=31.62ms; p99=41.72ms; rps=10.42; safe=true",
+          "status": "PASS"
+        },
+        {
+          "id": "CAPACITY_READ_50",
+          "expected": "Measured plateau, resource limits and integrity pass",
+          "observed": "exit=0; p95=107.22ms; p99=132.92ms; rps=87.55; safe=true",
+          "status": "PASS"
+        },
+        {
+          "id": "CAPACITY_COMMERCE_50",
+          "expected": "Measured plateau, resource limits and integrity pass",
+          "observed": "exit=0; p95=127.20ms; p99=178.21ms; rps=49.08; safe=true",
+          "status": "PASS"
+        },
+        {
+          "id": "CAPACITY_READ_100",
+          "expected": "Measured plateau, resource limits and integrity pass",
+          "observed": "exit=0; p95=204.98ms; p99=255.15ms; rps=156.50; safe=true",
+          "status": "PASS"
+        },
+        {
+          "id": "CAPACITY_COMMERCE_100",
+          "expected": "Measured plateau, resource limits and integrity pass",
+          "observed": "exit=0; p95=236.79ms; p99=343.93ms; rps=90.31; safe=true",
+          "status": "PASS"
+        },
+        {
+          "id": "CAPACITY_READ_500",
+          "expected": "Warmup and measured plateau pass before escalation",
+          "observed": "Warmup failed with exit 1; higher traffic not sent",
+          "status": "FAIL"
         }
       ],
       "metrics": {}
     },
     {
       "schemaVersion": 1,
-      "task": "task-13-stress",
-      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
-      "capturedAt": "2026-10-24T01:23:00.685Z",
-      "harnessSha": "b21f7884accde4bb4f6c57eaa45602454e0dd991",
+      "task": "task-12-perf-commerce-10",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T04:59:15.861Z",
+      "harnessSha": "047cd96552a0a2765645ffb426706b51b6ef349b",
       "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
-      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
       "cases": [
         {
-          "id": "STRESS_PREFLIGHT",
-          "expected": "Clean SCA and a measured stable plateau before stress",
-          "observed": "productionFindings=1; stablePlateaus=0; no stress traffic sent",
-          "status": "INCONCLUSIVE"
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=28; summary=true",
+          "status": "PASS"
         }
       ],
-      "metrics": {}
+      "metrics": {
+        "vus": 10,
+        "seconds": 60,
+        "requests": 640,
+        "rps": 10.421820922046505,
+        "p50": 20.60315,
+        "p95": 31.616334999999996,
+        "p99": 41.72054200000002,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 12.252990695613642,
+        "maxMemoryPercent": 45.916047627680925,
+        "maxConnections": 20,
+        "maxLockWaiters": 0
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-12-perf-commerce-100",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T05:04:45.466Z",
+      "harnessSha": "047cd96552a0a2765645ffb426706b51b6ef349b",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=29; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "vus": 100,
+        "seconds": 60,
+        "requests": 5689,
+        "rps": 90.31246909399437,
+        "p50": 148.6598,
+        "p95": 236.79076,
+        "p99": 343.93188799999984,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 19.0383595545342,
+        "maxMemoryPercent": 46.85703891450959,
+        "maxConnections": 20,
+        "maxLockWaiters": 0
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-12-perf-commerce-50",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T05:01:59.611Z",
+      "harnessSha": "047cd96552a0a2765645ffb426706b51b6ef349b",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=29; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "vus": 50,
+        "seconds": 60,
+        "requests": 3086,
+        "rps": 49.0760433753282,
+        "p50": 63.8862,
+        "p95": 127.2039,
+        "p99": 178.21446500000005,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 14.457356706716562,
+        "maxMemoryPercent": 45.89591260174072,
+        "maxConnections": 20,
+        "maxLockWaiters": 0
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-12-perf-read-10",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T04:57:57.408Z",
+      "harnessSha": "047cd96552a0a2765645ffb426706b51b6ef349b",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=28; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "vus": 10,
+        "seconds": 60,
+        "requests": 1160,
+        "rps": 19.199680231311923,
+        "p50": 20.5143,
+        "p95": 26.430515,
+        "p99": 29.54909800000002,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 15.453811297052356,
+        "maxMemoryPercent": 45.73750986039955,
+        "maxConnections": 20,
+        "maxLockWaiters": 0
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-12-perf-read-100",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T05:03:20.300Z",
+      "harnessSha": "047cd96552a0a2765645ffb426706b51b6ef349b",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=28; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "vus": 100,
+        "seconds": 60,
+        "requests": 9544,
+        "rps": 156.50478968281595,
+        "p50": 141.00815,
+        "p95": 204.97768000000002,
+        "p99": 255.14820099999983,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 16.982710540992752,
+        "maxMemoryPercent": 46.178295234470404,
+        "maxConnections": 20,
+        "maxLockWaiters": 0
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-12-perf-read-50",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T05:00:36.591Z",
+      "harnessSha": "047cd96552a0a2765645ffb426706b51b6ef349b",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=28; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "vus": 50,
+        "seconds": 60,
+        "requests": 5328,
+        "rps": 87.55028346926602,
+        "p50": 70.3392,
+        "p95": 107.21708999999997,
+        "p99": 132.9244539999998,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 17.317158931082975,
+        "maxMemoryPercent": 45.93283281925182,
+        "maxConnections": 20,
+        "maxLockWaiters": 0
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-12-perf-read-500",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T05:04:52.580Z",
+      "harnessSha": "047cd96552a0a2765645ffb426706b51b6ef349b",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=99; abort=none; samples=3; summary=true",
+          "status": "FAIL"
+        }
+      ],
+      "metrics": {
+        "vus": 500,
+        "seconds": 15,
+        "requests": 2745,
+        "rps": 478.7170258143055,
+        "p50": 478.6903,
+        "p95": 1094.3041399999997,
+        "p99": 1186.876392,
+        "unexpectedFailureRate": 0.1986863711001642,
+        "maxCpuPercent": 38.76712328767123,
+        "maxMemoryPercent": 47.590604615087216,
+        "maxConnections": 20,
+        "maxLockWaiters": 0
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-13-perf-read-100",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T05:07:03.520Z",
+      "harnessSha": "3d1b27299b6bc0064230293696ea01c672181bef",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=14; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "vus": 100,
+        "seconds": 30,
+        "requests": 4734,
+        "rps": 153.15732366875034,
+        "p50": 158.126,
+        "p95": 251.0541599999998,
+        "p99": 315.87648,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 20.892824868968006,
+        "maxMemoryPercent": 54.30320443474847,
+        "maxConnections": 19,
+        "maxLockWaiters": 0
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-13-perf-read-500",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T05:07:10.612Z",
+      "harnessSha": "3d1b27299b6bc0064230293696ea01c672181bef",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=99; abort=none; samples=3; summary=true",
+          "status": "FAIL"
+        }
+      ],
+      "metrics": {
+        "vus": 500,
+        "seconds": 10,
+        "requests": 2696,
+        "rps": 471.4348265833286,
+        "p50": 491.9425,
+        "p95": 1151.70175,
+        "p99": 1245.435755,
+        "unexpectedFailureRate": 0.20644095788604458,
+        "maxCpuPercent": 46.44765796919208,
+        "maxMemoryPercent": 52.50056130737192,
+        "maxConnections": 19,
+        "maxLockWaiters": 0
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-13-stress",
+      "runId": "36ec72c4-3d42-4bb3-95d6-bb504380a690",
+      "capturedAt": "2026-10-24T05:07:19.776Z",
+      "harnessSha": "3d1b27299b6bc0064230293696ea01c672181bef",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "STRESS_PEAK",
+          "expected": "Bounded spike reports thresholds and resource outcome",
+          "observed": "base=100; peak=500; exit=1; no claim of DDoS resistance",
+          "status": "FAIL"
+        },
+        {
+          "id": "STRESS_RECOVERY",
+          "expected": "Ten read samples within 20% of baseline p95 in two minutes, integrity preserved",
+          "observed": "recovered=true; seconds=9.12",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "base": 100,
+        "peak": 500,
+        "recoverySeconds": 9.122
+      }
     }
   ]
 }

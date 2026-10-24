@@ -1,5 +1,7 @@
 # Task 11 — métricas e calibração
 
+Os números abaixo descrevem a campanha original. Para a campanha posterior à correção do Zod, consultar [reteste](zod-retest.md) e seus resultados por runId.
+
 k6 2.3.0 Windows amd64 oficial: https://github.com/grafana/k6/releases/tag/v2.3.0, SHA256 112276d495e5741c968e2bc09ea6196099c1275bd6db9ee0875d173c7148ce43. Verificado contra manifesto da release e digest do asset antes de extrair em .vitest/epic12/tools/k6. Não adicionado ao npm runtime.
 
 `node scripts/validation/prepare-load.mjs` cria 1000 identidades sintéticas/sessões privadas no cluster validado; não mede login nem desativa seus budgets. `node scripts/validation/performance.mjs 2 10 read` calibra; `2 15 commerce` exercita leituras, addCart e checkout PIX respeitando budgets (think time 3s, checkout a cada cinco iterações). Uma identidade por VU. Não executar paralelo a ZAP ou suites PG.
