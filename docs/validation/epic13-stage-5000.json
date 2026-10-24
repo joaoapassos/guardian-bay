@@ -1,0 +1,9 @@
+{
+  "target": 5000,
+  "previous": 3500,
+  "eligible": false,
+  "reasons": ["No previous-stage evidence for the same run, profile and build"],
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "trafficSent": 0,
+  "note": "Preflight only; diagnostic 20-second runs do not qualify as sustained approval"
+}
