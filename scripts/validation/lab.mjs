@@ -15,7 +15,7 @@ import { argon2id, hash } from "argon2";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
-import { errorClass } from "./diagnostic-contract.mjs";
+import { errorClass, instancePorts } from "./diagnostic-contract.mjs";
 import {
   assertScope,
   databaseUrl,
@@ -158,32 +158,37 @@ try {
       );
     }
     await sql.end();
-    const app = spawn(
-      process.execPath,
-      [
-        "--import",
-        "./scripts/validation/runtime-observer.mjs",
-        "node_modules/next/dist/bin/next",
-        "start",
-        "--hostname",
-        "127.0.0.1",
-        "--port",
-        "3139",
-      ],
-      {
-        env: {
-          ...process.env,
-          DATABASE_URL: databaseUrl,
-          NODE_ENV: "production",
-          LAB_OBSERVER_ROLE: "app",
+    const ports = instancePorts(process.env.LAB_APP_INSTANCES);
+    let upstreamIndex = 0;
+    const apps = ports.map((port) =>
+      spawn(
+        process.execPath,
+        [
+          "--import",
+          "./scripts/validation/runtime-observer.mjs",
+          "node_modules/next/dist/bin/next",
+          "start",
+          "--hostname",
+          "127.0.0.1",
+          "--port",
+          String(port),
+        ],
+        {
+          env: {
+            ...process.env,
+            DATABASE_URL: databaseUrl,
+            NODE_ENV: "production",
+            LAB_OBSERVER_ROLE: "app",
+          },
+          stdio: ["ignore", "pipe", "pipe"],
+          windowsHide: true,
         },
-        stdio: ["ignore", "pipe", "pipe"],
-        windowsHide: true,
-      },
+      ),
     );
-    app.stderr.on("data", (chunk) =>
-      countDiagnostic(`app.stderr.${errorClass(chunk).toLowerCase()}`),
-    );
+    for (const app of apps)
+      app.stderr.on("data", (chunk) =>
+        countDiagnostic(`app.stderr.${errorClass(chunk).toLowerCase()}`),
+      );
     const proxy = createServer(
       { key: readFileSync(keyPath), cert: readFileSync(certPath) },
       (request, response) => {
@@ -210,7 +215,7 @@ try {
         const upstream = httpRequest(
           {
             hostname: "127.0.0.1",
-            port: 3139,
+            port: ports[upstreamIndex++ % ports.length],
             method: request.method,
             path: request.url,
             headers,
@@ -243,48 +248,54 @@ try {
       ),
     );
     let started = false;
-    app.stdout.on("data", (chunk) => {
-      if (!started && chunk.toString().includes("Ready in")) {
-        started = true;
-        proxy.listen(3449, "127.0.0.1", () => {
-          writeFileSync(
-            join(labDirectory, "processes.json"),
-            JSON.stringify({
-              supervisor: process.pid,
-              app: app.pid,
-              startedAt: new Date().toISOString(),
-            }),
-          );
-          console.info("LAB_READY https://127.0.0.1:3449");
-        });
-      }
-    });
+    const ready = new Set();
+    for (const app of apps)
+      app.stdout.on("data", (chunk) => {
+        if (chunk.toString().includes("Ready in")) ready.add(app.pid);
+        if (!started && ready.size === apps.length) {
+          started = true;
+          proxy.listen(3449, "127.0.0.1", () => {
+            writeFileSync(
+              join(labDirectory, "processes.json"),
+              JSON.stringify({
+                supervisor: process.pid,
+                app: apps[0].pid,
+                apps: apps.map((app) => app.pid),
+                ports,
+                startedAt: new Date().toISOString(),
+              }),
+            );
+            console.info("LAB_READY https://127.0.0.1:3449");
+          });
+        }
+      });
     const shutdown = () => {
       proxy.closeAllConnections();
       if (proxy.listening) proxy.close();
-      app.kill();
+      for (const app of apps) app.kill();
     };
     proxy.on("error", () => {
       console.error("Laboratory proxy startup failed");
       process.exitCode = 1;
       shutdown();
     });
-    app.on("error", () => {
-      console.error("Laboratory app startup failed");
-      process.exitCode = 1;
-      shutdown();
-    });
+    for (const app of apps)
+      app.on("error", () => {
+        console.error("Laboratory app startup failed");
+        process.exitCode = 1;
+        shutdown();
+      });
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
-    app.on("exit", (code) => {
-      proxy.closeAllConnections();
-      if (proxy.listening) proxy.close();
-      process.exit(code ?? 1);
-    });
+    for (const app of apps)
+      app.on("exit", (code) => {
+        shutdown();
+        process.exit(code ?? 1);
+      });
     setTimeout(() => {
       if (!started) {
         console.error("Laboratory startup timed out");
-        app.kill();
+        shutdown();
       }
     }, 30000).unref();
   } else if (command === "status") {

@@ -2,9 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   errorClass,
+  instancePorts,
   recoveryPassed,
   selectedLevel,
 } from "./diagnostic-contract.mjs";
+
+test("instance ports are fixed loopback lab ports with a bounded process count", () => {
+  assert.deepEqual(instancePorts("2"), [3139, 3140]);
+  for (const value of ["0", "3", "NaN", "2;whoami"])
+    assert.throws(() => instancePorts(value));
+});
 
 test("recovery rejects nine fast errors followed by a successful response", () => {
   const samples = Array.from({ length: 10 }, (_, i) => ({

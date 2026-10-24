@@ -22,6 +22,8 @@ const seconds = Number(process.argv[3] ?? 10);
 const workload = process.argv[4] ?? "read";
 const phase = process.env.LAB_EVIDENCE_PHASE ?? "capacity";
 const diagnostic = process.env.LAB_DIAGNOSTIC === "1";
+const diagnosticTask = process.env.LAB_DIAGNOSTIC_TASK ?? "02";
+assert.ok(["02", "03"].includes(diagnosticTask));
 const variant = {
   route: process.env.LAB_DIAGNOSTIC_ROUTE ?? "mixed",
   transport: process.env.LAB_DIAGNOSTIC_TRANSPORT ?? "proxy",
@@ -54,7 +56,17 @@ const pids = JSON.parse(
   readFileSync(join(labDirectory, "processes.json"), "utf8"),
 );
 assert.ok(Number.isSafeInteger(pids.app) && pids.app > 0);
+const appPids = pids.apps ?? [pids.app];
+assert.ok(
+  Array.isArray(appPids) &&
+    appPids.length >= 1 &&
+    appPids.length <= 2 &&
+    appPids.every((pid) => Number.isSafeInteger(pid) && pid > 0),
+);
 const directory = join(labDirectory, `perf-${workload}-${vus}-${Date.now()}`);
+const diagnosticId = diagnostic
+  ? `task-${diagnosticTask}-diag-${appPids.length}instances-${variant.transport}-${variant.route}-${variant.ramp}-${vus}-${Date.now()}`
+  : null;
 mkdirSync(directory);
 writeFileSync(
   join(directory, "manifest.json"),
@@ -71,6 +83,8 @@ writeFileSync(
       seconds,
       workload,
       diagnostic: diagnostic ? variant : null,
+      evidenceId: diagnosticId,
+      appInstances: appPids.length,
       commit: execFileSync("git", ["rev-parse", "HEAD"], {
         encoding: "utf8",
       }).trim(),
@@ -150,7 +164,7 @@ const monitor = (async () => {
   await new Promise((resolve) => setTimeout(resolve, 250));
   while (!finished) {
     const now = counters();
-    for (const pid of [pids.app, pids.supervisor]) {
+    for (const pid of [...appPids, pids.supervisor]) {
       assert.ok(Number.isSafeInteger(pid) && pid > 0);
       const observerDirectory = join(labDirectory, "observability");
       const files = existsSync(observerDirectory)
@@ -191,7 +205,7 @@ const monitor = (async () => {
         "-NoProfile",
         "-NonInteractive",
         "-Command",
-        `@{app=(Get-Process -Id ${pids.app} | Select-Object CPU,WorkingSet64);generator=(Get-Process -Id ${child.pid} -ErrorAction SilentlyContinue | Select-Object CPU,WorkingSet64)} | ConvertTo-Json -Compress`,
+        `$ap=@(Get-Process -Id ${appPids.join(",")} -ErrorAction SilentlyContinue); @{app=@{CPU=($ap | Measure-Object CPU -Sum).Sum;WorkingSet64=($ap | Measure-Object WorkingSet64 -Sum).Sum;Count=$ap.Count};generator=(Get-Process -Id ${child.pid} -ErrorAction SilentlyContinue | Select-Object CPU,WorkingSet64)} | ConvertTo-Json -Compress`,
       ],
       { encoding: "utf8", windowsHide: true, timeout: 5000 },
     );
@@ -200,6 +214,7 @@ const monitor = (async () => {
     try {
       const processes = JSON.parse(resource.stdout);
       app = processes.app;
+      if (app?.Count !== appPids.length) app = null;
       generator = processes.generator;
     } catch {
       /* Missing process stops campaign. */
@@ -291,7 +306,7 @@ const metrics = {
 const passed = code === 0 && !abort && !!summary && samples.length >= 2;
 writeEvidence(
   diagnostic
-    ? `task-02-diag-${variant.transport}-${variant.route}-${variant.ramp}-${vus}`
+    ? diagnosticId
     : `task-${phase === "stress" ? "13" : vus <= 2 ? "11" : "12"}-perf-${workload}-${vus}`,
   [
     {

@@ -1,0 +1,147 @@
+{
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "experiments": [
+    {
+      "schemaVersion": 1,
+      "task": "task-03-diag-2instances-proxy-mixed-ramp-250",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T17:41:32.899Z",
+      "harnessSha": "1359530ac2985853c4b513df3de07fb1eeab0c97",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=99; abort=none; samples=14; summary=true",
+          "status": "FAIL"
+        }
+      ],
+      "metrics": {
+        "vus": 250,
+        "seconds": 20,
+        "requests": 7412,
+        "rps": 238.9532164967949,
+        "p50": 421.7902,
+        "p95": 754.4378449999999,
+        "p99": 898.7343390000005,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 91.21268656716418,
+        "maxMemoryPercent": 51.40311234431976,
+        "maxConnections": 29,
+        "maxLockWaiters": 0
+      },
+      "manifest": {
+        "at": "2026-10-24T17:41:00.534Z",
+        "node": "v26.7.0",
+        "platform": "win32",
+        "release": "10.0.26200",
+        "arch": "x64",
+        "logicalCpus": 20,
+        "totalMemoryBytes": 34114641920,
+        "vus": 250,
+        "seconds": 20,
+        "workload": "read",
+        "diagnostic": {
+          "route": "mixed",
+          "transport": "proxy",
+          "ramp": "ramp"
+        },
+        "appInstances": 2,
+        "commit": "1359530ac2985853c4b513df3de07fb1eeab0c97",
+        "trackedDirty": true,
+        "hashes": {
+          "package-lock.json": "c81f2ea4843e03cbe8aa079bd07cb2ebb4b93dde3d884c599f3a04da2b9cfc24",
+          "next.config.ts": "0db2b5dd430131ba94b2b93d6a7342fa801625a5118b1ecdae017dbb9818cf24",
+          "scripts/validation/load.k6.js": "923265a379392b351c24447b43a0cd28555db7a8493c39d9190c0744fd0f5912"
+        }
+      },
+      "runtime": {
+        "proxy": {
+          "samples": 32,
+          "maxEventLoopUtilization": 0.34941121765643884,
+          "maxEventLoopP99Ms": 35.389439
+        },
+        "app": {
+          "samples": 64,
+          "maxEventLoopUtilization": 1,
+          "maxEventLoopP99Ms": 124.256255
+        }
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-03-diag-proxy-mixed-ramp-250",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T17:38:02.711Z",
+      "harnessSha": "1359530ac2985853c4b513df3de07fb1eeab0c97",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=99; abort=none; samples=14; summary=true",
+          "status": "FAIL"
+        }
+      ],
+      "metrics": {
+        "vus": 250,
+        "seconds": 20,
+        "requests": 7446,
+        "rps": 240.28032136211874,
+        "p50": 414.03435,
+        "p95": 695.95145,
+        "p99": 836.2589650000002,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 60.98870579522311,
+        "maxMemoryPercent": 50.54039191861464,
+        "maxConnections": 29,
+        "maxLockWaiters": 0
+      },
+      "manifest": {
+        "at": "2026-10-24T17:37:30.480Z",
+        "node": "v26.7.0",
+        "platform": "win32",
+        "release": "10.0.26200",
+        "arch": "x64",
+        "logicalCpus": 20,
+        "totalMemoryBytes": 34114641920,
+        "vus": 250,
+        "seconds": 20,
+        "workload": "read",
+        "diagnostic": {
+          "route": "mixed",
+          "transport": "proxy",
+          "ramp": "ramp"
+        },
+        "appInstances": 2,
+        "commit": "1359530ac2985853c4b513df3de07fb1eeab0c97",
+        "trackedDirty": true,
+        "hashes": {
+          "package-lock.json": "c81f2ea4843e03cbe8aa079bd07cb2ebb4b93dde3d884c599f3a04da2b9cfc24",
+          "next.config.ts": "0db2b5dd430131ba94b2b93d6a7342fa801625a5118b1ecdae017dbb9818cf24",
+          "scripts/validation/load.k6.js": "923265a379392b351c24447b43a0cd28555db7a8493c39d9190c0744fd0f5912"
+        }
+      },
+      "runtime": {
+        "proxy": {
+          "samples": 32,
+          "maxEventLoopUtilization": 0.321474634018477,
+          "maxEventLoopP99Ms": 34.865151
+        },
+        "app": {
+          "samples": 64,
+          "maxEventLoopUtilization": 1,
+          "maxEventLoopP99Ms": 147.849215
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Same physical Windows host; no isolated generator comparison",
+    "Short diagnostics; not sustained capacity",
+    "Raw runtime/error logs remain private",
+    "Manifest trackedDirty identifies harness code under development before the Task02 commit"
+  ]
+}

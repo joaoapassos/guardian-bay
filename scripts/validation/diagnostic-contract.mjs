@@ -33,3 +33,11 @@ export function errorClass(value) {
   );
   return matches?.[1] ?? "UNCLASSIFIED";
 }
+
+export function instancePorts(value = "1") {
+  assert.ok(
+    ["1", "2"].includes(value),
+    "Only one or two owned local instances are supported",
+  );
+  return [3139, 3140].slice(0, Number(value));
+}

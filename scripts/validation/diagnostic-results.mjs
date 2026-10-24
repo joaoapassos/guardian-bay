@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { labDirectory, labLease } from "./scope.mjs";
 
 const lease = labLease();
+const task = process.argv[2] ?? "02";
+assert.ok(["02", "03"].includes(task));
 const manifests = readdirSync(labDirectory)
   .filter((n) => n.startsWith("perf-read-"))
   .flatMap((n) => {
@@ -20,7 +22,7 @@ const rows = readdirSync(join(labDirectory, "observability"))
       .map((line) => JSON.parse(line)),
   );
 const experiments = readdirSync(join(labDirectory, "reports"))
-  .filter((n) => /^task-02-diag-[a-z0-9-]+\.json$/.test(n))
+  .filter((n) => new RegExp(`^task-${task}-diag-[a-z0-9-]+\\.json$`).test(n))
   .sort()
   .map((n) => {
     const report = JSON.parse(
@@ -31,8 +33,11 @@ const experiments = readdirSync(join(labDirectory, "reports"))
       .filter(
         (m) =>
           m.diagnostic &&
-          report.task ===
-            `task-02-diag-${m.diagnostic.transport}-${m.diagnostic.route}-${m.diagnostic.ramp}-${m.vus}` &&
+          (report.task === m.evidenceId ||
+            report.task ===
+              `task-${task}-diag-${task === "03" ? `${m.appInstances}instances-` : ""}${m.diagnostic.transport}-${m.diagnostic.route}-${m.diagnostic.ramp}-${m.vus}` ||
+            report.task ===
+              `task-${task}-diag-${m.diagnostic.transport}-${m.diagnostic.route}-${m.diagnostic.ramp}-${m.vus}`) &&
           Date.parse(m.at) <= Date.parse(report.capturedAt),
       )
       .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
@@ -64,7 +69,9 @@ const experiments = readdirSync(join(labDirectory, "reports"))
     return { ...report, manifest, runtime };
   });
 writeFileSync(
-  "docs/validation/epic13-diagnostic-results.json",
+  task === "02"
+    ? "docs/validation/epic13-diagnostic-results.json"
+    : "docs/validation/epic13-diagnostic-results-task03.json",
   `${JSON.stringify({ runId: lease.runId, experiments, limitations: ["Same physical Windows host; no isolated generator comparison", "Short diagnostics; not sustained capacity", "Raw runtime/error logs remain private", "Manifest trackedDirty identifies harness code under development before the Task02 commit"] }, null, 2)}\n`,
 );
 console.info(
