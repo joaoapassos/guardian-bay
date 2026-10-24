@@ -42,6 +42,22 @@ const measuredCount = new Counter("measured_requests");
 const measuredNewTls = new Counter("measured_new_tls_requests");
 const started = new Gauge("measurement_start_epoch_ms");
 const ended = new Gauge("measurement_end_epoch_ms");
+const statusCodes = [0, 200, 302, 400, 401, 403, 429, 500, 502, 503, "other"];
+const statusCounters = Object.fromEntries(
+  ["warm", "measured"].map((phase) => [
+    phase,
+    Object.fromEntries(
+      statusCodes.map((code) => [
+        String(code),
+        new Counter(`${phase}_http_status_${code}`),
+      ]),
+    ),
+  ]),
+);
+const refusedCounters = {
+  warm: new Counter("warm_refused"),
+  measured: new Counter("measured_refused"),
+};
 export const options = {
   vus: 1,
   iterations: 1,
@@ -78,7 +94,17 @@ export default function () {
       timeout: "10s",
     },
   }));
-  const validate = (response) => {
+  const validate = (response, phase = "measured") => {
+    const status = statusCodes.includes(response.status)
+      ? String(response.status)
+      : "other";
+    statusCounters[phase][status].add(1);
+    refusedCounters[phase].add(
+      response.status === 0 &&
+        /refused|recusou ativamente|ECONNREFUSED/i.test(response.error ?? "")
+        ? 1
+        : 0,
+    );
     const ok = check(response, {
       "concurrent request HTTP 200 without redirect": (r) => r.status === 200,
     });
@@ -90,7 +116,7 @@ export default function () {
     let valid = true;
     for (const response of warmResponses) {
       warmHttp.add(response.timings.duration);
-      if (!validate(response)) valid = false;
+      if (!validate(response, "warm")) valid = false;
     }
     if (!valid) throw new Error("Connection warm-up failed");
     sleep(2);

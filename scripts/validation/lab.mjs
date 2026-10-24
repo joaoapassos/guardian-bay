@@ -15,7 +15,11 @@ import { argon2id, hash } from "argon2";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
-import { errorClass, instancePorts } from "./diagnostic-contract.mjs";
+import {
+  errorClass,
+  instancePorts,
+  proxyBacklog,
+} from "./diagnostic-contract.mjs";
 import {
   assertScope,
   databaseUrl,
@@ -160,6 +164,7 @@ try {
     await sql.end();
     const ports = instancePorts(process.env.LAB_APP_INSTANCES);
     const poolMax = ports.length === 8 ? 5 : 10;
+    const backlog = proxyBacklog(process.env.LAB_PROXY_BACKLOG);
     let upstreamIndex = 0;
     const apps = ports.map((port) =>
       spawn(
@@ -256,7 +261,7 @@ try {
         if (chunk.toString().includes("Ready in")) ready.add(app.pid);
         if (!started && ready.size === apps.length) {
           started = true;
-          proxy.listen(3449, "127.0.0.1", () => {
+          proxy.listen({ port: 3449, host: "127.0.0.1", backlog }, () => {
             writeFileSync(
               join(labDirectory, "processes.json"),
               JSON.stringify({
@@ -265,6 +270,7 @@ try {
                 apps: apps.map((app) => app.pid),
                 ports,
                 poolMax,
+                proxyBacklog: backlog,
                 startedAt: new Date().toISOString(),
               }),
             );

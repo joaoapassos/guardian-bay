@@ -44,3 +44,11 @@ export function instancePorts(value = "1") {
     Number(value),
   );
 }
+
+export function proxyBacklog(value = "511") {
+  assert.ok(
+    ["511", "2048"].includes(value),
+    "Unapproved local listener backlog",
+  );
+  return Number(value);
+}

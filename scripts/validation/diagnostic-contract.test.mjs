@@ -3,9 +3,17 @@ import test from "node:test";
 import {
   errorClass,
   instancePorts,
+  proxyBacklog,
   recoveryPassed,
   selectedLevel,
 } from "./diagnostic-contract.mjs";
+
+test("proxy backlog changes are bounded and default remains511", () => {
+  assert.equal(proxyBacklog(), 511);
+  assert.equal(proxyBacklog("2048"), 2048);
+  for (const value of ["0", "-1", "999999", "511;whoami"])
+    assert.throws(() => proxyBacklog(value));
+});
 
 test("instance ports are fixed loopback lab ports with a bounded process count", () => {
   assert.deepEqual(instancePorts("2"), [3139, 3140]);

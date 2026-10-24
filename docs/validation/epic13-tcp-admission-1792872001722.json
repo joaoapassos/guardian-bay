@@ -1,0 +1,21 @@
+{
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "backlog": 2048,
+  "scope": "Node generator transport control only, 500TCP then500TLS to the same owned3449listener; sockets closed immediately; noHTTP/product capacity claim",
+  "results": [
+    {
+      "mode": "tcp",
+      "attempted": 500,
+      "connected": 500,
+      "errors": {},
+      "wallMs": 95.001
+    },
+    {
+      "mode": "tls",
+      "attempted": 500,
+      "connected": 500,
+      "errors": {},
+      "wallMs": 683.8629
+    }
+  ]
+}

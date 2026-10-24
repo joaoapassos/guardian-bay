@@ -97,6 +97,8 @@ const pids = JSON.parse(
 assert.ok(Number.isSafeInteger(pids.app) && pids.app > 0);
 const appPids = pids.apps ?? [pids.app];
 const appPoolMax = pids.poolMax ?? 10;
+const listenerBacklog = pids.proxyBacklog ?? 511;
+assert.ok([511, 2048].includes(listenerBacklog));
 assert.ok(Number.isInteger(appPoolMax) && appPoolMax >= 1 && appPoolMax <= 10);
 assert.ok(
   appPids.length * appPoolMax <= 40,
@@ -135,6 +137,7 @@ writeFileSync(
       evidenceId: diagnosticId,
       appInstances: appPids.length,
       appPoolMax,
+      proxyBacklog: listenerBacklog,
       commit: execFileSync("git", ["rev-parse", "HEAD"], {
         encoding: "utf8",
       }).trim(),
@@ -374,6 +377,7 @@ for (const name of readdirSync(join(labDirectory, "observability"))) {
 const metrics = {
   appInstances: appPids.length,
   appPoolMax,
+  proxyBacklog: listenerBacklog,
   reuseProfileSelected: connectionProfile === "reuse" ? 1 : 0,
   requestedConcurrency: concurrentRequests ?? 0,
   vus,
@@ -416,6 +420,11 @@ const metrics = {
   measuredRequests: summary?.metrics?.measured_requests?.count ?? 0,
   measuredNewTlsRequests:
     summary?.metrics?.measured_new_tls_requests?.count ?? 0,
+  warmTransportFailures: summary?.metrics?.warm_http_status_0?.count ?? 0,
+  measuredTransportFailures:
+    summary?.metrics?.measured_http_status_0?.count ?? 0,
+  warmRefused: summary?.metrics?.warm_refused?.count ?? 0,
+  measuredRefused: summary?.metrics?.measured_refused?.count ?? 0,
 };
 const validMeasurement =
   workload !== "concurrent" ||
