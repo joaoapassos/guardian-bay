@@ -52,3 +52,9 @@ Vinte leituras alternadas autenticadas A/B preservaram propriedade da conta e n�
 Correção de produto não aplicada: nenhum trecho comercial foi isolado como causa de PERF-01. Foi coletado perfil CPU opt-in (`LAB_CPU_PROFILE=1`) dentro da instância local, por45s, sem porta inspector. [Sumário sanitizado](epic13-cpu-profile.json): 31070 amostras, 54,80% idle, 25,67% com runtime render Next na pilha, 2,05%GC e 0,56% incluindo formatação monetária. Categorias inclusivas sobrepõem; perfil inclui períodos fora da carga. Nomes de módulos ausentes não provam ausência de custo SQL em bundles.
 
 A carga de250VUs/rampa com profiler também reprovou (p95717,15ms), sem erro inesperado. Esse run é diagnóstico com overhead, não baseline comparável. Não remover Zod, precisão monetária, consultas de autorização, auditoria ou locks para obter ganho especulativo. Perfil bruto com caminhos locais permanece ignorado. Task04 tem decisão/diagnóstico entregue, mas **não há correção comercial concluída/aprovada**.
+
+## Task 05 — gate de revalidação
+
+Bloqueada a validação sustentada/escalada para500: Task03 não produziu correção aprovada e os ensaios250 permanecem FAIL. Não repetir nem aumentar tráfego para fabricar uma aprovação. [Preflight](epic13-stage-500.json) enviou zero requests e registra ausência de patamar250 sustentado aprovado. Ensaios20s não são reclassificados como10min.
+
+`stage-preflight.mjs 500` consulta somente registros privados de estágios sustentados da mesma execução/perfil/build. Gate exige duração anterior, SLO, integridade, gerador válido e revisão manual; falha/ausência de qualquer campo bloqueia. Não executa carga nem concede autorização. Testes negativos cobrem janelas curtas, build/perfil distintos, falha e ausência de revisão. Tasks de escalada continuam dependentes desses gates; correção independente de sessões pode avançar separadamente.
