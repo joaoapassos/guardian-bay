@@ -1,0 +1,11 @@
+{
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "buildId": "DrWP4iqp5d8p3_D5am9sh",
+  "status": "PASS",
+  "ownedReads": 24,
+  "schedulePeriod": 3,
+  "revokedDenied": true,
+  "idleExpiredDenied": true,
+  "anonymousDenied": true,
+  "note": "Two owned test sessions revoked/aged after positive reads; re-provision fixtures before later load; no tokens/emails exported"
+}
