@@ -1,0 +1,512 @@
+{
+  "schemaVersion": 1,
+  "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
+  "verdict": "NOT_APPROVED_PENDING_RETESTS",
+  "counts": {
+    "PASS": 52,
+    "LIMITATION": 1,
+    "INCONCLUSIVE": 2
+  },
+  "limitations": [
+    "Production Zod High advisory remains unresolved; capacity and stress were blocked before traffic.",
+    "Burp Community human execution remains pending; HTTP replay is not a substitute.",
+    "Natural 24-hour boleto expiration and timing side channels were not measured.",
+    "ZAP active coverage was limited to two GET rules; no complete WSTG/ASVS claim.",
+    "Two-user short calibration does not establish supported capacity or DDoS resistance."
+  ],
+  "reports": [
+    {
+      "schemaVersion": 1,
+      "task": "task-05-real-surface",
+      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
+      "capturedAt": "2026-10-24T00:58:42.110Z",
+      "harnessSha": "915178e69c763e060fa1a9ef70f63463473c0850",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "cases": [
+        {
+          "id": "CAPTURE_LOGIN",
+          "expected": "Actual UI login reaches account",
+          "observed": "Account navigation after credential submission",
+          "status": "PASS"
+        },
+        {
+          "id": "CAPTURE_REAL_ACTIONS",
+          "expected": "Seven Action IDs captured from real UI, replay positive succeeds",
+          "observed": "Seven captured; saveCard replay returned success",
+          "status": "PASS"
+        },
+        {
+          "id": "CAPTURE_NATURAL_TIME",
+          "expected": "Pix eligibility reached without modifying DB dates",
+          "observed": "UI waited natural interval and backend approved",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "actions": 7
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-06-zap",
+      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
+      "capturedAt": "2026-10-24T01:05:34.191Z",
+      "harnessSha": "a07330117187710fad8e2efc2ce22744d509ac25",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "cases": [
+        {
+          "id": "ZAP_CAMPAIGN",
+          "expected": "Scoped passive authenticated reads and two low-strength GET active rules finish",
+          "observed": "exit=0; timeout=false; report=true; alertTypes=7",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "alertTypes": 7,
+        "activeMessages": 40
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-07-identity",
+      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
+      "capturedAt": "2026-10-24T01:07:34.102Z",
+      "harnessSha": "78e9220f7aae0853d028919117e7b8612c652626",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "cases": [
+        {
+          "id": "IDENTITY_VISITOR",
+          "expected": "Anonymous account redirects without fixture identity",
+          "observed": "HTTP 307; public-only=true",
+          "status": "PASS"
+        },
+        {
+          "id": "IDENTITY_POSITIVE",
+          "expected": "Owner identity visible, other identity absent",
+          "observed": "HTTP 200; own=true; other=false",
+          "status": "PASS"
+        },
+        {
+          "id": "ACCESS_VERTICAL",
+          "expected": "Customer denied and admin positive control succeeds",
+          "observed": "customer=404; admin=200",
+          "status": "PASS"
+        },
+        {
+          "id": "ACCESS_ORDER_BOLA",
+          "expected": "Other owner cannot read or confirm A order",
+          "observed": "otherRead=404; ownRead=200; confirm=NOT_FOUND",
+          "status": "PASS"
+        },
+        {
+          "id": "ACCESS_CARD_BOLA",
+          "expected": "Idempotent response cannot remove another owner's card",
+          "observed": "responseSuccess=true; ownerRows=1",
+          "status": "PASS"
+        },
+        {
+          "id": "CSRF_MISSING",
+          "expected": "Invalid origin rejected without mutation",
+          "observed": "HTTP 500",
+          "status": "PASS"
+        },
+        {
+          "id": "CSRF_OPAQUE",
+          "expected": "Invalid origin rejected without mutation",
+          "observed": "HTTP 500",
+          "status": "PASS"
+        },
+        {
+          "id": "CSRF_FOREIGN",
+          "expected": "Invalid origin rejected without mutation",
+          "observed": "HTTP 500",
+          "status": "PASS"
+        },
+        {
+          "id": "CSRF_DOWNGRADE",
+          "expected": "Invalid origin rejected without mutation",
+          "observed": "HTTP 500",
+          "status": "PASS"
+        },
+        {
+          "id": "CSRF_FORWARDED",
+          "expected": "Proxy strips forwarded authority; valid operation remains valid",
+          "observed": "success=true",
+          "status": "PASS"
+        },
+        {
+          "id": "CSRF_BODY_LIMIT",
+          "expected": "Oversized Action rejected",
+          "observed": "HTTP 500",
+          "status": "PASS"
+        },
+        {
+          "id": "AUTH_ENUMERATION",
+          "expected": "Unknown and wrong credentials give equivalent public result",
+          "observed": "equivalent=true",
+          "status": "PASS"
+        },
+        {
+          "id": "SESSION_REPLAY",
+          "expected": "Revoked fixture session cannot mutate",
+          "observed": "code=UNAUTHENTICATED",
+          "status": "PASS"
+        },
+        {
+          "id": "IDENTITY_INTEGRITY",
+          "expected": "Global commercial invariants preserved",
+          "observed": "All integrity counters zero",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {}
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-08-abuse-input",
+      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
+      "capturedAt": "2026-10-24T01:10:04.968Z",
+      "harnessSha": "258a82d12d0ac958c301e1c37af795c916da6e68",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "cases": [
+        {
+          "id": "INPUT_CARD_0",
+          "expected": "Invalid fixture/expiry/raw financial fields rejected",
+          "observed": "code=INVALID_INPUT",
+          "status": "PASS"
+        },
+        {
+          "id": "INPUT_CARD_1",
+          "expected": "Invalid fixture/expiry/raw financial fields rejected",
+          "observed": "code=INVALID_INPUT",
+          "status": "PASS"
+        },
+        {
+          "id": "INPUT_CARD_2",
+          "expected": "Invalid fixture/expiry/raw financial fields rejected",
+          "observed": "code=INVALID_INPUT",
+          "status": "PASS"
+        },
+        {
+          "id": "INPUT_QUANTITY",
+          "expected": "Negative quantity rejected server-side",
+          "observed": "code=INVALID_INPUT",
+          "status": "PASS"
+        },
+        {
+          "id": "INPUT_SQLI",
+          "expected": "SQL-looking query remains literal and does not enumerate fixtures",
+          "observed": "HTTP=200; fixtureLinks=false",
+          "status": "PASS"
+        },
+        {
+          "id": "INPUT_REFLECTED_XSS",
+          "expected": "Search reflects text without event execution",
+          "observed": "DOM safe=true",
+          "status": "PASS"
+        },
+        {
+          "id": "PRIVACY_ERROR",
+          "expected": "Invalid input returns sanitized result, no session/SQL internals",
+          "observed": "code=INVALID_INPUT; privateData=false",
+          "status": "PASS"
+        },
+        {
+          "id": "ABUSE_CAP",
+          "expected": "Card budget stops at ten operations in real window",
+          "observed": "limited=true; attempts=10",
+          "status": "PASS"
+        },
+        {
+          "id": "ABUSE_ISOLATION",
+          "expected": "A cap does not block B",
+          "observed": "success=true",
+          "status": "PASS"
+        },
+        {
+          "id": "ABUSE_NATURAL_RESET",
+          "expected": "Budget recovers after natural server window",
+          "observed": "success=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {}
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-09-business",
+      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
+      "capturedAt": "2026-10-24T01:12:27.735Z",
+      "harnessSha": "7f9bf73cf81a4a4f0ed593f98954d4298c2fb7d4",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "cases": [
+        {
+          "id": "BUSINESS_AMOUNT",
+          "expected": "Client commercial authority rejected",
+          "observed": "code=INVALID_INPUT",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_TOTAL",
+          "expected": "Client commercial authority rejected",
+          "observed": "code=INVALID_INPUT",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_DISCOUNT",
+          "expected": "Client commercial authority rejected",
+          "observed": "code=INVALID_INPUT",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_CURRENCY",
+          "expected": "Client commercial authority rejected",
+          "observed": "code=INVALID_INPUT",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_USERID",
+          "expected": "Client commercial authority rejected",
+          "observed": "code=INVALID_INPUT",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_STATUS",
+          "expected": "Client commercial authority rejected",
+          "observed": "code=INVALID_INPUT",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_PAYMENTSTATUS",
+          "expected": "Client commercial authority rejected",
+          "observed": "code=INVALID_INPUT",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_METHOD",
+          "expected": "Unknown payment method rejected",
+          "observed": "code=INVALID_INPUT",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_CARD_OWNER",
+          "expected": "Other owner's card cannot authorize order",
+          "observed": "code=INVALID_CARD",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_CARD_TOTAL_RETRY",
+          "expected": "Server total 2400; same key returns original, one final event",
+          "observed": "status=PAID; total=2400; retry=true; events=1",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_EARLY",
+          "expected": "Early confirmation denied by backend",
+          "observed": "status=PENDING_PAYMENT; code=NOT_READY",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_PIX_SNAPSHOT",
+          "expected": "Fixture-eligible Pix uses frozen total and terminal retry",
+          "observed": "first=PAID; again=PAID; total=1200",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_BOLETO_NATURAL",
+          "expected": "Boleto approved only after natural 60-second interval",
+          "observed": "status=PAID",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_EXPIRED_FIXTURE",
+          "expected": "Expired fixture persists terminal expiration, cannot become paid",
+          "observed": "status=PAYMENT_EXPIRED",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_DECLINE",
+          "expected": "Academic amount rule declines and preserves cart",
+          "observed": "status=PAYMENT_FAILED; cartRows=1",
+          "status": "PASS"
+        },
+        {
+          "id": "BUSINESS_LEGACY",
+          "expected": "Documented method-less simulator remains server-owned",
+          "observed": "status=PAID; paymentRows=0",
+          "status": "PASS"
+        },
+        {
+          "id": "NATURAL_BOLETO_EXPIRY",
+          "expected": "Observe complete 24-hour boleto expiration naturally",
+          "observed": "Expiration boundary tested using explicitly aged fixture; 24-hour wait not executed",
+          "status": "LIMITATION"
+        }
+      ],
+      "metrics": {}
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-10-concurrency",
+      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
+      "capturedAt": "2026-10-24T01:13:43.652Z",
+      "harnessSha": "9d8fa36be3db79a327fda1993c2c10a978943e1b",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "cases": [
+        {
+          "id": "RACE_LAST_UNIT",
+          "expected": "Two independent HTTP owners: one PAID, one OUT_OF_STOCK",
+          "observed": "outcomes=OUT_OF_STOCK,PAID; remaining=0",
+          "status": "PASS"
+        },
+        {
+          "id": "RACE_SAME_INTENT",
+          "expected": "Same key returns one order, one decrement and one final event",
+          "observed": "same=true; orders=1; consumed=2; events=1",
+          "status": "PASS"
+        },
+        {
+          "id": "RACE_DISTINCT_INTENTS",
+          "expected": "Same current cart converts once; other key sees empty cart",
+          "observed": "pending=true; empty=true",
+          "status": "PASS"
+        },
+        {
+          "id": "RACE_PAYMENT",
+          "expected": "Simultaneous confirmations return PAID and consume exactly once",
+          "observed": "paid=true; consumed=1; events=1",
+          "status": "PASS"
+        },
+        {
+          "id": "RACE_ADMIN_STOCK",
+          "expected": "Payment rechecks inventory after controlled stock writer releases lock",
+          "observed": "status=PAYMENT_FAILED",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {}
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-11-browser-safety",
+      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
+      "capturedAt": "2026-10-24T01:17:52.806Z",
+      "harnessSha": "0d18e176caef63f5a811113ddaeceefa5cd237a1",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "cases": [
+        {
+          "id": "BROWSER_EGRESS",
+          "expected": "External fetch intercepted and blocked before network",
+          "observed": "intercepted=true; fetch rejected; local TLS SPKI only",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {}
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-11-perf-commerce-2",
+      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
+      "capturedAt": "2026-10-24T01:18:20.821Z",
+      "harnessSha": "0d18e176caef63f5a811113ddaeceefa5cd237a1",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=7; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "vus": 2,
+        "seconds": 15,
+        "requests": 32,
+        "rps": 2.1121222889235574,
+        "p50": 7.9397,
+        "p95": 13.49296,
+        "p99": 17.988582000000008,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 2.253603735703491,
+        "maxMemoryPercent": 42.84534210933908,
+        "maxConnections": 13,
+        "maxLockWaiters": 0
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-11-perf-read-2",
+      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
+      "capturedAt": "2026-10-24T01:27:17.217Z",
+      "harnessSha": "e369bbb194dd60debf5089cd137f0c3990e0ab4d",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=5; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "vus": 2,
+        "seconds": 10,
+        "requests": 40,
+        "rps": 3.939732687758229,
+        "p50": 6.99545,
+        "p95": 9.160054999999998,
+        "p99": 11.591868999999999,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 3.83419689119171,
+        "maxMemoryPercent": 43.19197192382549,
+        "maxConnections": 13,
+        "maxLockWaiters": 0
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-12-capacity",
+      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
+      "capturedAt": "2026-10-24T01:21:02.286Z",
+      "harnessSha": "49a372559d185b7c05c9d20f49b2978fb3a047f2",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "cases": [
+        {
+          "id": "CAPACITY_SCA_PREFLIGHT",
+          "expected": "No unresolved production dependency findings before escalation",
+          "observed": "1 unresolved production finding; no capacity traffic sent",
+          "status": "INCONCLUSIVE"
+        }
+      ],
+      "metrics": {}
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-13-stress",
+      "runId": "3fa22834-bda1-40cd-818b-7e95f8f96fbb",
+      "capturedAt": "2026-10-24T01:23:00.685Z",
+      "harnessSha": "b21f7884accde4bb4f6c57eaa45602454e0dd991",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "54eYskY3uVCV99WBBvu-c",
+      "cases": [
+        {
+          "id": "STRESS_PREFLIGHT",
+          "expected": "Clean SCA and a measured stable plateau before stress",
+          "observed": "productionFindings=1; stablePlateaus=0; no stress traffic sent",
+          "status": "INCONCLUSIVE"
+        }
+      ],
+      "metrics": {}
+    }
+  ]
+}

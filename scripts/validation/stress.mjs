@@ -6,6 +6,7 @@ import { writeEvidence } from "./evidence.mjs";
 import { transport } from "./http.mjs";
 import { labDirectory, labLease } from "./scope.mjs";
 import { assertIntegrity, openLabDb } from "./state.mjs";
+import { supervise } from "./supervision.mjs";
 
 labLease();
 const sca = JSON.parse(
@@ -60,6 +61,7 @@ if (
         ],
         { stdio: "inherit", windowsHide: true },
       );
+      supervise(child);
       child.on("error", reject);
       child.on("exit", resolve);
     });

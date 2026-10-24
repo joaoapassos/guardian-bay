@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { writeEvidence } from "./evidence.mjs";
 import { labDirectory, labLease } from "./scope.mjs";
 import { assertIntegrity, openLabDb } from "./state.mjs";
+import { boundedMonitor, stopChild, supervise } from "./supervision.mjs";
 
 labLease();
 const vus = Number(process.argv[2] ?? 2);
@@ -70,6 +71,7 @@ const child = spawn(
   },
 );
 let output = "";
+supervise(child);
 child.stdout.on("data", (chunk) => {
   output = (output + chunk).slice(-16384);
 });
@@ -79,7 +81,7 @@ child.stderr.on("data", (chunk) => {
 const deadline = setTimeout(
   () => {
     abort = "runner-deadline";
-    child.kill();
+    stopChild(child);
   },
   (seconds + 45) * 1000,
 );
@@ -92,7 +94,15 @@ const monitor = (async () => {
     previous = now;
     const memoryPercent = 100 * (1 - freemem() / totalmem());
     const [db] =
-      await sql`SELECT count(*)::int AS connections,count(*) FILTER(WHERE wait_event_type='Lock')::int AS lock_waiters,current_setting('max_connections')::int AS max_connections FROM pg_stat_activity`;
+      (await boundedMonitor(
+        () =>
+          sql`SELECT count(*)::int AS connections,count(*) FILTER(WHERE wait_event_type='Lock')::int AS lock_waiters,current_setting('max_connections')::int AS max_connections FROM pg_stat_activity`,
+        () => {
+          abort = "monitor-failed";
+          stopChild(child);
+        },
+      )) ?? [];
+    if (!db) break;
     const resource = spawnSync(
       "powershell.exe",
       [
@@ -136,12 +146,15 @@ const monitor = (async () => {
       (highCpuSince && Date.now() - highCpuSince >= 60000)
     ) {
       abort = !app ? "app-process-unavailable" : "resource-guard";
-      child.kill();
+      stopChild(child);
       break;
     }
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
-})();
+})().catch(() => {
+  abort = "monitor-failed";
+  stopChild(child);
+});
 let code;
 try {
   code = await new Promise((resolve, reject) => {
@@ -153,8 +166,16 @@ try {
   clearTimeout(deadline);
   await monitor;
 }
-await assertIntegrity(sql);
-await sql.end();
+try {
+  await boundedMonitor(
+    () => assertIntegrity(sql),
+    () => {
+      abort = "integrity-unavailable";
+    },
+  );
+} finally {
+  await sql.end({ timeout: 5 });
+}
 writeFileSync(
   join(directory, "resources.json"),
   JSON.stringify(samples, null, 2),

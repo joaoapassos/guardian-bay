@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { writeEvidence } from "./evidence.mjs";
 import { labDirectory, labLease } from "./scope.mjs";
 import { assertIntegrity, openLabDb } from "./state.mjs";
+import { supervise } from "./supervision.mjs";
 
 labLease();
 const scaPath = ".vitest/dependencies-production.json";
@@ -46,6 +47,7 @@ if (sca.findings.length) {
           ],
           { stdio: "inherit", windowsHide: true },
         );
+        supervise(child);
         child.on("error", reject);
         child.on("exit", resolve);
       });
