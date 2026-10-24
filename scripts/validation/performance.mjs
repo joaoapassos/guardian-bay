@@ -39,7 +39,23 @@ if (diagnostic) {
 assert.ok(["capacity", "stress"].includes(phase));
 assert.ok([1, 2, 10, 50, 100, 250, 500, 1000].includes(vus));
 assert.ok(Number.isInteger(seconds) && seconds >= 5 && seconds <= 600);
-assert.ok(["read", "commerce", "representative"].includes(workload));
+assert.ok(
+  ["read", "commerce", "representative", "concurrent"].includes(workload),
+);
+const concurrentRequests =
+  workload === "concurrent" ? Number(process.env.LAB_REQUESTS) : null;
+if (workload === "concurrent") {
+  assert.equal(vus, 1);
+  assert.equal(seconds, 30);
+  assert.equal(diagnostic, false);
+  assert.ok([10, 25, 50, 100, 250].includes(concurrentRequests));
+  assert.equal(safeScaCount(), 0);
+}
+function safeScaCount() {
+  return JSON.parse(
+    readFileSync(".vitest/dependencies-production.json", "utf8"),
+  ).findings.length;
+}
 if (workload === "representative") {
   assert.equal(vus, 2, "Representative workload is calibration-only");
   assert.equal(seconds, 180);
@@ -48,7 +64,9 @@ if (workload === "representative") {
 const workloadPath =
   workload === "representative"
     ? "scripts/validation/representative.k6.js"
-    : "scripts/validation/load.k6.js";
+    : workload === "concurrent"
+      ? "scripts/validation/concurrent.k6.js"
+      : "scripts/validation/load.k6.js";
 // Fail closed while the production dependency gate has an unresolved finding.
 const sca = JSON.parse(
   readFileSync(".vitest/dependencies-production.json", "utf8"),
@@ -73,6 +91,7 @@ assert.ok(
     appPids.every((pid) => Number.isSafeInteger(pid) && pid > 0),
 );
 const directory = join(labDirectory, `perf-${workload}-${vus}-${Date.now()}`);
+const measurementStartedAt = Date.now();
 const diagnosticId = diagnostic
   ? `task-${diagnosticTask}-diag-${appPids.length}instances-${variant.transport}-${variant.route}-${variant.ramp}-${vus}-${Date.now()}`
   : null;
@@ -91,6 +110,7 @@ writeFileSync(
       vus,
       seconds,
       workload,
+      concurrentRequests,
       diagnostic: diagnostic ? variant : null,
       evidenceId: diagnosticId,
       appInstances: appPids.length,
@@ -294,6 +314,28 @@ const summary = existsSync(path)
   ? JSON.parse(readFileSync(path, "utf8"))
   : null;
 const duration = summary?.metrics?.http_req_duration;
+const observerSamples = [];
+for (const name of readdirSync(join(labDirectory, "observability"))) {
+  if (!name.endsWith(".jsonl")) continue;
+  for (const line of readFileSync(
+    join(labDirectory, "observability", name),
+    "utf8",
+  ).split("\n")) {
+    if (!line) continue;
+    try {
+      const sample = JSON.parse(line);
+      if (
+        sample.runId === labLease().runId &&
+        Date.parse(sample.at) >= measurementStartedAt &&
+        Date.parse(sample.at) <= Date.now() &&
+        [...appPids, pids.supervisor].includes(sample.pid)
+      )
+        observerSamples.push(sample);
+    } catch {
+      /* Ignore an incomplete final append, never parse arbitrary error text. */
+    }
+  }
+}
 const metrics = {
   vus,
   seconds,
@@ -307,6 +349,18 @@ const metrics = {
   maxMemoryPercent: Math.max(0, ...samples.map((s) => s.memoryPercent)),
   maxConnections: Math.max(0, ...samples.map((s) => s.connections)),
   maxLockWaiters: Math.max(0, ...samples.map((s) => s.lockWaiters)),
+  maxProxyInflight: Math.max(
+    0,
+    ...observerSamples
+      .filter((s) => s.role === "proxy")
+      .map((s) => s.httpRequests?.peakInSample ?? 0),
+  ),
+  maxSingleAppInflight: Math.max(
+    0,
+    ...observerSamples
+      .filter((s) => s.role === "app")
+      .map((s) => s.httpRequests?.peakInSample ?? 0),
+  ),
 };
 const passed = code === 0 && !abort && !!summary && samples.length >= 2;
 writeEvidence(
@@ -314,7 +368,9 @@ writeEvidence(
     ? diagnosticId
     : workload === "representative"
       ? `task-07-calibration-${Date.now()}`
-      : `task-${phase === "stress" ? "13" : vus <= 2 ? "11" : "12"}-perf-${workload}-${vus}`,
+      : workload === "concurrent"
+        ? `task-18-http-burst-${concurrentRequests}-${Date.now()}`
+        : `task-${phase === "stress" ? "13" : vus <= 2 ? "11" : "12"}-perf-${workload}-${vus}`,
   [
     {
       id: "PERFORMANCE",

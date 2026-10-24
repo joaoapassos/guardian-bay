@@ -1,6 +1,8 @@
+import { channel } from "node:diagnostics_channel";
 import { appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { monitorEventLoopDelay, performance } from "node:perf_hooks";
+import { createInflightCounter } from "./inflight-counter.mjs";
 import { labDirectory, labLease } from "./scope.mjs";
 
 const lease = labLease();
@@ -17,6 +19,12 @@ let busy = false;
 let dropped = 0;
 let bytes = 0;
 const counters = Object.create(null);
+const inflight = createInflightCounter();
+channel("http.server.request.start").subscribe(({ response }) => {
+  const finish = inflight.start();
+  response.once("finish", finish);
+  response.once("close", finish);
+});
 export function countDiagnostic(name) {
   if (!/^[a-z][a-z0-9_.]{1,60}$/.test(name))
     throw new Error("Invalid diagnostic counter");
@@ -45,6 +53,7 @@ const timer = setInterval(async () => {
     eventLoopP99Ms: histogram.percentile(99) / 1e6,
     dropped,
     counters,
+    httpRequests: inflight.sample(),
   })}\n`;
   histogram.reset();
   try {

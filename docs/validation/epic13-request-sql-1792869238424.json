@@ -1,0 +1,55 @@
+{
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "buildId": "PJVveHnCMe56G4IK4_gXw",
+  "scope": "20 sequential requests per route, one owned user, warm local data; SQL execution excludes network and pool acquisition; not a concurrent capacity test",
+  "groups": [
+    {
+      "route": "/products",
+      "requests": 20,
+      "averageHttpMs": 15.040420000000001,
+      "selectCalls": 60,
+      "databaseExecutionMs": 2.8946000000000005,
+      "changes": [
+        {
+          "bucket": "other-select",
+          "calls": 20,
+          "executionMs": 1.0686000000000002
+        },
+        {
+          "bucket": "other-select",
+          "calls": 20,
+          "executionMs": 1.3371999999999997
+        },
+        {
+          "bucket": "session-protected-read",
+          "calls": 20,
+          "executionMs": 0.48880000000000035
+        }
+      ]
+    },
+    {
+      "route": "/account",
+      "requests": 20,
+      "averageHttpMs": 12.289905000000008,
+      "selectCalls": 100,
+      "databaseExecutionMs": 2.010299999999999,
+      "changes": [
+        {
+          "bucket": "session-protected-read",
+          "calls": 20,
+          "executionMs": 0.39049999999999996
+        },
+        {
+          "bucket": "session-protected-read",
+          "calls": 20,
+          "executionMs": 0.5797999999999999
+        },
+        {
+          "bucket": "session-protected-read",
+          "calls": 60,
+          "executionMs": 1.0399999999999991
+        }
+      ]
+    }
+  ]
+}

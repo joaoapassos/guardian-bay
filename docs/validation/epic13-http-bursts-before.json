@@ -1,0 +1,146 @@
+{
+  "profile": "simultaneous-http-burst-v1",
+  "note": "One burst per attempt; seconds30 is runner ceiling; RPS includes2s before/3s after and is not service throughput; proxy peak includes upstream queue; backend per-process peak is separately reported",
+  "reports": [
+    {
+      "schemaVersion": 1,
+      "task": "task-18-http-burst-10-1792869226333",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T19:13:46.495Z",
+      "harnessSha": "d5071f2044aa147c64670f8cace138a918bdb27c",
+      "sourceTree": "7818c3b85848b0862a495a6f96965cc911ec4248",
+      "sourceTreeReference": "HEAD_AT_EXECUTION",
+      "workingSourceSha256": "7ae887936325dd229e7afb81fc5ef714145c50da8ecb1d39a1508f4ce28a435f",
+      "buildId": "PJVveHnCMe56G4IK4_gXw",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=99; abort=none; samples=3; summary=true",
+          "status": "FAIL"
+        }
+      ],
+      "metrics": {
+        "vus": 1,
+        "seconds": 30,
+        "requests": 10,
+        "rps": 1.7915132541614658,
+        "p50": 369.37985000000003,
+        "p95": 526.36561,
+        "p99": 555.5933620000001,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 43.59466666666667,
+        "maxMemoryPercent": 62.35029902374541,
+        "maxConnections": 19,
+        "maxLockWaiters": 0,
+        "maxProxyInflight": 10,
+        "maxSingleAppInflight": 10
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-18-http-burst-10-1792869247005",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T19:14:07.164Z",
+      "harnessSha": "d5071f2044aa147c64670f8cace138a918bdb27c",
+      "sourceTree": "7818c3b85848b0862a495a6f96965cc911ec4248",
+      "sourceTreeReference": "HEAD_AT_EXECUTION",
+      "workingSourceSha256": "7ae887936325dd229e7afb81fc5ef714145c50da8ecb1d39a1508f4ce28a435f",
+      "buildId": "PJVveHnCMe56G4IK4_gXw",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=3; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "vus": 1,
+        "seconds": 30,
+        "requests": 10,
+        "rps": 1.9504682108692533,
+        "p50": 97.13065,
+        "p95": 112.91849,
+        "p99": 113.727698,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 46.370063804104156,
+        "maxMemoryPercent": 61.65520238882812,
+        "maxConnections": 19,
+        "maxLockWaiters": 0,
+        "maxProxyInflight": 10,
+        "maxSingleAppInflight": 9
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-18-http-burst-25-1792869263474",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T19:14:23.634Z",
+      "harnessSha": "d5071f2044aa147c64670f8cace138a918bdb27c",
+      "sourceTree": "7818c3b85848b0862a495a6f96965cc911ec4248",
+      "sourceTreeReference": "HEAD_AT_EXECUTION",
+      "workingSourceSha256": "7ae887936325dd229e7afb81fc5ef714145c50da8ecb1d39a1508f4ce28a435f",
+      "buildId": "PJVveHnCMe56G4IK4_gXw",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=3; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "vus": 1,
+        "seconds": 30,
+        "requests": 25,
+        "rps": 4.728587763004997,
+        "p50": 220.9805,
+        "p95": 263.73704,
+        "p99": 266.116024,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 36.32515531220385,
+        "maxMemoryPercent": 61.51057118878298,
+        "maxConnections": 19,
+        "maxLockWaiters": 0,
+        "maxProxyInflight": 25,
+        "maxSingleAppInflight": 25
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-18-http-burst-50-1792869276585",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T19:14:36.643Z",
+      "harnessSha": "d5071f2044aa147c64670f8cace138a918bdb27c",
+      "sourceTree": "7818c3b85848b0862a495a6f96965cc911ec4248",
+      "sourceTreeReference": "HEAD_AT_EXECUTION",
+      "workingSourceSha256": "7ae887936325dd229e7afb81fc5ef714145c50da8ecb1d39a1508f4ce28a435f",
+      "buildId": "PJVveHnCMe56G4IK4_gXw",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=99; abort=none; samples=3; summary=true",
+          "status": "FAIL"
+        }
+      ],
+      "metrics": {
+        "vus": 1,
+        "seconds": 30,
+        "requests": 50,
+        "rps": 8.975106715813872,
+        "p50": 442.13665000000003,
+        "p95": 525.985685,
+        "p99": 529.509509,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 11.878191791185932,
+        "maxMemoryPercent": 41.65840814429982,
+        "maxConnections": 19,
+        "maxLockWaiters": 0,
+        "maxProxyInflight": 50,
+        "maxSingleAppInflight": 47
+      }
+    }
+  ]
+}
