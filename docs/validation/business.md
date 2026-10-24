@@ -1,0 +1,11 @@
+# Task 9 — manipulação comercial e pagamentos
+
+Executar `node scripts/validation/business.mjs` após as capturas e renovação de B. Prepara somente carrinhos próprios das fixtures. Não apaga pedidos/auditoria e não reduz budgets; se houver RATE_LIMITED, aguardar a janela antes de repetir a campanha inteira. Mantém esperado/observado e consulta estado persistido.
+
+Roteiro Burp: capturar checkout válido e alterar um campo por vez (amount/total/discount/currency/userId/status/paymentStatus/method/cardId). Preservar controle positivo da mesma build. Esperado: autoridade externa rejeitada, cartão alheio inválido, valor do snapshot calculado pelo backend. Repetir checkoutKey com método diferente deve retornar o original, sem novo decremento ou evento. Métodos desconhecidos são inválidos; contrato sem payment retorna simulador legado documentado, não cartão selecionado.
+
+Pix: confirmar antes do intervalo (NOT_READY), aguardar naturalmente ou declarar antecipação de fixture, aprovar e repetir. Total permanece congelado mesmo após edição do catálogo. Boleto: aguardar 60s naturais para elegibilidade; expiração de 24h é testada por fixture explicitamente envelhecida nesta campanha, não por espera natural de um dia. Pedido expirado permanece terminal. Cartão com valor >=1000000 centavos é recusado pela regra acadêmica e preserva carrinho. Pix/boleto convertem carrinho ao criar pendência; não restauram automaticamente após falha/expiração.
+
+Evidências: requests redigidos, resultado Flight, orders/order_items/order_payments, inventory e evento order.completed. Comparar estoque antes/depois, total somado, dono e cardinalidade. Não aceitar somente o texto de aprovação da UI como comprovação. Nenhum método faz transação financeira real.
+
+Observado: 16 PASS e uma LIMITATION (espera natural de 24h). Total de cartão 2400 centavos veio do servidor, retry com outro método retornou o original e produziu um único evento. Pix antecipado foi negado; snapshot manteve 1200 após alteração do catálogo. Boleto foi aprovado após 60s naturais; fixture vencida terminou PAYMENT_EXPIRED. Regra de recusa preservou carrinho e compatibilidade legada sem payment foi confirmada. Integridade global permaneceu válida.
