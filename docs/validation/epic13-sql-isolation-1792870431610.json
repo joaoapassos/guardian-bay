@@ -1,0 +1,30 @@
+{
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "scope": "Read-only synthetic250jobs/750SELECTs, four pools in one Node process, no SSR/HTTP/Drizzle; not application capacity. Variants sequential and fixed order; exploratory comparison only.",
+  "summaries": [
+    {
+      "pipeline": 100,
+      "pools": 4,
+      "maxConnectionsPerPool": 10,
+      "jobs": 250,
+      "selects": 750,
+      "wallMs": 70.65980000000013,
+      "p50Ms": 47.37909999999988,
+      "p95Ms": 59.57040000000006,
+      "p99Ms": 60.552900000000136,
+      "maxMs": 69.68079999999986
+    },
+    {
+      "pipeline": 1,
+      "pools": 4,
+      "maxConnectionsPerPool": 10,
+      "jobs": 250,
+      "selects": 750,
+      "wallMs": 67.82929999999988,
+      "p50Ms": 61.95179999999982,
+      "p95Ms": 66.27210000000014,
+      "p99Ms": 67.38369999999986,
+      "maxMs": 67.47590000000037
+    }
+  ]
+}
