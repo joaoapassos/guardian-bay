@@ -159,6 +159,7 @@ try {
     }
     await sql.end();
     const ports = instancePorts(process.env.LAB_APP_INSTANCES);
+    const poolMax = ports.length === 8 ? 5 : 10;
     let upstreamIndex = 0;
     const apps = ports.map((port) =>
       spawn(
@@ -177,6 +178,7 @@ try {
           env: {
             ...process.env,
             DATABASE_URL: databaseUrl,
+            DATABASE_POOL_MAX: String(poolMax),
             NODE_ENV: "production",
             LAB_OBSERVER_ROLE: "app",
           },
@@ -262,6 +264,7 @@ try {
                 app: apps[0].pid,
                 apps: apps.map((app) => app.pid),
                 ports,
+                poolMax,
                 startedAt: new Date().toISOString(),
               }),
             );

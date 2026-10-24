@@ -2,11 +2,11 @@ import "server-only";
 
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { getDatabaseUrl } from "@/lib/env/server";
+import { getDatabasePoolMax, getDatabaseUrl } from "@/lib/env/server";
 
 function createDatabase() {
   const url = getDatabaseUrl();
-  return drizzle(postgres(url));
+  return drizzle(postgres(url, { max: getDatabasePoolMax() }));
 }
 
 type Database = ReturnType<typeof createDatabase>;

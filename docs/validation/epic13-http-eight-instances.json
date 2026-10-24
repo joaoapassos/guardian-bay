@@ -1,0 +1,285 @@
+{
+  "scope": "Eight processes with pool5 each. First100FAIL retained, subsequent warm100 and250 attempts. Not5000requests and not sustained capacity",
+  "reports": [
+    {
+      "schemaVersion": 1,
+      "task": "task-18-http-burst-100-1792870832048",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T19:40:32.219Z",
+      "harnessSha": "f69df43ceaf00fb655e7ed3a85535776be4deb7c",
+      "sourceTree": "d7e27728d7219dd2a442a23986703d92c71829e8",
+      "sourceTreeReference": "HEAD_AT_EXECUTION",
+      "workingSourceSha256": "236363d17f7268cba37e7b6384532b0728867272d0fd7f394d760e952b76290f",
+      "buildId": "vA9Xhbksm60PPGOy9Mfuu",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=99; abort=none; samples=3; summary=true",
+          "status": "FAIL"
+        }
+      ],
+      "metrics": {
+        "appInstances": 8,
+        "appPoolMax": 5,
+        "vus": 1,
+        "seconds": 30,
+        "requests": 100,
+        "rps": 16.50358457031688,
+        "p50": 213.82455,
+        "p95": 764.1332249999999,
+        "p99": 977.2254380000002,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 54.21054763447829,
+        "maxMemoryPercent": 72.46123977490073,
+        "maxConnections": 49,
+        "maxLockWaiters": 0,
+        "maxProxyInflight": 96,
+        "maxSingleAppInflight": 11,
+        "burstWallMs": 1056,
+        "tlsP95Ms": 179.549785,
+        "tcpP95Ms": 5.0807999999999955
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-18-http-burst-100-1792870951127",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T19:42:31.310Z",
+      "harnessSha": "f69df43ceaf00fb655e7ed3a85535776be4deb7c",
+      "sourceTree": "d7e27728d7219dd2a442a23986703d92c71829e8",
+      "sourceTreeReference": "HEAD_AT_EXECUTION",
+      "workingSourceSha256": "236363d17f7268cba37e7b6384532b0728867272d0fd7f394d760e952b76290f",
+      "buildId": "vA9Xhbksm60PPGOy9Mfuu",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=3; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "appInstances": 8,
+        "appPoolMax": 5,
+        "vus": 1,
+        "seconds": 30,
+        "requests": 100,
+        "rps": 18.724364823202393,
+        "p50": 233.69675,
+        "p95": 267.271705,
+        "p99": 275.34392099999997,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 46.5834830909982,
+        "maxMemoryPercent": 67.8061706590529,
+        "maxConnections": 49,
+        "maxLockWaiters": 0,
+        "maxProxyInflight": 99,
+        "maxSingleAppInflight": 12,
+        "burstWallMs": 338,
+        "tlsP95Ms": 162.814785,
+        "tcpP95Ms": 5.6174
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-18-http-burst-100-1792870995697",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T19:43:15.867Z",
+      "harnessSha": "f69df43ceaf00fb655e7ed3a85535776be4deb7c",
+      "sourceTree": "d7e27728d7219dd2a442a23986703d92c71829e8",
+      "sourceTreeReference": "HEAD_AT_EXECUTION",
+      "workingSourceSha256": "236363d17f7268cba37e7b6384532b0728867272d0fd7f394d760e952b76290f",
+      "buildId": "vA9Xhbksm60PPGOy9Mfuu",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=3; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "appInstances": 8,
+        "appPoolMax": 5,
+        "vus": 1,
+        "seconds": 30,
+        "requests": 100,
+        "rps": 18.74220078455977,
+        "p50": 210.4577,
+        "p95": 246.72821,
+        "p99": 254.67748300000002,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 47.63270003432333,
+        "maxMemoryPercent": 68.18937250038121,
+        "maxConnections": 49,
+        "maxLockWaiters": 0,
+        "maxProxyInflight": 99,
+        "maxSingleAppInflight": 8,
+        "burstWallMs": 334,
+        "tlsP95Ms": 198.753195,
+        "tcpP95Ms": 2.8306749999999994
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-18-http-burst-100-1792871004399",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T19:43:24.549Z",
+      "harnessSha": "f69df43ceaf00fb655e7ed3a85535776be4deb7c",
+      "sourceTree": "d7e27728d7219dd2a442a23986703d92c71829e8",
+      "sourceTreeReference": "HEAD_AT_EXECUTION",
+      "workingSourceSha256": "236363d17f7268cba37e7b6384532b0728867272d0fd7f394d760e952b76290f",
+      "buildId": "vA9Xhbksm60PPGOy9Mfuu",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=3; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "appInstances": 8,
+        "appPoolMax": 5,
+        "vus": 1,
+        "seconds": 30,
+        "requests": 100,
+        "rps": 18.896269288768423,
+        "p50": 187.6026,
+        "p95": 219.96611,
+        "p99": 234.661624,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 43.517375198447695,
+        "maxMemoryPercent": 67.78697214594712,
+        "maxConnections": 49,
+        "maxLockWaiters": 0,
+        "maxProxyInflight": 99,
+        "maxSingleAppInflight": 9,
+        "burstWallMs": 291,
+        "tlsP95Ms": 167.62209000000001,
+        "tcpP95Ms": 4.028104999999999
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-18-http-burst-250-1792871012904",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T19:43:33.056Z",
+      "harnessSha": "f69df43ceaf00fb655e7ed3a85535776be4deb7c",
+      "sourceTree": "d7e27728d7219dd2a442a23986703d92c71829e8",
+      "sourceTreeReference": "HEAD_AT_EXECUTION",
+      "workingSourceSha256": "236363d17f7268cba37e7b6384532b0728867272d0fd7f394d760e952b76290f",
+      "buildId": "vA9Xhbksm60PPGOy9Mfuu",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=3; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "appInstances": 8,
+        "appPoolMax": 5,
+        "vus": 1,
+        "seconds": 30,
+        "requests": 250,
+        "rps": 45.06122567867658,
+        "p50": 265.73285,
+        "p95": 371.19250999999997,
+        "p99": 387.56556299999994,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 34.514180840393514,
+        "maxMemoryPercent": 67.32978579069899,
+        "maxConnections": 49,
+        "maxLockWaiters": 0,
+        "maxProxyInflight": 136,
+        "maxSingleAppInflight": 8,
+        "burstWallMs": 543,
+        "tlsP95Ms": 332.04773499999993,
+        "tcpP95Ms": 3.5043
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-18-http-burst-250-1792871099950",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T19:45:00.121Z",
+      "harnessSha": "f69df43ceaf00fb655e7ed3a85535776be4deb7c",
+      "sourceTree": "d7e27728d7219dd2a442a23986703d92c71829e8",
+      "sourceTreeReference": "HEAD_AT_EXECUTION",
+      "workingSourceSha256": "236363d17f7268cba37e7b6384532b0728867272d0fd7f394d760e952b76290f",
+      "buildId": "vA9Xhbksm60PPGOy9Mfuu",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=3; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "appInstances": 8,
+        "appPoolMax": 5,
+        "vus": 1,
+        "seconds": 30,
+        "requests": 250,
+        "rps": 43.95393957665992,
+        "p50": 294.7853,
+        "p95": 409.46252499999997,
+        "p99": 444.09164499999997,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 51.046751496088724,
+        "maxMemoryPercent": 69.13198467480792,
+        "maxConnections": 49,
+        "maxLockWaiters": 0,
+        "maxProxyInflight": 129,
+        "maxSingleAppInflight": 7,
+        "burstWallMs": 684,
+        "tlsP95Ms": 358.8618649999999,
+        "tcpP95Ms": 5.524305
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-18-http-burst-250-1792871109084",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T19:45:09.257Z",
+      "harnessSha": "f69df43ceaf00fb655e7ed3a85535776be4deb7c",
+      "sourceTree": "d7e27728d7219dd2a442a23986703d92c71829e8",
+      "sourceTreeReference": "HEAD_AT_EXECUTION",
+      "workingSourceSha256": "236363d17f7268cba37e7b6384532b0728867272d0fd7f394d760e952b76290f",
+      "buildId": "vA9Xhbksm60PPGOy9Mfuu",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=3; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "appInstances": 8,
+        "appPoolMax": 5,
+        "vus": 1,
+        "seconds": 30,
+        "requests": 250,
+        "rps": 44.1024306825338,
+        "p50": 287.20295,
+        "p95": 419.517515,
+        "p99": 472.59799599999997,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 52.54849908107004,
+        "maxMemoryPercent": 69.1610165726752,
+        "maxConnections": 49,
+        "maxLockWaiters": 0,
+        "maxProxyInflight": 129,
+        "maxSingleAppInflight": 8,
+        "burstWallMs": 665,
+        "tlsP95Ms": 351.321215,
+        "tcpP95Ms": 3.444394999999998
+      }
+    }
+  ]
+}

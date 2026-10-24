@@ -36,8 +36,11 @@ export function errorClass(value) {
 
 export function instancePorts(value = "1") {
   assert.ok(
-    ["1", "2", "4"].includes(value),
-    "Only one, two or four owned local instances are supported",
+    ["1", "2", "4", "8"].includes(value),
+    "Only one, two, four or eight owned local instances are supported",
   );
-  return [3139, 3140, 3141, 3142].slice(0, Number(value));
+  return [3139, 3140, 3141, 3142, 3143, 3144, 3145, 3146].slice(
+    0,
+    Number(value),
+  );
 }

@@ -10,6 +10,7 @@ import {
 test("instance ports are fixed loopback lab ports with a bounded process count", () => {
   assert.deepEqual(instancePorts("2"), [3139, 3140]);
   assert.deepEqual(instancePorts("4"), [3139, 3140, 3141, 3142]);
+  assert.equal(instancePorts("8").length, 8);
   for (const value of ["0", "3", "NaN", "2;whoami"])
     assert.throws(() => instancePorts(value));
 });

@@ -93,10 +93,16 @@ const pids = JSON.parse(
 );
 assert.ok(Number.isSafeInteger(pids.app) && pids.app > 0);
 const appPids = pids.apps ?? [pids.app];
+const appPoolMax = pids.poolMax ?? 10;
+assert.ok(Number.isInteger(appPoolMax) && appPoolMax >= 1 && appPoolMax <= 10);
+assert.ok(
+  appPids.length * appPoolMax <= 40,
+  "Application connection budget exceeded",
+);
 assert.ok(
   Array.isArray(appPids) &&
     appPids.length >= 1 &&
-    appPids.length <= 4 &&
+    appPids.length <= 8 &&
     appPids.every((pid) => Number.isSafeInteger(pid) && pid > 0),
 );
 const directory = join(labDirectory, `perf-${workload}-${vus}-${Date.now()}`);
@@ -124,6 +130,7 @@ writeFileSync(
       diagnostic: diagnostic ? variant : null,
       evidenceId: diagnosticId,
       appInstances: appPids.length,
+      appPoolMax,
       commit: execFileSync("git", ["rev-parse", "HEAD"], {
         encoding: "utf8",
       }).trim(),
@@ -350,6 +357,7 @@ for (const name of readdirSync(join(labDirectory, "observability"))) {
 }
 const metrics = {
   appInstances: appPids.length,
+  appPoolMax,
   vus,
   seconds,
   requests: summary?.metrics?.http_reqs?.count ?? 0,
