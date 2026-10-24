@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { labDirectory, labLease } from "./scope.mjs";
@@ -53,6 +54,29 @@ export function writeEvidence(task, cases, metrics = {}) {
     capturedAt: new Date().toISOString(),
     harnessSha: head.stdout.trim(),
     sourceTree: source.stdout.trim(),
+    sourceTreeReference: "HEAD_AT_EXECUTION",
+    workingSourceSha256: (() => {
+      const files = spawnSync(
+        "git",
+        [
+          "ls-files",
+          "--cached",
+          "--others",
+          "--exclude-standard",
+          "-z",
+          "--",
+          "src",
+        ],
+        { encoding: "utf8" },
+      );
+      assert.equal(files.status, 0);
+      const hash = createHash("sha256");
+      for (const path of [
+        ...new Set(files.stdout.split("\0").filter(Boolean)),
+      ].sort())
+        hash.update(path).update("\0").update(readFileSync(path)).update("\0");
+      return hash.digest("hex");
+    })(),
     buildId: existsSync(".next/BUILD_ID")
       ? readFileSync(".next/BUILD_ID", "utf8").trim()
       : null,

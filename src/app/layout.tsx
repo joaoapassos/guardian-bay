@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { LogoutButton } from "@/features/auth/components/logout-button";
+import { SessionActivity } from "@/features/auth/components/session-activity";
 import { getAuthenticatedIdentity } from "@/features/auth/server/session-cookie";
 import "./globals.css";
 
@@ -28,6 +29,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {identity && <SessionActivity />}
         <header className="border-b border-zinc-300 px-6 py-4">
           <nav
             aria-label="Navegação principal"

@@ -22,6 +22,7 @@ import { changePasswordAction } from "../actions/change-password.action";
 import { loginAction } from "../actions/login.action";
 import { logoutAction } from "../actions/logout.action";
 import { readIdentityAction } from "../actions/read-identity.action";
+import { recordActivityAction } from "../actions/record-activity.action";
 import { registerAction } from "../actions/register.action";
 import { authenticate } from "./authenticate";
 import { login } from "./login";
@@ -478,6 +479,10 @@ describe("ECMSG-25: autorização e correções de autenticação", () => {
   });
   it("sessão revogada não autoriza", async () => {
     await revokeSession(ownToken);
+    expect(await recordActivityAction()).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
     expect(await readOwnIdentity({ userId: ids[0] })).toEqual({
       success: false,
       code: "UNAUTHENTICATED",
@@ -506,6 +511,10 @@ describe("ECMSG-25: autorização e correções de autenticação", () => {
       code: "UNAUTHENTICATED",
     });
     await recordSessionActivity(ownToken);
+    expect(await recordActivityAction()).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
     expect(await resolveSession(ownToken)).toBeNull();
   });
   it("renova atividade no máximo a cada 5 minutos sem estender limite absoluto", async () => {
@@ -525,6 +534,24 @@ describe("ECMSG-25: autorização e correções de autenticação", () => {
       await client`SELECT last_active_at FROM sessions WHERE token_hash=${tokenHash(ownToken)}`;
     expect(again.last_active_at).toEqual(after.last_active_at);
   });
+  it("atividade da UI não aceita autoridade externa e preserva expiração absoluta", async () => {
+    await client`UPDATE sessions SET created_at=CURRENT_TIMESTAMP-interval '1 hour',last_active_at=CURRENT_TIMESTAMP-interval '6 minutes' WHERE token_hash=${tokenHash(ownToken)}`;
+    const [before] =
+      await client`SELECT last_active_at,expires_at FROM sessions WHERE token_hash=${tokenHash(ownToken)}`;
+    expect(await recordActivityAction({ userId: ids[1] })).toEqual({
+      success: false,
+      code: "INVALID_INPUT",
+    });
+    expect(await recordActivityAction()).toEqual({ success: true });
+    const [after] =
+      await client`SELECT last_active_at,expires_at FROM sessions WHERE token_hash=${tokenHash(ownToken)}`;
+    expect(after.last_active_at).not.toEqual(before.last_active_at);
+    expect(after.expires_at).toEqual(before.expires_at);
+    await recordActivityAction();
+    const [again] =
+      await client`SELECT last_active_at FROM sessions WHERE token_hash=${tokenHash(ownToken)}`;
+    expect(again.last_active_at).toEqual(after.last_active_at);
+  });
   it("render/leitura server não renova atividade", async () => {
     await client`UPDATE sessions SET created_at=CURRENT_TIMESTAMP-interval '1 hour', last_active_at=CURRENT_TIMESTAMP-interval '6 minutes' WHERE token_hash=${tokenHash(ownToken)}`;
     const [before] =
@@ -537,6 +564,10 @@ describe("ECMSG-25: autorização e correções de autenticação", () => {
   it("expiração absoluta continua negando autorização", async () => {
     await client`UPDATE sessions SET created_at=CURRENT_TIMESTAMP-interval '9 hours', last_active_at=CURRENT_TIMESTAMP-interval '2 hours', expires_at=CURRENT_TIMESTAMP-interval '1 hour' WHERE token_hash=${tokenHash(ownToken)}`;
     expect(await sessionCookie.requireAuthenticatedIdentity()).toEqual({
+      success: false,
+      code: "UNAUTHENTICATED",
+    });
+    expect(await recordActivityAction()).toEqual({
       success: false,
       code: "UNAUTHENTICATED",
     });

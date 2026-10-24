@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "task": "task-06-session-activity",
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "capturedAt": "2026-10-24T18:02:27.963Z",
+  "harnessSha": "89ec2bcc76675e4ea8510c9c3bac4d8154155e58",
+  "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+  "sourceTreeReference": "HEAD_AT_EXECUTION",
+  "workingSourceSha256": "7ae887936325dd229e7afb81fc5ef714145c50da8ecb1d39a1508f4ce28a435f",
+  "buildId": "PJVveHnCMe56G4IK4_gXw",
+  "cases": [
+    {
+      "id": "UI_NEAR_IDLE",
+      "expected": "First visible interaction near idle renews activity without extending absolute expiry",
+      "observed": "Real browser input reached Action; PostgreSQL activity advanced; absolute expiry unchanged",
+      "status": "PASS"
+    },
+    {
+      "id": "UI_THROTTLE",
+      "expected": "Immediate repeated input does not issue another activity request",
+      "observed": "Browser activity requests=1",
+      "status": "PASS"
+    },
+    {
+      "id": "ACTIVITY_BOUNDARY",
+      "expected": "Extra authority, anonymous requests and forged Origin fail",
+      "observed": "INVALID_INPUT; UNAUTHENTICATED; forged Origin rejected",
+      "status": "PASS"
+    },
+    {
+      "id": "ACTIVITY_SERVER_CLOCK",
+      "expected": "Client clock manipulation cannot revive a server-expired session",
+      "observed": "Aged fixture remained expired after browser input and replay; PostgreSQL activity unchanged",
+      "status": "PASS"
+    }
+  ],
+  "metrics": {}
+}
