@@ -29,8 +29,9 @@ export function labLease() {
   assert.equal(lease.origin, labOrigin);
   assert.equal(lease.database, databaseUrl);
   assert.ok(/^[0-9a-f-]{36}$/.test(lease.runId));
+  const age = Date.now() - Date.parse(lease.createdAt);
   assert.ok(
-    Date.now() - Date.parse(lease.createdAt) < 24 * 60 * 60 * 1000,
+    Number.isFinite(age) && age >= 0 && age < 24 * 60 * 60 * 1000,
     "Laboratory lease expired",
   );
   return lease;
