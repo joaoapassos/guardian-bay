@@ -1,11 +1,10 @@
 import "server-only";
-import { readOwnIdentity } from "./read-own-identity";
 import { getAuthenticatedIdentity } from "./session-cookie";
 
 export async function readAccount() {
   const identity = await getAuthenticatedIdentity();
-  if (!identity) return null;
-  // No client resource ID; existing operation rechecks live session/ownership.
-  const result = await readOwnIdentity({ userId: identity.id });
-  return result.success ? { email: result.identity.email } : null;
+  // This read has no external resource ID. resolveSession joins this request's
+  // live session to its owner and checks idle/absolute expiry in the same query.
+  // Do not share/cache identity across requests or reuse it to authorize writes.
+  return identity ? { email: identity.email } : null;
 }

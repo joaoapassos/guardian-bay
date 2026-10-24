@@ -1044,11 +1044,18 @@ describe("ECMSG-36: área da própria conta", () => {
   it("revogação e expiração impedem leitura", async () => {
     const session = await createSession(id);
     request.token = session.token;
+    expect(await readAccount()).toEqual({ email });
     await revokeSession(session.token);
     expect(await readAccount()).toBeNull();
     const next = await createSession(id);
     request.token = next.token;
     await client`UPDATE sessions SET created_at=CURRENT_TIMESTAMP-interval '9 hours',last_active_at=CURRENT_TIMESTAMP-interval '1 hour',expires_at=CURRENT_TIMESTAMP-interval '1 minute' WHERE token_hash=${tokenHash(next.token)}`;
+    expect(await readAccount()).toBeNull();
+  });
+  it("idle expirado nega leitura mesmo com prazo absoluto ativo", async () => {
+    const session = await createSession(id);
+    request.token = session.token;
+    await client`UPDATE sessions SET created_at=CURRENT_TIMESTAMP-interval '1 hour',last_active_at=CURRENT_TIMESTAMP-interval '31 minutes' WHERE token_hash=${tokenHash(session.token)}`;
     expect(await readAccount()).toBeNull();
   });
 });
