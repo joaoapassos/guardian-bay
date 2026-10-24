@@ -1,0 +1,33 @@
+{
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "aborted": false,
+  "scope": "Independent Node HTTPS generator, fixed500realGETs per phase, strict certificate verification, own fixtures; timing after ClientRequest.finish differs from k6; diagnostic only, no5000capacity claim",
+  "phases": [
+    {
+      "phase": "warm",
+      "startedAt": 1792872343521,
+      "endedAt": 1792872345436,
+      "requests": 500,
+      "statuses": {
+        "200": 500
+      },
+      "errors": {},
+      "wallMs": 1915.1870000000001,
+      "afterSendP95Ms": 1320.9370000000001,
+      "afterSendP99Ms": 1328.0762
+    },
+    {
+      "phase": "measured",
+      "startedAt": 1792872347439,
+      "endedAt": 1792872348091,
+      "requests": 500,
+      "statuses": {
+        "200": 500
+      },
+      "errors": {},
+      "wallMs": 651.8532999999998,
+      "afterSendP95Ms": 565.3806,
+      "afterSendP99Ms": 596.2487000000006
+    }
+  ]
+}
