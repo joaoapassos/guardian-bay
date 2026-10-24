@@ -45,7 +45,11 @@ if (sca.findings.length) {
             String(seconds),
             workload,
           ],
-          { stdio: "inherit", windowsHide: true },
+          {
+            stdio: "inherit",
+            windowsHide: true,
+            env: { ...process.env, LAB_EVIDENCE_PHASE: "capacity" },
+          },
         );
         supervise(child);
         child.on("error", reject);

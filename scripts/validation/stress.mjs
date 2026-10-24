@@ -59,7 +59,11 @@ if (
           String(seconds),
           "read",
         ],
-        { stdio: "inherit", windowsHide: true },
+        {
+          stdio: "inherit",
+          windowsHide: true,
+          env: { ...process.env, LAB_EVIDENCE_PHASE: "stress" },
+        },
       );
       supervise(child);
       child.on("error", reject);

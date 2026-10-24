@@ -12,6 +12,8 @@ labLease();
 const vus = Number(process.argv[2] ?? 2);
 const seconds = Number(process.argv[3] ?? 10);
 const workload = process.argv[4] ?? "read";
+const phase = process.env.LAB_EVIDENCE_PHASE ?? "capacity";
+assert.ok(["capacity", "stress"].includes(phase));
 assert.ok([1, 2, 10, 50, 100, 500, 1000].includes(vus));
 assert.ok(Number.isInteger(seconds) && seconds >= 5 && seconds <= 600);
 assert.ok(["read", "commerce"].includes(workload));
@@ -208,7 +210,7 @@ const metrics = {
 };
 const passed = code === 0 && !abort && !!summary && samples.length >= 2;
 writeEvidence(
-  `task-${vus <= 2 ? "11" : "12"}-perf-${workload}-${vus}`,
+  `task-${phase === "stress" ? "13" : vus <= 2 ? "11" : "12"}-perf-${workload}-${vus}`,
   [
     {
       id: "PERFORMANCE",
