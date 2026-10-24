@@ -86,11 +86,16 @@ const deadline = setTimeout(
   (seconds + 45) * 1000,
 );
 const monitor = (async () => {
+  // CPU counters need a real interval; an immediate zero delta is not 100% usage.
+  await new Promise((resolve) => setTimeout(resolve, 250));
   while (!finished) {
     const now = counters();
-    const cpuPercent =
-      100 *
-      (1 - (now.idle - previous.idle) / Math.max(1, now.all - previous.all));
+    const cpuInterval = now.all - previous.all;
+    const idleInterval = now.idle - previous.idle;
+    assert.ok(
+      cpuInterval > 0 && idleInterval >= 0 && idleInterval <= cpuInterval,
+    );
+    const cpuPercent = 100 * (1 - idleInterval / cpuInterval);
     previous = now;
     const memoryPercent = 100 * (1 - freemem() / totalmem());
     const [db] =
@@ -131,6 +136,7 @@ const monitor = (async () => {
     samples.push({
       at: new Date().toISOString(),
       cpuPercent,
+      cpuCounterInterval: cpuInterval,
       memoryPercent,
       connections: db.connections,
       lockWaiters: db.lock_waiters,

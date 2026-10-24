@@ -25,6 +25,11 @@ const counts = {};
 for (const report of reports)
   for (const item of report.cases)
     counts[item.status] = (counts[item.status] ?? 0) + 1;
+const sca = JSON.parse(
+  readFileSync(".vitest/dependencies-production.json", "utf8"),
+);
+const version = JSON.parse(readFileSync("package.json", "utf8")).dependencies
+  .zod;
 writeFileSync(
   "docs/validation/results.json",
   `${JSON.stringify(
@@ -33,12 +38,20 @@ writeFileSync(
       runId: lease.runId,
       verdict: "NOT_APPROVED_PENDING_RETESTS",
       counts,
+      dependencyAssessment: {
+        zod: version,
+        productionFindings: sca.findings.length,
+      },
       limitations: [
-        "Production Zod High advisory remains unresolved; capacity and stress were blocked before traffic.",
+        ...(sca.findings.length
+          ? [
+              "Production SCA remains unresolved; capacity escalation is blocked.",
+            ]
+          : []),
         "Burp Community human execution remains pending; HTTP replay is not a substitute.",
         "Natural 24-hour boleto expiration and timing side channels were not measured.",
         "ZAP active coverage was limited to two GET rules; no complete WSTG/ASVS claim.",
-        "Two-user short calibration does not establish supported capacity or DDoS resistance.",
+        "Measured plateaus apply only to this shared local environment; no deployment capacity or DDoS resistance claim.",
       ],
       reports,
     },

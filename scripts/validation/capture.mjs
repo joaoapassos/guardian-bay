@@ -96,6 +96,10 @@ await withBrowser(async ({ send, evaluate, wait, navigate, events }) => {
   );
   await navigate(`/products/${data.products[0].id}`);
   current = "addCart";
+  await wait(
+    "(() => {const b=[...document.querySelectorAll('button')].find(b=>b.textContent==='Adicionar ao carrinho');return !!b&&!b.disabled&&Object.keys(b).some(k=>k.startsWith('__reactProps$')&&typeof b[k]?.onClick==='function');})()",
+    "add button hydration",
+  );
   await evaluate(
     "[...document.querySelectorAll('button')].find(b=>b.textContent==='Adicionar ao carrinho').click()",
   );
