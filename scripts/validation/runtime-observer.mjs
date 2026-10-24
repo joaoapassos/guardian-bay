@@ -59,3 +59,36 @@ const timer = setInterval(async () => {
   }
 }, 1000);
 timer.unref();
+
+// Opt-in diagnostic profiling in the owned process; no inspector TCP endpoint.
+if (
+  process.env.LAB_CPU_PROFILE === "1" &&
+  process.env.LAB_OBSERVER_ROLE === "app"
+) {
+  const { Session } = await import("node:inspector");
+  const session = new Session();
+  session.connect();
+  const post = (method) =>
+    new Promise((resolve, reject) =>
+      session.post(method, (error, value) =>
+        error ? reject(error) : resolve(value),
+      ),
+    );
+  await post("Profiler.enable");
+  await post("Profiler.start");
+  setTimeout(async () => {
+    try {
+      const { profile } = await post("Profiler.stop");
+      const { writeFile } = await import("node:fs/promises");
+      await writeFile(
+        join(directory, `${lease.runId}-${process.pid}.cpuprofile`),
+        JSON.stringify(profile),
+        { mode: 0o600 },
+      );
+    } catch {
+      countDiagnostic("profile.failed");
+    } finally {
+      session.disconnect();
+    }
+  }, 45000).unref();
+}

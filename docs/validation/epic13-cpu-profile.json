@@ -1,0 +1,25 @@
+{
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "durationSeconds": 45.011961,
+  "samples": 31070,
+  "counts": {
+    "idle": 17027,
+    "garbageCollection": 637,
+    "nextRenderRuntimeInclusive": 7977,
+    "moneyFormatterInclusive": 173
+  },
+  "samplePercent": {
+    "idle": 54.80205986482137,
+    "garbageCollection": 2.0502092050209204,
+    "nextRenderRuntimeInclusive": 25.674283875120697,
+    "moneyFormatterInclusive": 0.5568072095268748
+  },
+  "decision": "NO_PRODUCT_CHANGE_WITHOUT_LOCALIZED_BOTTLENECK",
+  "limitations": [
+    "Inclusive categories overlap; sample percentages are not exact CPU-time percentages",
+    "Includes startup and idle periods outside the load window",
+    "Bundled code prevents attributing absent module names to zero SQL cost",
+    "Profiler overhead makes this run unsuitable as a clean baseline",
+    "Raw profile with local paths remains private"
+  ]
+}

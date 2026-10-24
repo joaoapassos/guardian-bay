@@ -46,3 +46,9 @@ Conclusão: há evidência de saturação do processo de aplicação no workload
 [Resultados](epic13-diagnostic-results-task03.json): duas tentativas com 250 VUs/misto/rampa reprovaram por latência, p95 695,95ms e 754,44ms, ambas sem erros inesperados. O segundo ensaio teve pico de CPU host de 91,21%; o guard sustentado não foi atingido, mas esse ruído impede uma conclusão limpa de ganho entre topologias. Não há correção de PERF-01 aprovada, e não se avançou para 500.
 
 Vinte leituras alternadas autenticadas A/B preservaram propriedade da conta e não expuseram token. Testes Node de contratos/supervisão: sete PASS. Revisão identificou risco de sobrescrita de repetições; evidências novas passaram a incluir quantidade de instâncias e identificador único de tentativa, também no manifesto. Relatórios anteriores permanecem preservados. O código de produto não mudou.
+
+## Task 04 — decisão sobre correção de produto
+
+Correção de produto não aplicada: nenhum trecho comercial foi isolado como causa de PERF-01. Foi coletado perfil CPU opt-in (`LAB_CPU_PROFILE=1`) dentro da instância local, por45s, sem porta inspector. [Sumário sanitizado](epic13-cpu-profile.json): 31070 amostras, 54,80% idle, 25,67% com runtime render Next na pilha, 2,05%GC e 0,56% incluindo formatação monetária. Categorias inclusivas sobrepõem; perfil inclui períodos fora da carga. Nomes de módulos ausentes não provam ausência de custo SQL em bundles.
+
+A carga de250VUs/rampa com profiler também reprovou (p95717,15ms), sem erro inesperado. Esse run é diagnóstico com overhead, não baseline comparável. Não remover Zod, precisão monetária, consultas de autorização, auditoria ou locks para obter ganho especulativo. Perfil bruto com caminhos locais permanece ignorado. Task04 tem decisão/diagnóstico entregue, mas **não há correção comercial concluída/aprovada**.
