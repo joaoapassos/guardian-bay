@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "task": "task-11-perf-representative-2",
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "capturedAt": "2026-10-24T18:14:50.436Z",
+  "harnessSha": "edddb049354c606668a0990897cc471808387c25",
+  "sourceTree": "7818c3b85848b0862a495a6f96965cc911ec4248",
+  "sourceTreeReference": "HEAD_AT_EXECUTION",
+  "workingSourceSha256": "7ae887936325dd229e7afb81fc5ef714145c50da8ecb1d39a1508f4ce28a435f",
+  "buildId": "PJVveHnCMe56G4IK4_gXw",
+  "cases": [
+    {
+      "id": "PERFORMANCE",
+      "expected": "Thresholds, resource guard and data integrity all hold",
+      "observed": "exit=0; abort=none; samples=43; summary=true",
+      "status": "PASS"
+    }
+  ],
+  "metrics": {
+    "vus": 2,
+    "seconds": 180,
+    "requests": 56,
+    "rps": 0.587395934943215,
+    "p50": 8.89635,
+    "p95": 22.0627,
+    "p99": 30.865050000000014,
+    "unexpectedFailureRate": 0,
+    "maxCpuPercent": 22.236396428100115,
+    "maxMemoryPercent": 50.65336178091122,
+    "maxConnections": 13,
+    "maxLockWaiters": 0
+  }
+}

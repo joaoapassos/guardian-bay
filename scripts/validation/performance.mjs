@@ -39,7 +39,16 @@ if (diagnostic) {
 assert.ok(["capacity", "stress"].includes(phase));
 assert.ok([1, 2, 10, 50, 100, 250, 500, 1000].includes(vus));
 assert.ok(Number.isInteger(seconds) && seconds >= 5 && seconds <= 600);
-assert.ok(["read", "commerce"].includes(workload));
+assert.ok(["read", "commerce", "representative"].includes(workload));
+if (workload === "representative") {
+  assert.equal(vus, 2, "Representative workload is calibration-only");
+  assert.equal(seconds, 180);
+  assert.equal(diagnostic, false);
+}
+const workloadPath =
+  workload === "representative"
+    ? "scripts/validation/representative.k6.js"
+    : "scripts/validation/load.k6.js";
 // Fail closed while the production dependency gate has an unresolved finding.
 const sca = JSON.parse(
   readFileSync(".vitest/dependencies-production.json", "utf8"),
@@ -93,11 +102,7 @@ writeFileSync(
           encoding: "utf8",
         }).trim().length > 0,
       hashes: Object.fromEntries(
-        [
-          "package-lock.json",
-          "next.config.ts",
-          "scripts/validation/load.k6.js",
-        ].map((path) => [
+        ["package-lock.json", "next.config.ts", workloadPath].map((path) => [
           path,
           createHash("sha256").update(readFileSync(path)).digest("hex"),
         ]),
@@ -131,7 +136,7 @@ const child = spawn(
     "--quiet",
     "--summary-export",
     join(directory, "summary.json"),
-    "scripts/validation/load.k6.js",
+    workloadPath,
   ],
   {
     env: {
@@ -307,7 +312,9 @@ const passed = code === 0 && !abort && !!summary && samples.length >= 2;
 writeEvidence(
   diagnostic
     ? diagnosticId
-    : `task-${phase === "stress" ? "13" : vus <= 2 ? "11" : "12"}-perf-${workload}-${vus}`,
+    : workload === "representative"
+      ? `task-07-calibration-${Date.now()}`
+      : `task-${phase === "stress" ? "13" : vus <= 2 ? "11" : "12"}-perf-${workload}-${vus}`,
   [
     {
       id: "PERFORMANCE",

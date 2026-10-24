@@ -1,0 +1,18 @@
+{
+  "id": "representative-v1",
+  "status": "hypothesis-not-measurement",
+  "cohorts": { "browse": 70, "cart": 20, "checkout": 8, "history": 2 },
+  "thinkSeconds": { "min": 8, "max": 16 },
+  "checkoutCycleSeconds": 240,
+  "paymentPercent": { "CARD": 60, "PIX": 30, "BOLETO": 10 },
+  "authenticationArrivalsPerMinute": 12,
+  "activityMinimumIntervalSeconds": 300,
+  "calibration": { "vus": 2, "iterationsPerVu": 1, "maxSeconds": 180 },
+  "slo": {
+    "readP95Ms": 500,
+    "readP99Ms": 1500,
+    "writeP95Ms": 1500,
+    "writeP99Ms": 3000,
+    "unexpectedErrorRateBelow": 0.01
+  }
+}

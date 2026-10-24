@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "task": "task-07-representative-integrity",
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "capturedAt": "2026-10-24T18:15:04.940Z",
+  "harnessSha": "edddb049354c606668a0990897cc471808387c25",
+  "sourceTree": "7818c3b85848b0862a495a6f96965cc911ec4248",
+  "sourceTreeReference": "HEAD_AT_EXECUTION",
+  "workingSourceSha256": "7ae887936325dd229e7afb81fc5ef714145c50da8ecb1d39a1508f4ce28a435f",
+  "buildId": "PJVveHnCMe56G4IK4_gXw",
+  "cases": [
+    {
+      "id": "REPRESENTATIVE_INTEGRITY",
+      "expected": "Six PAID orders, two per method, six stock units and six completion events",
+      "observed": "PostgreSQL matches all expected counts; global integrity checks hold",
+      "status": "PASS"
+    }
+  ],
+  "metrics": {
+    "paidOrders": 6,
+    "stockConsumed": 6,
+    "completionEvents": 6
+  }
+}
