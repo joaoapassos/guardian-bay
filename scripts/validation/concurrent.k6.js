@@ -10,6 +10,10 @@ if (
 )
   throw new Error("Unauthorized concurrency target");
 const requests = Number(__ENV.LAB_REQUESTS);
+const transport = __ENV.LAB_HTTP_TRANSPORT ?? "proxy";
+const appCount = Number(__ENV.LAB_APP_COUNT);
+if (!["proxy", "backend"].includes(transport) || ![1, 2, 4].includes(appCount))
+  throw new Error("Invalid local topology");
 if (![10, 25, 50, 100, 250].includes(requests))
   throw new Error("Unapproved request concurrency level");
 const lease = JSON.parse(open("../../.vitest/epic12/lease.json"));
@@ -44,9 +48,16 @@ export default function () {
   sleep(2);
   const batch = Array.from({ length: requests }, (_, i) => ({
     method: "GET",
-    url: origin + (i % 2 === 0 ? "/products" : "/account"),
+    url:
+      (transport === "proxy"
+        ? origin
+        : `http://127.0.0.1:${3139 + (i % appCount)}`) +
+      (i % 2 === 0 ? "/products" : "/account"),
     params: {
-      headers: { cookie: `__Host-guardian-session=${fixtures.users[i].token}` },
+      headers: {
+        host: "127.0.0.1:3449",
+        cookie: `__Host-guardian-session=${fixtures.users[i].token}`,
+      },
       tags: { name: i % 2 === 0 ? "catalog" : "account" },
       timeout: "10s",
     },

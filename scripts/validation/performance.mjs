@@ -44,6 +44,9 @@ assert.ok(
 );
 const concurrentRequests =
   workload === "concurrent" ? Number(process.env.LAB_REQUESTS) : null;
+const httpTransport = process.env.LAB_HTTP_TRANSPORT ?? "proxy";
+assert.ok(["proxy", "backend"].includes(httpTransport));
+assert.ok(httpTransport === "proxy" || workload === "concurrent");
 if (workload === "concurrent") {
   assert.equal(vus, 1);
   assert.equal(seconds, 30);
@@ -52,6 +55,12 @@ if (workload === "concurrent") {
   assert.equal(safeScaCount(), 0);
 }
 function safeScaCount() {
+  const age =
+    Date.now() - statSync(".vitest/dependencies-production.json").mtimeMs;
+  assert.ok(
+    age >= 0 && age < 15 * 60 * 1000,
+    "Fresh production SCA gate required",
+  );
   return JSON.parse(
     readFileSync(".vitest/dependencies-production.json", "utf8"),
   ).findings.length;
@@ -111,6 +120,7 @@ writeFileSync(
       seconds,
       workload,
       concurrentRequests,
+      httpTransport,
       diagnostic: diagnostic ? variant : null,
       evidenceId: diagnosticId,
       appInstances: appPids.length,
@@ -164,6 +174,8 @@ const child = spawn(
       LAB_VUS: String(vus),
       LAB_SECONDS: String(seconds),
       WORKLOAD: workload,
+      LAB_HTTP_TRANSPORT: httpTransport,
+      LAB_APP_COUNT: String(appPids.length),
     },
     windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],

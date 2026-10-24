@@ -1,0 +1,83 @@
+{
+  "transport": "HTTP loopback direct to four backends; no proxy/TLS; reads only",
+  "reports": [
+    {
+      "schemaVersion": 1,
+      "task": "task-18-http-burst-100-1792870232610",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T19:30:32.780Z",
+      "harnessSha": "70acff6f98e202ec03ab474a23bf5b318b0832eb",
+      "sourceTree": "d7e27728d7219dd2a442a23986703d92c71829e8",
+      "sourceTreeReference": "HEAD_AT_EXECUTION",
+      "workingSourceSha256": "4e765fb3c0505fef5b32cb38c2d4cd2a4fc25b2a614f2402e88051180480da92",
+      "buildId": "K-2BaXmDVFb6cm12ZrrqE",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=3; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "appInstances": 4,
+        "vus": 1,
+        "seconds": 30,
+        "requests": 100,
+        "rps": 18.62306911829191,
+        "p50": 283.27385,
+        "p95": 341.84172,
+        "p99": 355.998612,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 42.711892146232685,
+        "maxMemoryPercent": 67.6329277912585,
+        "maxConnections": 49,
+        "maxLockWaiters": 0,
+        "maxProxyInflight": 0,
+        "maxSingleAppInflight": 25,
+        "burstWallMs": 368,
+        "tlsP95Ms": 0,
+        "tcpP95Ms": 4.5082
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-18-http-burst-250-1792870241933",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T19:30:42.102Z",
+      "harnessSha": "70acff6f98e202ec03ab474a23bf5b318b0832eb",
+      "sourceTree": "d7e27728d7219dd2a442a23986703d92c71829e8",
+      "sourceTreeReference": "HEAD_AT_EXECUTION",
+      "workingSourceSha256": "4e765fb3c0505fef5b32cb38c2d4cd2a4fc25b2a614f2402e88051180480da92",
+      "buildId": "K-2BaXmDVFb6cm12ZrrqE",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=99; abort=none; samples=3; summary=true",
+          "status": "FAIL"
+        }
+      ],
+      "metrics": {
+        "appInstances": 4,
+        "vus": 1,
+        "seconds": 30,
+        "requests": 250,
+        "rps": 44.114951635278615,
+        "p50": 467.7142,
+        "p95": 608.1308999999999,
+        "p99": 639.2357999999999,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 42.69196437838624,
+        "maxMemoryPercent": 67.94812439291756,
+        "maxConnections": 49,
+        "maxLockWaiters": 0,
+        "maxProxyInflight": 0,
+        "maxSingleAppInflight": 63,
+        "burstWallMs": 662,
+        "tlsP95Ms": 0,
+        "tcpP95Ms": 3.0005
+      }
+    }
+  ]
+}
