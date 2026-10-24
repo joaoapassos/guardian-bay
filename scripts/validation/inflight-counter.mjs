@@ -4,12 +4,16 @@ export function createInflightCounter() {
   let started = 0;
   let completed = 0;
   let peakInSample = 0;
+  let peakAt = 0;
   return {
     start() {
       current++;
       started++;
       peak = Math.max(peak, current);
-      peakInSample = Math.max(peakInSample, current);
+      if (current > peakInSample) {
+        peakInSample = current;
+        peakAt = Date.now();
+      }
       let finished = false;
       return () => {
         if (finished) return;
@@ -20,8 +24,9 @@ export function createInflightCounter() {
     },
     snapshot: () => ({ current, peak, started, completed }),
     sample() {
-      const result = { current, peakInSample, started, completed };
+      const result = { current, peakInSample, peakAt, started, completed };
       peakInSample = current;
+      peakAt = Date.now();
       return result;
     },
   };

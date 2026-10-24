@@ -12,6 +12,7 @@ import {
 import { arch, cpus, freemem, platform, release, totalmem } from "node:os";
 import { join } from "node:path";
 import { writeEvidence } from "./evidence.mjs";
+import { httpMeasurementWindow, measuredPeak } from "./measurement-window.mjs";
 import { labDirectory, labLease } from "./scope.mjs";
 import { assertIntegrity, openLabDb } from "./state.mjs";
 import { boundedMonitor, stopChild, supervise } from "./supervision.mjs";
@@ -45,13 +46,15 @@ assert.ok(
 const concurrentRequests =
   workload === "concurrent" ? Number(process.env.LAB_REQUESTS) : null;
 const httpTransport = process.env.LAB_HTTP_TRANSPORT ?? "proxy";
+const connectionProfile = process.env.LAB_CONNECTION_PROFILE ?? "new";
+assert.ok(["new", "reuse"].includes(connectionProfile));
 assert.ok(["proxy", "backend"].includes(httpTransport));
 assert.ok(httpTransport === "proxy" || workload === "concurrent");
 if (workload === "concurrent") {
   assert.equal(vus, 1);
   assert.equal(seconds, 30);
   assert.equal(diagnostic, false);
-  assert.ok([10, 25, 50, 100, 250].includes(concurrentRequests));
+  assert.ok([10, 25, 50, 100, 250, 500].includes(concurrentRequests));
   assert.equal(safeScaCount(), 0);
 }
 function safeScaCount() {
@@ -127,6 +130,7 @@ writeFileSync(
       workload,
       concurrentRequests,
       httpTransport,
+      connectionProfile,
       diagnostic: diagnostic ? variant : null,
       evidenceId: diagnosticId,
       appInstances: appPids.length,
@@ -183,6 +187,7 @@ const child = spawn(
       WORKLOAD: workload,
       LAB_HTTP_TRANSPORT: httpTransport,
       LAB_APP_COUNT: String(appPids.length),
+      LAB_CONNECTION_PROFILE: connectionProfile,
     },
     windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
@@ -332,7 +337,16 @@ const path = join(directory, "summary.json");
 const summary = existsSync(path)
   ? JSON.parse(readFileSync(path, "utf8"))
   : null;
-const duration = summary?.metrics?.http_req_duration;
+const duration =
+  workload === "concurrent"
+    ? summary?.metrics?.measured_http_ms
+    : summary?.metrics?.http_req_duration;
+const measurementEndedAt = Date.now();
+const httpWindow =
+  workload === "concurrent"
+    ? httpMeasurementWindow(summary, measurementStartedAt, measurementEndedAt)
+    : { start: measurementStartedAt, end: measurementEndedAt };
+const observedRunId = labLease().runId;
 const observerSamples = [];
 for (const name of readdirSync(join(labDirectory, "observability"))) {
   if (!name.endsWith(".jsonl")) continue;
@@ -344,9 +358,11 @@ for (const name of readdirSync(join(labDirectory, "observability"))) {
     try {
       const sample = JSON.parse(line);
       if (
-        sample.runId === labLease().runId &&
-        Date.parse(sample.at) >= measurementStartedAt &&
-        Date.parse(sample.at) <= Date.now() &&
+        sample.runId === observedRunId &&
+        httpWindow &&
+        Date.parse(sample.at) >= httpWindow.start &&
+        Date.parse(sample.at) <=
+          Math.min(measurementEndedAt, httpWindow.end + 1500) &&
         [...appPids, pids.supervisor].includes(sample.pid)
       )
         observerSamples.push(sample);
@@ -358,6 +374,8 @@ for (const name of readdirSync(join(labDirectory, "observability"))) {
 const metrics = {
   appInstances: appPids.length,
   appPoolMax,
+  reuseProfileSelected: connectionProfile === "reuse" ? 1 : 0,
+  requestedConcurrency: concurrentRequests ?? 0,
   vus,
   seconds,
   requests: summary?.metrics?.http_reqs?.count ?? 0,
@@ -374,19 +392,41 @@ const metrics = {
     0,
     ...observerSamples
       .filter((s) => s.role === "proxy")
-      .map((s) => s.httpRequests?.peakInSample ?? 0),
+      .map((s) =>
+        workload === "concurrent"
+          ? measuredPeak(s, httpWindow)
+          : (s.httpRequests?.peakInSample ?? 0),
+      ),
   ),
   maxSingleAppInflight: Math.max(
     0,
     ...observerSamples
       .filter((s) => s.role === "app")
-      .map((s) => s.httpRequests?.peakInSample ?? 0),
+      .map((s) =>
+        workload === "concurrent"
+          ? measuredPeak(s, httpWindow)
+          : (s.httpRequests?.peakInSample ?? 0),
+      ),
   ),
   burstWallMs: summary?.metrics?.burst_wall_ms?.max ?? 0,
   tlsP95Ms: summary?.metrics?.http_req_tls_handshaking?.["p(95)"] ?? 0,
   tcpP95Ms: summary?.metrics?.http_req_connecting?.["p(95)"] ?? 0,
+  measuredTlsP95Ms: summary?.metrics?.measured_tls_ms?.["p(95)"] ?? 0,
+  warmHttpP95Ms: summary?.metrics?.warm_http_ms?.["p(95)"] ?? 0,
+  measuredRequests: summary?.metrics?.measured_requests?.count ?? 0,
+  measuredNewTlsRequests:
+    summary?.metrics?.measured_new_tls_requests?.count ?? 0,
 };
-const passed = code === 0 && !abort && !!summary && samples.length >= 2;
+const validMeasurement =
+  workload !== "concurrent" ||
+  (!!httpWindow &&
+    !!duration &&
+    metrics.measuredRequests === concurrentRequests &&
+    [...appPids, pids.supervisor].every((pid) =>
+      observerSamples.some((s) => s.pid === pid),
+    ));
+const passed =
+  code === 0 && !abort && !!summary && samples.length >= 2 && validMeasurement;
 writeEvidence(
   diagnostic
     ? diagnosticId
@@ -399,7 +439,7 @@ writeEvidence(
     {
       id: "PERFORMANCE",
       expected: "Thresholds, resource guard and data integrity all hold",
-      observed: `exit=${code}; abort=${abort ?? "none"}; samples=${samples.length}; summary=${!!summary}`,
+      observed: `exit=${code}; abort=${abort ?? "none"}; samples=${samples.length}; summary=${!!summary}; validMeasurement=${validMeasurement}`,
       status: passed ? "PASS" : "FAIL",
     },
   ],
