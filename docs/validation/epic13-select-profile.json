@@ -1,0 +1,39 @@
+{
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "at": "2026-10-24T18:17:23.709Z",
+  "scope": "Single-user read-only samples; projections are not complete application traces or production-cardinality plans",
+  "settings": {
+    "max_connections": 100,
+    "shared_buffers": "128MB",
+    "postgres_18_6": true
+  },
+  "summaries": [
+    {
+      "name": "session",
+      "planningMs": 2.789,
+      "executionMs": 0.041,
+      "actualRows": 1,
+      "sharedHitBlocks": 6,
+      "sharedReadBlocks": 0,
+      "nodeTypes": ["Limit", "Nested Loop", "Index Scan", "Index Scan"]
+    },
+    {
+      "name": "published-page-projection",
+      "planningMs": 1.445,
+      "executionMs": 0.032,
+      "actualRows": 9,
+      "sharedHitBlocks": 4,
+      "sharedReadBlocks": 0,
+      "nodeTypes": ["Limit", "Sort", "Seq Scan"]
+    },
+    {
+      "name": "own-history-projection",
+      "planningMs": 1.08,
+      "executionMs": 0.04,
+      "actualRows": 4,
+      "sharedHitBlocks": 8,
+      "sharedReadBlocks": 0,
+      "nodeTypes": ["Limit", "Sort", "Bitmap Heap Scan", "Bitmap Index Scan"]
+    }
+  ]
+}
