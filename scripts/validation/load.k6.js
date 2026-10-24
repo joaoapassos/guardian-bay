@@ -103,9 +103,13 @@ export default function () {
     tags: { name: "account" },
     timeout: "10s",
   });
-  const success =
-    check(publicResponse, { "catalog HTTP 200": (r) => r.status === 200 }) &&
-    check(privateResponse, { "account HTTP 200": (r) => r.status === 200 });
+  const publicSuccess = check(publicResponse, {
+    "catalog HTTP 200": (r) => r.status === 200,
+  });
+  const privateSuccess = check(privateResponse, {
+    "account HTTP 200": (r) => r.status === 200,
+  });
+  const success = publicSuccess && privateSuccess;
   failures.add(!success);
   if (workload === "commerce") {
     action("addCart", { productId, quantity: 1 }, user);

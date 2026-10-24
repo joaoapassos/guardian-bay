@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { cpus, freemem, totalmem } from "node:os";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { arch, cpus, freemem, platform, release, totalmem } from "node:os";
 import { join } from "node:path";
 import { writeEvidence } from "./evidence.mjs";
 import { labDirectory, labLease } from "./scope.mjs";
@@ -14,7 +22,7 @@ const seconds = Number(process.argv[3] ?? 10);
 const workload = process.argv[4] ?? "read";
 const phase = process.env.LAB_EVIDENCE_PHASE ?? "capacity";
 assert.ok(["capacity", "stress"].includes(phase));
-assert.ok([1, 2, 10, 50, 100, 500, 1000].includes(vus));
+assert.ok([1, 2, 10, 50, 100, 250, 500, 1000].includes(vus));
 assert.ok(Number.isInteger(seconds) && seconds >= 5 && seconds <= 600);
 assert.ok(["read", "commerce"].includes(workload));
 // Fail closed while the production dependency gate has an unresolved finding.
@@ -35,6 +43,42 @@ const pids = JSON.parse(
 assert.ok(Number.isSafeInteger(pids.app) && pids.app > 0);
 const directory = join(labDirectory, `perf-${workload}-${vus}-${Date.now()}`);
 mkdirSync(directory);
+writeFileSync(
+  join(directory, "manifest.json"),
+  JSON.stringify(
+    {
+      at: new Date().toISOString(),
+      node: process.version,
+      platform: platform(),
+      release: release(),
+      arch: arch(),
+      logicalCpus: cpus().length,
+      totalMemoryBytes: totalmem(),
+      vus,
+      seconds,
+      workload,
+      commit: execFileSync("git", ["rev-parse", "HEAD"], {
+        encoding: "utf8",
+      }).trim(),
+      trackedDirty:
+        execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], {
+          encoding: "utf8",
+        }).trim().length > 0,
+      hashes: Object.fromEntries(
+        [
+          "package-lock.json",
+          "next.config.ts",
+          "scripts/validation/load.k6.js",
+        ].map((path) => [
+          path,
+          createHash("sha256").update(readFileSync(path)).digest("hex"),
+        ]),
+      ),
+    },
+    null,
+    2,
+  ),
+);
 const sql = await openLabDb();
 const samples = [];
 const counters = () =>
@@ -92,6 +136,23 @@ const monitor = (async () => {
   await new Promise((resolve) => setTimeout(resolve, 250));
   while (!finished) {
     const now = counters();
+    for (const pid of [pids.app, pids.supervisor]) {
+      assert.ok(Number.isSafeInteger(pid) && pid > 0);
+      const observerDirectory = join(labDirectory, "observability");
+      const files = existsSync(observerDirectory)
+        ? readdirSync(observerDirectory).filter(
+            (name) => name.includes(`-${pid}-`) && name.endsWith(".jsonl"),
+          )
+        : [];
+      const latest = Math.max(
+        0,
+        ...files.map((name) => statSync(join(observerDirectory, name)).mtimeMs),
+      );
+      assert.ok(
+        Date.now() - latest < 5000,
+        "Runtime observer missing or stale; restart instrumented lab",
+      );
+    }
     const cpuInterval = now.all - previous.all;
     const idleInterval = now.idle - previous.idle;
     assert.ok(
@@ -116,13 +177,16 @@ const monitor = (async () => {
         "-NoProfile",
         "-NonInteractive",
         "-Command",
-        `Get-Process -Id ${pids.app} | Select-Object CPU,WorkingSet64 | ConvertTo-Json -Compress`,
+        `@{app=(Get-Process -Id ${pids.app} | Select-Object CPU,WorkingSet64);generator=(Get-Process -Id ${child.pid} -ErrorAction SilentlyContinue | Select-Object CPU,WorkingSet64)} | ConvertTo-Json -Compress`,
       ],
       { encoding: "utf8", windowsHide: true, timeout: 5000 },
     );
     let app = null;
+    let generator = null;
     try {
-      app = JSON.parse(resource.stdout);
+      const processes = JSON.parse(resource.stdout);
+      app = processes.app;
+      generator = processes.generator;
     } catch {
       /* Missing process stops campaign. */
     }
@@ -144,6 +208,8 @@ const monitor = (async () => {
       lockWaiters: db.lock_waiters,
       appWorkingSetBytes: app?.WorkingSet64 ?? 0,
       appCpuCores,
+      generatorWorkingSetBytes: generator?.WorkingSet64 ?? 0,
+      generatorCpuSeconds: generator?.CPU ?? 0,
     });
     if (cpuPercent > 90) highCpuSince ??= Date.now();
     else highCpuSince = null;

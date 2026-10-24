@@ -15,6 +15,7 @@ import { argon2id, hash } from "argon2";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
+import { errorClass } from "./diagnostic-contract.mjs";
 import {
   assertScope,
   databaseUrl,
@@ -110,6 +111,7 @@ try {
     );
   } else if (command === "serve") {
     labLease();
+    const { countDiagnostic } = await import("./runtime-observer.mjs");
     assert.ok(existsSync(".next/BUILD_ID"), "Production build required");
     const certPath = join(labDirectory, "cert.pem");
     const keyPath = join(labDirectory, "key.pem");
@@ -159,6 +161,8 @@ try {
     const app = spawn(
       process.execPath,
       [
+        "--import",
+        "./scripts/validation/runtime-observer.mjs",
         "node_modules/next/dist/bin/next",
         "start",
         "--hostname",
@@ -171,15 +175,22 @@ try {
           ...process.env,
           DATABASE_URL: databaseUrl,
           NODE_ENV: "production",
+          LAB_OBSERVER_ROLE: "app",
         },
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
       },
     );
-    app.stderr.on("data", () => {});
+    app.stderr.on("data", (chunk) =>
+      countDiagnostic(`app.stderr.${errorClass(chunk).toLowerCase()}`),
+    );
     const proxy = createServer(
       { key: readFileSync(keyPath), cert: readFileSync(certPath) },
       (request, response) => {
+        countDiagnostic("proxy.requests");
+        response.on("finish", () =>
+          countDiagnostic(`proxy.status.${response.statusCode}`),
+        );
         if (
           request.headers.host !== "127.0.0.1:3449" ||
           !request.url?.startsWith("/") ||
@@ -210,14 +221,26 @@ try {
             result.pipe(response);
           },
         );
-        upstream.on("timeout", () => upstream.destroy());
-        upstream.on("error", () => {
+        upstream.on("timeout", () => {
+          countDiagnostic("upstream.timeout");
+          upstream.destroy();
+        });
+        upstream.on("error", (error) => {
+          countDiagnostic(
+            `upstream.error.${errorClass(error.code).toLowerCase()}`,
+          );
           if (!response.headersSent) response.writeHead(502);
           response.end();
         });
         request.on("aborted", () => upstream.destroy());
         request.pipe(upstream);
       },
+    );
+    proxy.on("connection", () => countDiagnostic("proxy.connections"));
+    proxy.on("tlsClientError", (error) =>
+      countDiagnostic(
+        `proxy.tls_error.${errorClass(error.code).toLowerCase()}`,
+      ),
     );
     let started = false;
     app.stdout.on("data", (chunk) => {

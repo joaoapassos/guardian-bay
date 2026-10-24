@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { selectedLevel } from "./diagnostic-contract.mjs";
 import { writeEvidence } from "./evidence.mjs";
 import { labDirectory, labLease } from "./scope.mjs";
 import { assertIntegrity, openLabDb } from "./state.mjs";
 import { supervise } from "./supervision.mjs";
 
+const level = selectedLevel(process.argv[2]);
 labLease();
 const scaPath = ".vitest/dependencies-production.json";
 const sca = JSON.parse(readFileSync(scaPath, "utf8"));
@@ -56,7 +58,7 @@ if (sca.findings.length) {
         child.on("exit", resolve);
       });
     let stopped = false;
-    for (const vus of [10, 50, 100, 500, 1000]) {
+    for (const vus of [level]) {
       for (const workload of ["read", "commerce"]) {
         if (stopped) break;
         const warmup = await launch(vus, 15, workload);

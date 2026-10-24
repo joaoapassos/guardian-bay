@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { recoveryPassed } from "./diagnostic-contract.mjs";
 import { writeEvidence } from "./evidence.mjs";
 import { transport } from "./http.mjs";
 import { labDirectory, labLease } from "./scope.mjs";
@@ -82,12 +83,8 @@ if (
     const begin = performance.now();
     const response = await transport("/products");
     const elapsed = performance.now() - begin;
-    latencies.push(elapsed);
-    if (
-      response.status === 200 &&
-      latencies.length >= 10 &&
-      latencies.slice(-10).every((value) => value <= baseline.metrics.p95 * 1.2)
-    ) {
+    latencies.push({ status: response.status, ms: elapsed });
+    if (recoveryPassed(latencies, baseline.metrics.p95)) {
       recovered = true;
       break;
     }
