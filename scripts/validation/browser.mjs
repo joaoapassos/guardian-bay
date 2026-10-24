@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID, X509Certificate } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { labDirectory, labLease, labOrigin } from "./scope.mjs";
@@ -10,6 +10,12 @@ export async function withBrowser(operation) {
   const binary = process.env.SECURITY_BROWSER_PATH;
   assert.ok(binary && existsSync(binary), "Explicit Chrome binary required");
   const profile = join(labDirectory, `chrome-${randomUUID()}`);
+  const certificate = new X509Certificate(
+    readFileSync(join(labDirectory, "cert.pem")),
+  );
+  const spki = createHash("sha256")
+    .update(certificate.publicKey.export({ type: "spki", format: "der" }))
+    .digest("base64");
   mkdirSync(profile, { recursive: true });
   const child = spawn(
     binary,
@@ -18,7 +24,7 @@ export async function withBrowser(operation) {
       "--no-first-run",
       "--disable-extensions",
       "--disable-background-networking",
-      "--ignore-certificate-errors",
+      `--ignore-certificate-errors-spki-list=${spki}`,
       "--remote-debugging-address=127.0.0.1",
       "--remote-debugging-port=0",
       `--user-data-dir=${profile}`,
@@ -82,6 +88,19 @@ export async function withBrowser(operation) {
       flatten: true,
     });
     const send = (method, params) => call(method, params, sessionId);
+    events.add((event) => {
+      if (event.method !== "Fetch.requestPaused") return;
+      const allowed =
+        event.params.request.url.startsWith(`${labOrigin}/`) ||
+        event.params.request.url === "about:blank";
+      void send(allowed ? "Fetch.continueRequest" : "Fetch.failRequest", {
+        requestId: event.params.requestId,
+        ...(allowed ? {} : { errorReason: "BlockedByClient" }),
+      }).catch(() => {});
+    });
+    await send("Fetch.enable", {
+      patterns: [{ urlPattern: "*", requestStage: "Request" }],
+    });
     await send("Page.enable");
     await send("Network.enable");
     await send("Runtime.enable");
