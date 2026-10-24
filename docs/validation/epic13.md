@@ -19,3 +19,22 @@ Validação sem carga: `node --test scripts/validation/diagnostic-contract.test.
 01 instrumentação; 02 diagnóstico PERF-01; 03 correção de laboratório comprovada; 04 correção de produto comprovada; 05 revalidar 100/250/500; 06 atividade legítima de sessão; 07 jornadas/dados; 08 staging observável; 09 perfil representativo; 10 correção comercial comprovada; 11 dimensionamento comprovado; 12 validar 1000; 13 validar 2000; 14 validar 3500; 15 validar 5000; 16 endurance/picos/recuperação; 17 reprodução independente.
 
 Tasks condicionais sem gargalo demonstrado não autorizam alterações artificiais. Ausência de ambiente separado pode bloquear validações; documentação entregue não equivale a teste executado. Não ampliar destinos, infraestrutura paga ou limites sem configurar e revisar o escopo concreto.
+
+## Task 02 — reprodução controlada local
+
+Nova execução e sessões provisionadas, SCA produção zero findings; histórico anterior preservado. Usuário confirmou somente laboratório local: não há comparação em máquinas físicas separadas. [Resultados sanitizados](epic13-diagnostic-results.json) preservam métricas e manifesto de cada variante; trackedDirty registra o harness em desenvolvimento antes do commit desta Task.
+
+| Transporte / jornada / entrada | VUs | p95 ms | Erros por iteração | Resultado |
+| --- | --- | --- | --- | --- |
+| Proxy / mista / rajada | 100 | 483,82 | 0% | PASS |
+| Proxy / mista / rajada | 250 | 872,68 | 0,17% | FAIL |
+| Backend / mista / rajada | 250 | 918,26 | 1,06% | FAIL/abort |
+| Proxy / mista / rampa | 250 | 760,93 | 0% | FAIL latência |
+| Proxy / catálogo / rampa | 250 | 26,00 | 0% | PASS |
+| Proxy / conta / rampa | 250 | 112,72 | 0% | PASS |
+
+Não houve escalada para 500 após a reprovação de 250. A nova baseline é diferente da campanha histórica em runtime instrumentado, horário e carga concorrente do host. Não comparar seus números como regressão de produto sem controlar esses fatores.
+
+Recusas ocorreram também em 3139, não apenas no proxy. A rampa eliminou erros de conexão na variante mista, mas não resolveu sua latência. Sob variante mista, observou-se utilização do event loop do Next próxima de 100%, proxy abaixo de 20%, aproximadamente 0,86 core de CPU do app e zero lock waiters amostrados. Catálogo e conta separados passam, mas geram menos requests por ciclo e não demonstram que a conta sozinha explica a falha. O efeito da composição/volume precisa ser preservado na comparação.
+
+Conclusão: há evidência de saturação do processo de aplicação no workload misto e um efeito da entrada em rajada. Não há prova de esgotamento de portas, PostgreSQL saturado ou falha exclusivamente no proxy; o intervalo dinâmico do Windows lido foi 49152–65535, sem captura de ocupação que comprove exaustão. Isso autoriza experimento local de capacidade por processo, não alteração de autorização, estoque, timers ou limites comerciais. Causa completa das recusas permanece não isolada.

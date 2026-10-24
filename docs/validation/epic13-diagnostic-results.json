@@ -1,0 +1,413 @@
+{
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "experiments": [
+    {
+      "schemaVersion": 1,
+      "task": "task-02-diag-backend-mixed-burst-250",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T17:28:40.491Z",
+      "harnessSha": "01b92a2eb9d3526bd15d9992b43c8eaba803badc",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=99; abort=none; samples=3; summary=true",
+          "status": "FAIL"
+        }
+      ],
+      "metrics": {
+        "vus": 250,
+        "seconds": 20,
+        "requests": 1526,
+        "rps": 261.7918260906263,
+        "p50": 603.5445,
+        "p95": 918.2578,
+        "p99": 1077.113925,
+        "unexpectedFailureRate": 0.010554089709762533,
+        "maxCpuPercent": 49.6405400666316,
+        "maxMemoryPercent": 51.00400179138096,
+        "maxConnections": 19,
+        "maxLockWaiters": 0
+      },
+      "manifest": {
+        "at": "2026-10-24T17:28:33.350Z",
+        "node": "v26.7.0",
+        "platform": "win32",
+        "release": "10.0.26200",
+        "arch": "x64",
+        "logicalCpus": 20,
+        "totalMemoryBytes": 34114641920,
+        "vus": 250,
+        "seconds": 20,
+        "workload": "read",
+        "diagnostic": {
+          "route": "mixed",
+          "transport": "backend",
+          "ramp": "burst"
+        },
+        "commit": "01b92a2eb9d3526bd15d9992b43c8eaba803badc",
+        "trackedDirty": true,
+        "hashes": {
+          "package-lock.json": "c81f2ea4843e03cbe8aa079bd07cb2ebb4b93dde3d884c599f3a04da2b9cfc24",
+          "next.config.ts": "0db2b5dd430131ba94b2b93d6a7342fa801625a5118b1ecdae017dbb9818cf24",
+          "scripts/validation/load.k6.js": "923265a379392b351c24447b43a0cd28555db7a8493c39d9190c0744fd0f5912"
+        }
+      },
+      "runtime": {
+        "proxy": {
+          "samples": 7,
+          "maxEventLoopUtilization": 0.0009682497801753787,
+          "maxEventLoopP99Ms": 32.587775
+        },
+        "app": {
+          "samples": 7,
+          "maxEventLoopUtilization": 1,
+          "maxEventLoopP99Ms": 134.610943
+        }
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-02-diag-proxy-account-ramp-250",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T17:32:47.898Z",
+      "harnessSha": "01b92a2eb9d3526bd15d9992b43c8eaba803badc",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=14; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "vus": 250,
+        "seconds": 20,
+        "requests": 6118,
+        "rps": 197.13485782958207,
+        "p50": 20.52555,
+        "p95": 112.72285,
+        "p99": 126.9996,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 54.28307123034229,
+        "maxMemoryPercent": 48.153664946924934,
+        "maxConnections": 19,
+        "maxLockWaiters": 0
+      },
+      "manifest": {
+        "at": "2026-10-24T17:32:15.947Z",
+        "node": "v26.7.0",
+        "platform": "win32",
+        "release": "10.0.26200",
+        "arch": "x64",
+        "logicalCpus": 20,
+        "totalMemoryBytes": 34114641920,
+        "vus": 250,
+        "seconds": 20,
+        "workload": "read",
+        "diagnostic": {
+          "route": "account",
+          "transport": "proxy",
+          "ramp": "ramp"
+        },
+        "commit": "01b92a2eb9d3526bd15d9992b43c8eaba803badc",
+        "trackedDirty": true,
+        "hashes": {
+          "package-lock.json": "c81f2ea4843e03cbe8aa079bd07cb2ebb4b93dde3d884c599f3a04da2b9cfc24",
+          "next.config.ts": "0db2b5dd430131ba94b2b93d6a7342fa801625a5118b1ecdae017dbb9818cf24",
+          "scripts/validation/load.k6.js": "923265a379392b351c24447b43a0cd28555db7a8493c39d9190c0744fd0f5912"
+        }
+      },
+      "runtime": {
+        "proxy": {
+          "samples": 31,
+          "maxEventLoopUtilization": 0.11589321744213052,
+          "maxEventLoopP99Ms": 35.815423
+        },
+        "app": {
+          "samples": 32,
+          "maxEventLoopUtilization": 0.6501210314908462,
+          "maxEventLoopP99Ms": 35.454975
+        }
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-02-diag-proxy-catalog-ramp-250",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T17:31:07.584Z",
+      "harnessSha": "01b92a2eb9d3526bd15d9992b43c8eaba803badc",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=14; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "vus": 250,
+        "seconds": 20,
+        "requests": 6285,
+        "rps": 202.66907921874792,
+        "p50": 11.6201,
+        "p95": 26.000019999999992,
+        "p99": 38.45885199999993,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 47.43481917577797,
+        "maxMemoryPercent": 48.56370148293205,
+        "maxConnections": 19,
+        "maxLockWaiters": 0
+      },
+      "manifest": {
+        "at": "2026-10-24T17:30:35.660Z",
+        "node": "v26.7.0",
+        "platform": "win32",
+        "release": "10.0.26200",
+        "arch": "x64",
+        "logicalCpus": 20,
+        "totalMemoryBytes": 34114641920,
+        "vus": 250,
+        "seconds": 20,
+        "workload": "read",
+        "diagnostic": {
+          "route": "catalog",
+          "transport": "proxy",
+          "ramp": "ramp"
+        },
+        "commit": "01b92a2eb9d3526bd15d9992b43c8eaba803badc",
+        "trackedDirty": true,
+        "hashes": {
+          "package-lock.json": "c81f2ea4843e03cbe8aa079bd07cb2ebb4b93dde3d884c599f3a04da2b9cfc24",
+          "next.config.ts": "0db2b5dd430131ba94b2b93d6a7342fa801625a5118b1ecdae017dbb9818cf24",
+          "scripts/validation/load.k6.js": "923265a379392b351c24447b43a0cd28555db7a8493c39d9190c0744fd0f5912"
+        }
+      },
+      "runtime": {
+        "proxy": {
+          "samples": 32,
+          "maxEventLoopUtilization": 0.1787752308744539,
+          "maxEventLoopP99Ms": 35.946495
+        },
+        "app": {
+          "samples": 32,
+          "maxEventLoopUtilization": 0.7595042259221818,
+          "maxEventLoopP99Ms": 35.553279
+        }
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-02-diag-proxy-mixed-burst-100",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T17:26:50.498Z",
+      "harnessSha": "01b92a2eb9d3526bd15d9992b43c8eaba803badc",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=0; abort=none; samples=10; summary=true",
+          "status": "PASS"
+        }
+      ],
+      "metrics": {
+        "vus": 100,
+        "seconds": 20,
+        "requests": 2872,
+        "rps": 135.36007840478032,
+        "p50": 224.27179999999998,
+        "p95": 483.8233,
+        "p99": 762.346519,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 23.079116992755687,
+        "maxMemoryPercent": 58.59613124146783,
+        "maxConnections": 19,
+        "maxLockWaiters": 0
+      },
+      "manifest": {
+        "at": "2026-10-24T17:26:26.447Z",
+        "node": "v26.7.0",
+        "platform": "win32",
+        "release": "10.0.26200",
+        "arch": "x64",
+        "logicalCpus": 20,
+        "totalMemoryBytes": 34114641920,
+        "vus": 100,
+        "seconds": 20,
+        "workload": "read",
+        "diagnostic": {
+          "route": "mixed",
+          "transport": "proxy",
+          "ramp": "burst"
+        },
+        "commit": "01b92a2eb9d3526bd15d9992b43c8eaba803badc",
+        "trackedDirty": true,
+        "hashes": {
+          "package-lock.json": "c81f2ea4843e03cbe8aa079bd07cb2ebb4b93dde3d884c599f3a04da2b9cfc24",
+          "next.config.ts": "0db2b5dd430131ba94b2b93d6a7342fa801625a5118b1ecdae017dbb9818cf24",
+          "scripts/validation/load.k6.js": "923265a379392b351c24447b43a0cd28555db7a8493c39d9190c0744fd0f5912"
+        }
+      },
+      "runtime": {
+        "proxy": {
+          "samples": 24,
+          "maxEventLoopUtilization": 0.15095538157501676,
+          "maxEventLoopP99Ms": 38.436863
+        },
+        "app": {
+          "samples": 24,
+          "maxEventLoopUtilization": 0.7268116278880532,
+          "maxEventLoopP99Ms": 129.499135
+        }
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-02-diag-proxy-mixed-burst-250",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T17:27:58.907Z",
+      "harnessSha": "01b92a2eb9d3526bd15d9992b43c8eaba803badc",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=99; abort=none; samples=10; summary=true",
+          "status": "FAIL"
+        }
+      ],
+      "metrics": {
+        "vus": 250,
+        "seconds": 20,
+        "requests": 4688,
+        "rps": 223.55768052344698,
+        "p50": 617.8951,
+        "p95": 872.6774099999999,
+        "p99": 968.7339280000012,
+        "unexpectedFailureRate": 0.0017064846416382253,
+        "maxCpuPercent": 69.21547360809835,
+        "maxMemoryPercent": 54.849155397495664,
+        "maxConnections": 19,
+        "maxLockWaiters": 0
+      },
+      "manifest": {
+        "at": "2026-10-24T17:27:36.053Z",
+        "node": "v26.7.0",
+        "platform": "win32",
+        "release": "10.0.26200",
+        "arch": "x64",
+        "logicalCpus": 20,
+        "totalMemoryBytes": 34114641920,
+        "vus": 250,
+        "seconds": 20,
+        "workload": "read",
+        "diagnostic": {
+          "route": "mixed",
+          "transport": "proxy",
+          "ramp": "burst"
+        },
+        "commit": "01b92a2eb9d3526bd15d9992b43c8eaba803badc",
+        "trackedDirty": true,
+        "hashes": {
+          "package-lock.json": "c81f2ea4843e03cbe8aa079bd07cb2ebb4b93dde3d884c599f3a04da2b9cfc24",
+          "next.config.ts": "0db2b5dd430131ba94b2b93d6a7342fa801625a5118b1ecdae017dbb9818cf24",
+          "scripts/validation/load.k6.js": "923265a379392b351c24447b43a0cd28555db7a8493c39d9190c0744fd0f5912"
+        }
+      },
+      "runtime": {
+        "proxy": {
+          "samples": 23,
+          "maxEventLoopUtilization": 0.4789682910970095,
+          "maxEventLoopP99Ms": 54.984703
+        },
+        "app": {
+          "samples": 23,
+          "maxEventLoopUtilization": 0.9995969932329328,
+          "maxEventLoopP99Ms": 173.670399
+        }
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "task": "task-02-diag-proxy-mixed-ramp-250",
+      "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+      "capturedAt": "2026-10-24T17:29:29.874Z",
+      "harnessSha": "01b92a2eb9d3526bd15d9992b43c8eaba803badc",
+      "sourceTree": "5fea8d5ef44207e52d4b68d0d13d4d26ad5c534b",
+      "buildId": "utDPmoFakYYrNwQ6SPV5m",
+      "cases": [
+        {
+          "id": "PERFORMANCE",
+          "expected": "Thresholds, resource guard and data integrity all hold",
+          "observed": "exit=99; abort=none; samples=14; summary=true",
+          "status": "FAIL"
+        }
+      ],
+      "metrics": {
+        "vus": 250,
+        "seconds": 20,
+        "requests": 7222,
+        "rps": 233.19328572920475,
+        "p50": 447.94875,
+        "p95": 760.927955,
+        "p99": 912.248389,
+        "unexpectedFailureRate": 0,
+        "maxCpuPercent": 57.15025012937727,
+        "maxMemoryPercent": 51.489019387016334,
+        "maxConnections": 19,
+        "maxLockWaiters": 0
+      },
+      "manifest": {
+        "at": "2026-10-24T17:28:57.857Z",
+        "node": "v26.7.0",
+        "platform": "win32",
+        "release": "10.0.26200",
+        "arch": "x64",
+        "logicalCpus": 20,
+        "totalMemoryBytes": 34114641920,
+        "vus": 250,
+        "seconds": 20,
+        "workload": "read",
+        "diagnostic": {
+          "route": "mixed",
+          "transport": "proxy",
+          "ramp": "ramp"
+        },
+        "commit": "01b92a2eb9d3526bd15d9992b43c8eaba803badc",
+        "trackedDirty": true,
+        "hashes": {
+          "package-lock.json": "c81f2ea4843e03cbe8aa079bd07cb2ebb4b93dde3d884c599f3a04da2b9cfc24",
+          "next.config.ts": "0db2b5dd430131ba94b2b93d6a7342fa801625a5118b1ecdae017dbb9818cf24",
+          "scripts/validation/load.k6.js": "923265a379392b351c24447b43a0cd28555db7a8493c39d9190c0744fd0f5912"
+        }
+      },
+      "runtime": {
+        "proxy": {
+          "samples": 31,
+          "maxEventLoopUtilization": 0.22704044739264626,
+          "maxEventLoopP99Ms": 35.258367
+        },
+        "app": {
+          "samples": 32,
+          "maxEventLoopUtilization": 0.9996451107886556,
+          "maxEventLoopP99Ms": 123.731967
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Same physical Windows host; no isolated generator comparison",
+    "Short diagnostics; not sustained capacity",
+    "Raw runtime/error logs remain private",
+    "Manifest trackedDirty identifies harness code under development before the Task02 commit"
+  ]
+}

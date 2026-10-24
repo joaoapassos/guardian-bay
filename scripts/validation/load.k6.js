@@ -10,6 +10,19 @@ if (
 )
   throw new Error("Unauthorized target");
 const origin = __ENV.LAB_BASE_URL;
+const diagnostic = __ENV.LAB_DIAGNOSTIC === "1";
+const route = diagnostic ? (__ENV.LAB_DIAGNOSTIC_ROUTE ?? "mixed") : "mixed";
+const transport = diagnostic
+  ? (__ENV.LAB_DIAGNOSTIC_TRANSPORT ?? "proxy")
+  : "proxy";
+const ramp = diagnostic ? (__ENV.LAB_DIAGNOSTIC_RAMP ?? "burst") : "burst";
+if (
+  !["mixed", "catalog", "account"].includes(route) ||
+  !["proxy", "backend"].includes(transport) ||
+  !["burst", "ramp"].includes(ramp)
+)
+  throw new Error("Invalid diagnostic variant");
+const target = transport === "backend" ? "http://127.0.0.1:3139" : origin;
 const workload = __ENV.WORKLOAD ?? "read";
 if (!["read", "commerce"].includes(workload))
   throw new Error("Unknown workload");
@@ -23,13 +36,18 @@ const productId = JSON.parse(
 const fixtureRunId = JSON.parse(
   open("../../.vitest/epic12/load-fixtures.json"),
 ).runId;
-const captures = JSON.parse(open("../../.vitest/epic12/captures.json"));
+const captures =
+  workload === "commerce"
+    ? JSON.parse(open("../../.vitest/epic12/captures.json"))
+    : {};
 const lease = JSON.parse(open("../../.vitest/epic12/lease.json"));
 const age = Date.now() - Date.parse(lease.createdAt);
 if (!(age >= 0 && age < 86400000) || fixtureRunId !== lease.runId)
   throw new Error("Invalid lease");
 const vus = Number(__ENV.LAB_VUS ?? "2");
 const seconds = Number(__ENV.LAB_SECONDS ?? "10");
+if (diagnostic && (workload !== "read" || vus > 500))
+  throw new Error("Diagnostics are bounded read-only experiments");
 if (
   vus > 2 &&
   JSON.parse(open("../../.vitest/dependencies-production.json")).findings
@@ -47,8 +65,20 @@ if (
   throw new Error("Bound exceeded");
 const failures = new Rate("unexpected_failures");
 export const options = {
-  vus,
-  duration: `${seconds}s`,
+  ...(ramp === "ramp"
+    ? {
+        scenarios: {
+          diagnostic: {
+            executor: "ramping-vus",
+            startVUs: 0,
+            stages: [
+              { duration: "10s", target: vus },
+              { duration: `${seconds}s`, target: vus },
+            ],
+          },
+        },
+      }
+    : { vus, duration: `${seconds}s` }),
   maxRedirects: 0,
   insecureSkipTLSVerify: true,
   summaryTrendStats: ["avg", "min", "med", "p(95)", "p(99)", "max"],
@@ -94,21 +124,31 @@ function action(name, input, user) {
 }
 export default function () {
   const user = users[__VU - 1];
-  const publicResponse = http.get(`${origin}/products`, {
-    tags: { name: "catalog" },
-    timeout: "10s",
-  });
-  const privateResponse = http.get(`${origin}/account`, {
-    headers: { cookie: `__Host-guardian-session=${user.token}` },
-    tags: { name: "account" },
-    timeout: "10s",
-  });
-  const publicSuccess = check(publicResponse, {
-    "catalog HTTP 200": (r) => r.status === 200,
-  });
-  const privateSuccess = check(privateResponse, {
-    "account HTTP 200": (r) => r.status === 200,
-  });
+  const publicResponse =
+    route !== "account"
+      ? http.get(`${target}/products`, {
+          tags: { name: "catalog" },
+          timeout: "10s",
+        })
+      : null;
+  const privateResponse =
+    route !== "catalog"
+      ? http.get(`${target}/account`, {
+          headers: { cookie: `__Host-guardian-session=${user.token}` },
+          tags: { name: "account" },
+          timeout: "10s",
+        })
+      : null;
+  const publicSuccess =
+    !publicResponse ||
+    check(publicResponse, {
+      "catalog HTTP 200": (r) => r.status === 200,
+    });
+  const privateSuccess =
+    !privateResponse ||
+    check(privateResponse, {
+      "account HTTP 200": (r) => r.status === 200,
+    });
   const success = publicSuccess && privateSuccess;
   failures.add(!success);
   if (workload === "commerce") {

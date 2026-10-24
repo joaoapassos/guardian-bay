@@ -21,6 +21,19 @@ const vus = Number(process.argv[2] ?? 2);
 const seconds = Number(process.argv[3] ?? 10);
 const workload = process.argv[4] ?? "read";
 const phase = process.env.LAB_EVIDENCE_PHASE ?? "capacity";
+const diagnostic = process.env.LAB_DIAGNOSTIC === "1";
+const variant = {
+  route: process.env.LAB_DIAGNOSTIC_ROUTE ?? "mixed",
+  transport: process.env.LAB_DIAGNOSTIC_TRANSPORT ?? "proxy",
+  ramp: process.env.LAB_DIAGNOSTIC_RAMP ?? "burst",
+};
+if (diagnostic) {
+  assert.equal(workload, "read");
+  assert.ok(vus <= 500);
+  assert.ok(["mixed", "catalog", "account"].includes(variant.route));
+  assert.ok(["proxy", "backend"].includes(variant.transport));
+  assert.ok(["burst", "ramp"].includes(variant.ramp));
+}
 assert.ok(["capacity", "stress"].includes(phase));
 assert.ok([1, 2, 10, 50, 100, 250, 500, 1000].includes(vus));
 assert.ok(Number.isInteger(seconds) && seconds >= 5 && seconds <= 600);
@@ -57,6 +70,7 @@ writeFileSync(
       vus,
       seconds,
       workload,
+      diagnostic: diagnostic ? variant : null,
       commit: execFileSync("git", ["rev-parse", "HEAD"], {
         encoding: "utf8",
       }).trim(),
@@ -276,7 +290,9 @@ const metrics = {
 };
 const passed = code === 0 && !abort && !!summary && samples.length >= 2;
 writeEvidence(
-  `task-${phase === "stress" ? "13" : vus <= 2 ? "11" : "12"}-perf-${workload}-${vus}`,
+  diagnostic
+    ? `task-02-diag-${variant.transport}-${variant.route}-${variant.ramp}-${vus}`
+    : `task-${phase === "stress" ? "13" : vus <= 2 ? "11" : "12"}-perf-${workload}-${vus}`,
   [
     {
       id: "PERFORMANCE",
