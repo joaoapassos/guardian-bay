@@ -72,3 +72,7 @@ Validação:119unitários,186PostgreSQL,82auth/PostgreSQL direcionados,13HTTP/br
 Perfil hipotético e procedimentos em [jornadas](epic13-representative.md). Runner limitado a dois usuários; não implementa ainda as coortes sustentadas. Calibração real concluída em aproximadamente 95s (180s é o teto, não duração sustentada): 56 requests, p95 22,06ms, p99 30,87ms, zero falhas, 43 amostras de recursos. [Relatório](epic13-representative-calibration.json) preserva o identificador legado task-11 emitido pelo harness durante essa execução; o runner agora usa task-07 e timestamp para novas calibrações. Não se trata de execução da Task 11 desta Epic.
 
 [PostgreSQL](epic13-representative-integrity.json) confirmou seis pedidos PAID, dois por método, seis unidades consumidas e seis eventos de conclusão, além dos invariantes globais. Uma consulta preliminar enquanto k6 ainda aguardava boletos encontrou PENDING_PAYMENT corretamente e não foi tratada como aprovação; verificação final ocorreu depois do término. Catálogo, histórico e usuários ainda não representam cardinalidade de produção. Entregue calibração; workload sustentado representativo e dados para milhares de usuários permanecem pendentes, bloqueando escalada.
+
+## Consolidação
+
+Tasks07–17: consultar [relatório final](epic13-final-report.md) para resultados, reprodução, decisões condicionadas e matriz explícita de pendências. Carga1000–5000 e endurance não foram executados. Commits de bloqueio não equivalem à conclusão dos critérios de validação. Meta5000 permanece não demonstrada.
