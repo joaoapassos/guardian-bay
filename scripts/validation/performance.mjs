@@ -87,7 +87,7 @@ const appPids = pids.apps ?? [pids.app];
 assert.ok(
   Array.isArray(appPids) &&
     appPids.length >= 1 &&
-    appPids.length <= 2 &&
+    appPids.length <= 4 &&
     appPids.every((pid) => Number.isSafeInteger(pid) && pid > 0),
 );
 const directory = join(labDirectory, `perf-${workload}-${vus}-${Date.now()}`);
@@ -337,6 +337,7 @@ for (const name of readdirSync(join(labDirectory, "observability"))) {
   }
 }
 const metrics = {
+  appInstances: appPids.length,
   vus,
   seconds,
   requests: summary?.metrics?.http_reqs?.count ?? 0,
@@ -361,6 +362,9 @@ const metrics = {
       .filter((s) => s.role === "app")
       .map((s) => s.httpRequests?.peakInSample ?? 0),
   ),
+  burstWallMs: summary?.metrics?.burst_wall_ms?.max ?? 0,
+  tlsP95Ms: summary?.metrics?.http_req_tls_handshaking?.["p(95)"] ?? 0,
+  tcpP95Ms: summary?.metrics?.http_req_connecting?.["p(95)"] ?? 0,
 };
 const passed = code === 0 && !abort && !!summary && samples.length >= 2;
 writeEvidence(

@@ -1,6 +1,6 @@
 import { check, sleep } from "k6";
 import http from "k6/http";
-import { Rate } from "k6/metrics";
+import { Rate, Trend } from "k6/metrics";
 
 const origin = "https://127.0.0.1:3449";
 if (
@@ -23,6 +23,7 @@ if (
 )
   throw new Error("Invalid lease");
 const failures = new Rate("unexpected_failures");
+const burstWall = new Trend("burst_wall_ms", true);
 export const options = {
   vus: 1,
   iterations: 1,
@@ -50,7 +51,10 @@ export default function () {
       timeout: "10s",
     },
   }));
-  for (const response of http.batch(batch)) {
+  const start = Date.now();
+  const responses = http.batch(batch);
+  burstWall.add(Date.now() - start);
+  for (const response of responses) {
     const ok = check(response, {
       "concurrent request HTTP 200 without redirect": (r) => r.status === 200,
     });

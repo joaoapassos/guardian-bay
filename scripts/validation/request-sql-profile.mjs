@@ -12,16 +12,23 @@ const data = JSON.parse(
 );
 assert.equal(data.runId, lease.runId);
 const sql = await openLabDb();
+const topology = JSON.parse(
+  readFileSync(join(labDirectory, "processes.json"), "utf8"),
+);
+const instanceCount = (topology.apps ?? [topology.app]).length;
+assert.ok([1, 2, 4].includes(instanceCount));
+const warmRequestsPerRoute = 20 * instanceCount;
 try {
   await sql`CREATE EXTENSION IF NOT EXISTS pg_stat_statements`;
   const snapshot = () =>
     sql`SELECT queryid::text AS id, query, calls::float8 AS calls,total_exec_time FROM pg_stat_statements WHERE dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND query NOT LIKE '%pg_stat_statements%' AND query ILIKE 'select%'`;
   const groups = [];
   for (const route of ["/products", "/account"]) {
-    assert.equal(
-      (await transport(route, { token: data.users[0].token })).status,
-      200,
-    );
+    for (let warm = 0; warm < warmRequestsPerRoute; warm++)
+      assert.equal(
+        (await transport(route, { token: data.users[0].token })).status,
+        200,
+      );
     const before = new Map((await snapshot()).map((r) => [r.id, r]));
     const durations = [];
     for (let i = 0; i < 20; i++) {
@@ -55,7 +62,7 @@ try {
   }
   writeFileSync(
     `docs/validation/epic13-request-sql-${Date.now()}.json`,
-    `${JSON.stringify({ runId: lease.runId, buildId: readFileSync(".next/BUILD_ID", "utf8").trim(), scope: "20 sequential requests per route, one owned user, warm local data; SQL execution excludes network and pool acquisition; not a concurrent capacity test", groups }, null, 2)}\n`,
+    `${JSON.stringify({ runId: lease.runId, instanceCount, warmRequestsPerRoute, buildId: readFileSync(".next/BUILD_ID", "utf8").trim(), scope: "20 sequential requests per route, one owned user, explicit warm-up per instance; SQL execution excludes network and pool acquisition; not a concurrent capacity test", groups }, null, 2)}\n`,
   );
   console.info(JSON.stringify(groups));
 } finally {
