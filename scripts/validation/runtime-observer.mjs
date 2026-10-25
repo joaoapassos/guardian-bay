@@ -77,7 +77,9 @@ timer.unref();
 // Opt-in diagnostic profiling in the owned process; no inspector TCP endpoint.
 if (
   process.env.LAB_CPU_PROFILE === "1" &&
-  process.env.LAB_OBSERVER_ROLE === "app"
+  ["app", "all"].includes(process.env.LAB_CPU_PROFILE_ROLE ?? "app") &&
+  (process.env.LAB_OBSERVER_ROLE === "app" ||
+    process.env.LAB_CPU_PROFILE_ROLE === "all")
 ) {
   const { Session } = await import("node:inspector");
   const session = new Session();

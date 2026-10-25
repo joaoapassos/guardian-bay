@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "task": "task-18-http-burst-1000-1792890406065",
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "capturedAt": "2026-10-25T01:06:46.101Z",
+  "harnessSha": "251b2231a5406aed444bea2c829dd32db5f0b3e2",
+  "sourceTree": "e3a28a7729a0bb47cbacc3f5ea509e3a88e7d3c8",
+  "sourceTreeReference": "HEAD_AT_EXECUTION",
+  "workingSourceSha256": "3ab0127360fea1ee4af9887be8c05536588774abc470498b79519ac69e992b1f",
+  "buildId": "DrWP4iqp5d8p3_D5am9sh",
+  "cases": [
+    {
+      "id": "PERFORMANCE",
+      "expected": "Thresholds, resource guard and data integrity all hold",
+      "observed": "exit=99; abort=none; samples=4; summary=true; validMeasurement=true",
+      "status": "FAIL"
+    }
+  ],
+  "metrics": {
+    "appInstances": 8,
+    "appPoolMax": 5,
+    "proxyBacklog": 511,
+    "proxyHttp2Configured": 1,
+    "reuseProfileSelected": 1,
+    "measuredHttp2Requests": 1000,
+    "requestedConcurrency": 1000,
+    "vus": 1,
+    "seconds": 30,
+    "requests": 2001,
+    "rps": 225.49166479808713,
+    "p50": 575.1038,
+    "p95": 670.17776,
+    "p99": 679.315476,
+    "unexpectedFailureRate": 0,
+    "maxCpuPercent": 26.630594734101564,
+    "maxMemoryPercent": 53.694110895126165,
+    "maxConnections": 49,
+    "maxLockWaiters": 0,
+    "maxProxyInflight": 1000,
+    "maxSingleAppInflight": 125,
+    "burstWallMs": 696,
+    "tlsP95Ms": 0,
+    "tcpP95Ms": 0,
+    "measuredTlsP95Ms": 0,
+    "warmHttpP95Ms": 1093.23009,
+    "measuredRequests": 1000,
+    "measuredNewTlsRequests": 0,
+    "warmTransportFailures": 0,
+    "measuredTransportFailures": 0,
+    "warmRefused": 0,
+    "measuredRefused": 0
+  }
+}

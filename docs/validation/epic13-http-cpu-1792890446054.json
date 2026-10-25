@@ -1,0 +1,687 @@
+{
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "appInstances": 8,
+  "profiles": [
+    {
+      "role": "proxy",
+      "durationSeconds": 45.021919,
+      "samples": 29339,
+      "activeSamples": 885,
+      "selfBuckets": {
+        "node-other": 222,
+        "other": 509,
+        "node-http1": 105,
+        "node-http2": 49
+      },
+      "hotspots": [
+        {
+          "label": "other:_program_",
+          "samples": 176
+        },
+        {
+          "label": "other:connect",
+          "samples": 111
+        },
+        {
+          "label": "other:writeLatin1String",
+          "samples": 36
+        },
+        {
+          "label": "other:execute",
+          "samples": 32
+        },
+        {
+          "label": "node-http1:socketOnData",
+          "samples": 30
+        },
+        {
+          "label": "other:_garbage collector_",
+          "samples": 30
+        },
+        {
+          "label": "other:writev",
+          "samples": 24
+        },
+        {
+          "label": "other:spawn",
+          "samples": 19
+        },
+        {
+          "label": "other:writeBuffer",
+          "samples": 14
+        },
+        {
+          "label": "node-other:nextTick",
+          "samples": 13
+        },
+        {
+          "label": "node-other:emit",
+          "samples": 12
+        },
+        {
+          "label": "node-other:get",
+          "samples": 12
+        },
+        {
+          "label": "node-other:_addListener",
+          "samples": 11
+        },
+        {
+          "label": "node-http1:_addHeaderLine",
+          "samples": 11
+        },
+        {
+          "label": "other:anonymous",
+          "samples": 9
+        }
+      ]
+    },
+    {
+      "role": "app",
+      "durationSeconds": 45.013803,
+      "samples": 29317,
+      "activeSamples": 1630,
+      "selfBuckets": {
+        "node-other": 381,
+        "other": 334,
+        "next-other": 424,
+        "next-render": 469,
+        "node-http1": 22
+      },
+      "hotspots": [
+        {
+          "label": "next-other:anonymous",
+          "samples": 94
+        },
+        {
+          "label": "other:_garbage collector_",
+          "samples": 74
+        },
+        {
+          "label": "node-other:wrapSafe",
+          "samples": 64
+        },
+        {
+          "label": "next-render:anonymous",
+          "samples": 54
+        },
+        {
+          "label": "next-render:e",
+          "samples": 43
+        },
+        {
+          "label": "other:internalModuleStat",
+          "samples": 37
+        },
+        {
+          "label": "node-other:anonymous",
+          "samples": 37
+        },
+        {
+          "label": "other:readFileUtf8",
+          "samples": 35
+        },
+        {
+          "label": "next-render:ez",
+          "samples": 35
+        },
+        {
+          "label": "other:runMicrotasks",
+          "samples": 35
+        },
+        {
+          "label": "other:writeBuffer",
+          "samples": 30
+        },
+        {
+          "label": "other:lstat",
+          "samples": 29
+        },
+        {
+          "label": "next-render:ex",
+          "samples": 29
+        },
+        {
+          "label": "next-other:f",
+          "samples": 28
+        },
+        {
+          "label": "next-other:instantiateModule",
+          "samples": 23
+        }
+      ]
+    },
+    {
+      "role": "app",
+      "durationSeconds": 45.014359,
+      "samples": 29319,
+      "activeSamples": 1634,
+      "selfBuckets": {
+        "node-other": 366,
+        "other": 331,
+        "next-other": 404,
+        "node-http1": 19,
+        "next-render": 514
+      },
+      "hotspots": [
+        {
+          "label": "next-other:anonymous",
+          "samples": 108
+        },
+        {
+          "label": "node-other:wrapSafe",
+          "samples": 75
+        },
+        {
+          "label": "other:_garbage collector_",
+          "samples": 74
+        },
+        {
+          "label": "next-render:e",
+          "samples": 55
+        },
+        {
+          "label": "other:internalModuleStat",
+          "samples": 52
+        },
+        {
+          "label": "next-render:anonymous",
+          "samples": 50
+        },
+        {
+          "label": "next-render:ez",
+          "samples": 43
+        },
+        {
+          "label": "other:runMicrotasks",
+          "samples": 41
+        },
+        {
+          "label": "other:readFileUtf8",
+          "samples": 31
+        },
+        {
+          "label": "next-render:ex",
+          "samples": 29
+        },
+        {
+          "label": "other:writeBuffer",
+          "samples": 28
+        },
+        {
+          "label": "node-other:anonymous",
+          "samples": 22
+        },
+        {
+          "label": "next-other:f",
+          "samples": 20
+        },
+        {
+          "label": "next-other:instantiateModule",
+          "samples": 19
+        },
+        {
+          "label": "other:lstat",
+          "samples": 17
+        }
+      ]
+    },
+    {
+      "role": "app",
+      "durationSeconds": 45.015522,
+      "samples": 29300,
+      "activeSamples": 1600,
+      "selfBuckets": {
+        "node-other": 344,
+        "other": 339,
+        "next-other": 436,
+        "node-http1": 26,
+        "next-render": 455
+      },
+      "hotspots": [
+        {
+          "label": "next-other:anonymous",
+          "samples": 103
+        },
+        {
+          "label": "node-other:wrapSafe",
+          "samples": 70
+        },
+        {
+          "label": "other:_garbage collector_",
+          "samples": 70
+        },
+        {
+          "label": "next-render:e",
+          "samples": 46
+        },
+        {
+          "label": "next-render:anonymous",
+          "samples": 45
+        },
+        {
+          "label": "other:internalModuleStat",
+          "samples": 42
+        },
+        {
+          "label": "other:writeBuffer",
+          "samples": 37
+        },
+        {
+          "label": "other:readFileUtf8",
+          "samples": 32
+        },
+        {
+          "label": "other:runMicrotasks",
+          "samples": 28
+        },
+        {
+          "label": "other:lstat",
+          "samples": 27
+        },
+        {
+          "label": "next-render:ex",
+          "samples": 27
+        },
+        {
+          "label": "next-other:f",
+          "samples": 25
+        },
+        {
+          "label": "next-render:ez",
+          "samples": 24
+        },
+        {
+          "label": "next-other:instantiateModule",
+          "samples": 22
+        },
+        {
+          "label": "node-other:anonymous",
+          "samples": 20
+        }
+      ]
+    },
+    {
+      "role": "app",
+      "durationSeconds": 45.024632,
+      "samples": 29309,
+      "activeSamples": 1606,
+      "selfBuckets": {
+        "node-other": 356,
+        "other": 342,
+        "next-other": 413,
+        "node-http1": 21,
+        "node-http2": 1,
+        "next-render": 473
+      },
+      "hotspots": [
+        {
+          "label": "next-other:anonymous",
+          "samples": 97
+        },
+        {
+          "label": "other:_garbage collector_",
+          "samples": 76
+        },
+        {
+          "label": "node-other:wrapSafe",
+          "samples": 70
+        },
+        {
+          "label": "next-render:anonymous",
+          "samples": 53
+        },
+        {
+          "label": "other:internalModuleStat",
+          "samples": 48
+        },
+        {
+          "label": "next-render:e",
+          "samples": 44
+        },
+        {
+          "label": "next-render:ez",
+          "samples": 33
+        },
+        {
+          "label": "other:readFileUtf8",
+          "samples": 31
+        },
+        {
+          "label": "other:runMicrotasks",
+          "samples": 31
+        },
+        {
+          "label": "next-render:ex",
+          "samples": 29
+        },
+        {
+          "label": "other:lstat",
+          "samples": 28
+        },
+        {
+          "label": "next-other:instantiateModule",
+          "samples": 25
+        },
+        {
+          "label": "node-other:anonymous",
+          "samples": 24
+        },
+        {
+          "label": "next-other:f",
+          "samples": 24
+        },
+        {
+          "label": "next-other:buildQueryFromSourceParams",
+          "samples": 20
+        }
+      ]
+    },
+    {
+      "role": "app",
+      "durationSeconds": 45.023998,
+      "samples": 29301,
+      "activeSamples": 1580,
+      "selfBuckets": {
+        "node-other": 354,
+        "other": 326,
+        "next-other": 412,
+        "next-render": 459,
+        "node-http1": 29
+      },
+      "hotspots": [
+        {
+          "label": "next-other:anonymous",
+          "samples": 102
+        },
+        {
+          "label": "other:_garbage collector_",
+          "samples": 73
+        },
+        {
+          "label": "node-other:wrapSafe",
+          "samples": 69
+        },
+        {
+          "label": "next-render:e",
+          "samples": 56
+        },
+        {
+          "label": "other:internalModuleStat",
+          "samples": 49
+        },
+        {
+          "label": "next-render:anonymous",
+          "samples": 46
+        },
+        {
+          "label": "other:runMicrotasks",
+          "samples": 45
+        },
+        {
+          "label": "next-other:f",
+          "samples": 34
+        },
+        {
+          "label": "next-render:ez",
+          "samples": 33
+        },
+        {
+          "label": "other:writeBuffer",
+          "samples": 31
+        },
+        {
+          "label": "node-other:anonymous",
+          "samples": 28
+        },
+        {
+          "label": "other:readFileUtf8",
+          "samples": 26
+        },
+        {
+          "label": "other:lstat",
+          "samples": 26
+        },
+        {
+          "label": "next-render:ex",
+          "samples": 20
+        },
+        {
+          "label": "next-other:instantiateModule",
+          "samples": 16
+        }
+      ]
+    },
+    {
+      "role": "app",
+      "durationSeconds": 45.017636,
+      "samples": 29307,
+      "activeSamples": 1643,
+      "selfBuckets": {
+        "node-other": 381,
+        "other": 369,
+        "next-other": 425,
+        "node-http1": 14,
+        "next-render": 454
+      },
+      "hotspots": [
+        {
+          "label": "next-other:anonymous",
+          "samples": 106
+        },
+        {
+          "label": "other:_garbage collector_",
+          "samples": 82
+        },
+        {
+          "label": "next-render:anonymous",
+          "samples": 77
+        },
+        {
+          "label": "other:internalModuleStat",
+          "samples": 58
+        },
+        {
+          "label": "node-other:wrapSafe",
+          "samples": 53
+        },
+        {
+          "label": "other:runMicrotasks",
+          "samples": 45
+        },
+        {
+          "label": "next-render:e",
+          "samples": 45
+        },
+        {
+          "label": "other:readFileUtf8",
+          "samples": 32
+        },
+        {
+          "label": "next-other:f",
+          "samples": 32
+        },
+        {
+          "label": "node-other:anonymous",
+          "samples": 31
+        },
+        {
+          "label": "other:lstat",
+          "samples": 30
+        },
+        {
+          "label": "next-render:ex",
+          "samples": 27
+        },
+        {
+          "label": "next-render:eZ",
+          "samples": 25
+        },
+        {
+          "label": "other:writeBuffer",
+          "samples": 24
+        },
+        {
+          "label": "next-render:ez",
+          "samples": 23
+        }
+      ]
+    },
+    {
+      "role": "app",
+      "durationSeconds": 45.015633,
+      "samples": 29323,
+      "activeSamples": 1616,
+      "selfBuckets": {
+        "node-other": 372,
+        "other": 336,
+        "next-other": 431,
+        "next-render": 455,
+        "node-http1": 22
+      },
+      "hotspots": [
+        {
+          "label": "next-other:anonymous",
+          "samples": 96
+        },
+        {
+          "label": "other:_garbage collector_",
+          "samples": 69
+        },
+        {
+          "label": "node-other:wrapSafe",
+          "samples": 66
+        },
+        {
+          "label": "next-render:anonymous",
+          "samples": 64
+        },
+        {
+          "label": "next-render:e",
+          "samples": 47
+        },
+        {
+          "label": "other:runMicrotasks",
+          "samples": 43
+        },
+        {
+          "label": "other:internalModuleStat",
+          "samples": 42
+        },
+        {
+          "label": "other:readFileUtf8",
+          "samples": 31
+        },
+        {
+          "label": "other:writeBuffer",
+          "samples": 31
+        },
+        {
+          "label": "next-render:ez",
+          "samples": 30
+        },
+        {
+          "label": "node-other:anonymous",
+          "samples": 27
+        },
+        {
+          "label": "other:lstat",
+          "samples": 25
+        },
+        {
+          "label": "next-render:ex",
+          "samples": 24
+        },
+        {
+          "label": "next-other:f",
+          "samples": 22
+        },
+        {
+          "label": "next-other:buildQueryFromSourceParams",
+          "samples": 21
+        }
+      ]
+    },
+    {
+      "role": "app",
+      "durationSeconds": 45.015548,
+      "samples": 29306,
+      "activeSamples": 1629,
+      "selfBuckets": {
+        "node-other": 358,
+        "other": 371,
+        "next-other": 415,
+        "next-render": 459,
+        "node-http1": 26
+      },
+      "hotspots": [
+        {
+          "label": "next-other:anonymous",
+          "samples": 104
+        },
+        {
+          "label": "other:_garbage collector_",
+          "samples": 81
+        },
+        {
+          "label": "next-render:anonymous",
+          "samples": 59
+        },
+        {
+          "label": "next-render:e",
+          "samples": 58
+        },
+        {
+          "label": "node-other:wrapSafe",
+          "samples": 57
+        },
+        {
+          "label": "other:internalModuleStat",
+          "samples": 55
+        },
+        {
+          "label": "other:runMicrotasks",
+          "samples": 36
+        },
+        {
+          "label": "other:readFileUtf8",
+          "samples": 35
+        },
+        {
+          "label": "other:lstat",
+          "samples": 31
+        },
+        {
+          "label": "next-other:f",
+          "samples": 31
+        },
+        {
+          "label": "next-render:ez",
+          "samples": 31
+        },
+        {
+          "label": "other:writeBuffer",
+          "samples": 30
+        },
+        {
+          "label": "node-other:anonymous",
+          "samples": 24
+        },
+        {
+          "label": "next-render:ex",
+          "samples": 24
+        },
+        {
+          "label": "next-other:instantiateModule",
+          "samples": 22
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "45-second CPU sample includes startup, sequential warming, idle and profiled burst; not an unprofiled performance baseline",
+    "Self-sample categories do not measure PostgreSQL execution or pool wait",
+    "Function names are sanitized; paths, raw profiles and stack traces remain private",
+    "Cannot subtract CPU sample percentages from request percentiles"
+  ]
+}
