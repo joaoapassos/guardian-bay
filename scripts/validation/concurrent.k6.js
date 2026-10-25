@@ -17,7 +17,7 @@ if (
   ![1, 2, 4, 8].includes(appCount)
 )
   throw new Error("Invalid local topology");
-if (![10, 25, 50, 100, 250, 500].includes(requests))
+if (![10, 25, 50, 100, 250, 500, 1000, 2000, 3500, 5000].includes(requests))
   throw new Error("Unapproved request concurrency level");
 const connectionProfile = __ENV.LAB_CONNECTION_PROFILE ?? "new";
 if (!["new", "reuse"].includes(connectionProfile))
@@ -91,7 +91,7 @@ export default function () {
     params: {
       headers: {
         host: "127.0.0.1:3449",
-        cookie: `__Host-guardian-session=${fixtures.users[i].token}`,
+        cookie: `__Host-guardian-session=${fixtures.users[i % fixtures.users.length].token}`,
       },
       tags: { name: i % 2 === 0 ? "catalog" : "account" },
       timeout: "10s",

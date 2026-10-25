@@ -11,6 +11,10 @@ import {
 } from "node:fs";
 import { arch, cpus, freemem, platform, release, totalmem } from "node:os";
 import { join } from "node:path";
+import {
+  assertConcurrencyProgression,
+  concurrencyLevels,
+} from "./concurrency-gate.mjs";
 import { writeEvidence } from "./evidence.mjs";
 import { httpMeasurementWindow, measuredPeak } from "./measurement-window.mjs";
 import { labDirectory, labLease } from "./scope.mjs";
@@ -54,7 +58,7 @@ if (workload === "concurrent") {
   assert.equal(vus, 1);
   assert.equal(seconds, 30);
   assert.equal(diagnostic, false);
-  assert.ok([10, 25, 50, 100, 250, 500].includes(concurrentRequests));
+  assert.ok(concurrencyLevels.includes(concurrentRequests));
   assert.equal(safeScaCount(), 0);
 }
 function safeScaCount() {
@@ -98,6 +102,29 @@ assert.ok(Number.isSafeInteger(pids.app) && pids.app > 0);
 const appPids = pids.apps ?? [pids.app];
 const appPoolMax = pids.poolMax ?? 10;
 const listenerBacklog = pids.proxyBacklog ?? 511;
+if (workload === "concurrent") {
+  if (concurrentRequests > 500) {
+    assert.equal(httpTransport, "proxy");
+    assert.equal(connectionProfile, "reuse");
+    assert.equal(pids.proxyProtocol, "h2");
+  }
+  const reports = readdirSync(join(labDirectory, "reports"))
+    .filter((name) => /^task-18-http-burst-\d+-\d+\.json$/.test(name))
+    .map((name) =>
+      JSON.parse(readFileSync(join(labDirectory, "reports", name), "utf8")),
+    );
+  assertConcurrencyProgression(concurrentRequests, reports, {
+    runId: labLease().runId,
+    buildId: readFileSync(".next/BUILD_ID", "utf8").trim(),
+    sourceTree: execFileSync("git", ["rev-parse", "HEAD:src"], {
+      encoding: "utf8",
+    }).trim(),
+    now: Date.now(),
+    appInstances: appPids.length,
+    appPoolMax,
+    backlog: listenerBacklog,
+  });
+}
 assert.ok([511, 2048].includes(listenerBacklog));
 assert.ok(Number.isInteger(appPoolMax) && appPoolMax >= 1 && appPoolMax <= 10);
 assert.ok(
@@ -434,6 +461,8 @@ const validMeasurement =
   (!!httpWindow &&
     !!duration &&
     metrics.measuredRequests === concurrentRequests &&
+    (httpTransport !== "proxy" ||
+      metrics.maxProxyInflight >= concurrentRequests) &&
     (httpTransport !== "proxy" ||
       pids.proxyProtocol !== "h2" ||
       metrics.measuredHttp2Requests === metrics.measuredRequests) &&
