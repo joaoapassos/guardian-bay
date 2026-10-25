@@ -29,7 +29,7 @@ test(
     const client = postgres(value, { max: 1, onnotice: () => {} });
     const email = `${randomUUID()}@example.test`;
     const unknownEmail = `${randomUUID()}@example.test`;
-    const password = "Security integration passphrase";
+    const password = "Security integration passphrase 42!";
     const keys = [email, unknownEmail].map(
       (input) => `email:${createHash("sha256").update(input).digest("hex")}`,
     );

@@ -85,7 +85,7 @@ const client = postgres(value, { max: 1, onnotice: () => {} });
 const database = drizzle(client);
 const email = `${randomUUID()}@example.test`;
 const unknownEmail = `${randomUUID()}@example.test`;
-const password = "Integration passphrase 24";
+const password = "Integration passphrase 24!";
 let passwordHash: string;
 const rateKeys = new Set(["global"]);
 const auditStartedAt = new Date().toISOString();
@@ -928,6 +928,7 @@ describe("ECMSG-33: cadastro seguro PostgreSQL", () => {
   const emails = [randomUUID(), randomUUID()].map((id) => `${id}@example.test`);
   emails.forEach((email) => {
     fixtureRateKey(email, "reg");
+    fixtureRateKey(email);
   });
   beforeEach(() => {
     request.headers = new Headers({
@@ -940,20 +941,27 @@ describe("ECMSG-33: cadastro seguro PostgreSQL", () => {
   afterEach(() => vi.restoreAllMocks());
   afterAll(async () => {
     await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE email IN (${emails[0]},${emails[1]}))`;
+    await client`DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email IN (${emails[0]},${emails[1]}))`;
     await client`DELETE FROM users WHERE email IN (${emails[0]},${emails[1]})`;
   });
-  it("normaliza, persiste somente hash e cadastro duplicado não muda senha ou resposta", async () => {
+  it("normaliza, autentica e duplicado com senha incorreta não muda credencial", async () => {
     const input = { email: `  ${emails[0].toUpperCase()}  `, password };
     const first = await registerAction(input);
     expect(first).toEqual({ success: true });
-    expect(request.token).toBeUndefined();
+    expect(request.token).toMatch(/^[a-f0-9]{64}$/);
+    expect(await readAccount()).toEqual({ email: emails[0] });
+    const authenticatedToken = request.token;
     const [stored] =
       await client`SELECT password_hash FROM users WHERE email=${emails[0]}`;
     expect(stored.password_hash).toMatch(/^\$argon2id\$/);
     expect(await verifyPassword(password, stored.password_hash)).toBe(true);
     expect(
-      await registerAction({ ...input, password: "Other valid passphrase" }),
-    ).toEqual(first);
+      await registerAction({
+        ...input,
+        password: "Other valid passphrase 24!",
+      }),
+    ).toEqual({ success: false, code: "INVALID_CREDENTIALS" });
+    expect(request.token).toBe(authenticatedToken);
     const [same] =
       await client`SELECT password_hash FROM users WHERE email=${emails[0]}`;
     expect(same.password_hash === stored.password_hash).toBe(true);
@@ -976,6 +984,10 @@ describe("ECMSG-33: cadastro seguro PostgreSQL", () => {
       { email: emails[0], password: "short" },
       { email: emails[0], password, passwordHash: "fake" },
       { email: emails[0], password: "x".repeat(300) },
+      { email: emails[0], password: "onlylowercase123!" },
+      { email: emails[0], password: "ONLYUPPERCASE123!" },
+      { email: emails[0], password: "NoNumbersAtAll!!" },
+      { email: emails[0], password: "NoSymbolsHere123" },
     ])
       expect(await registerAction(input)).toEqual({
         success: false,

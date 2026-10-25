@@ -1,18 +1,9 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { cache } from "react";
+import { sessionCookiePolicy } from "../session-cookie-policy";
 import { resolveSession } from "./session";
-
-export function sessionCookiePolicy() {
-  const secure = process.env.NODE_ENV === "production";
-  return {
-    name: secure ? "__Host-guardian-session" : "guardian-session",
-    httpOnly: true,
-    secure,
-    sameSite: "lax" as const,
-    path: "/",
-  };
-}
+export { sessionCookiePolicy };
 
 // React deduplicates only within one RSC render pass, never across requests.
 // Actions/Route Handlers do not share that render cache; protected operations

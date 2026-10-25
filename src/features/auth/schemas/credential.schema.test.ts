@@ -36,6 +36,26 @@ describe("authentication versus credential creation", () => {
 });
 
 describe("identity and credential inputs", () => {
+  it.each([
+    "onlylowercase123!",
+    "ONLYUPPERCASE123!",
+    "NoNumbersAtAll!!",
+    "NoSymbolsHere123",
+    "Spaces Are Not 12",
+  ])("requires every password category at registration: %s", (password) => {
+    expect(
+      credentialSchema.safeParse({ email: "person@example.test", password })
+        .success,
+    ).toBe(false);
+    expect(authenticationPasswordSchema.safeParse(password).success).toBe(true);
+  });
+  it("accepts the registration policy without trimming or restricting Unicode", () => {
+    const value = {
+      email: "person@example.test",
+      password: "  Árvore Serena 42!  ",
+    };
+    expect(credentialSchema.parse(value)).toEqual(value);
+  });
   it("normalizes only surrounding whitespace and email case", () => {
     expect(emailSchema.parse("  Person+tag@Example.COM  ")).toBe(
       "person+tag@example.com",
@@ -61,7 +81,13 @@ describe("identity and credential inputs", () => {
     expect(
       credentialSchema.safeParse({
         email: "person@example.com",
-        password: "a long passphrase",
+        password: "A long passphrase 42!",
+      }).success,
+    ).toBe(true);
+    expect(
+      credentialSchema.safeParse({
+        email: "person@example.com",
+        password: "A long passphrase 42!",
         passwordHash: "client-chosen-hash",
         role: "admin",
       }).success,

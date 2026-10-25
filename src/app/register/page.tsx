@@ -1,12 +1,19 @@
 import type { Metadata } from "next";
-import { CredentialForm } from "@/features/auth/components/credential-form";
+import { AuthShell } from "@/features/auth/components/auth-shell";
+import { RegisterForm } from "@/features/auth/components/register-form";
 
 export const metadata: Metadata = { title: "Criar conta | Guardian Bay" };
 export default function RegisterPage() {
   return (
-    <main className="mx-auto w-full max-w-md flex-1 px-6 py-16">
-      <h1 className="mb-8 text-3xl font-semibold">Criar conta</h1>
-      <CredentialForm mode="register" />
-    </main>
+    <AuthShell
+      title="Criar conta"
+      description="Comece por aqui. Organize seu carrinho e acompanhe seus pedidos em um só lugar."
+    >
+      <RegisterForm />
+      <p className="mt-6 border-t border-line pt-4 text-sm leading-relaxed text-muted">
+        Só o necessário: seu e-mail e uma senha. Ao concluir o cadastro, você já
+        entra na sua conta.
+      </p>
+    </AuthShell>
   );
 }

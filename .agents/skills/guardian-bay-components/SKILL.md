@@ -51,12 +51,14 @@ Ler [seleção e estado](references/selection.md) ao escolher biblioteca, formul
 - Estilizar Radix por classes/atributos `data-state`, preservando props, eventos e refs na composição `asChild`. Sem controles interativos aninhados ou links convertidos em botões de navegação.
 - Usar `tailwind-merge` quando houver composição/override de utilities; não presume correção semântica, contraste ou cobertura de tokens customizados. Evitar conflitos pela API de variantes antes de ampliar configuração.
 - Estados hover, focus-visible, active/pressed, seleção, disabled e loading são distintos; feedback não altera dimensão desnecessariamente. Responsividade mantém ordem de leitura e informação essencial; dark mode só com requisito real.
+- Botões acionáveis usam `cursor-pointer`; disabled mantém cursor coerente com seu estado. Ação apenas com ícone usa `IconButton`, menor que Button, transparente inclusive no hover, com nome acessível e foco visível contido no espaço do controle. Não aplicar dimensões/background de Button ao toggle de senha.
+- Auth deve caber na altura disponível em desktop Full HD, inclusive com erros usuais; reduzir espaçamento redundante antes de impor altura. Não esconder overflow para mascarar conteúdo cortado; mobile, zoom e mensagens longas continuam podendo rolar.
 - RHF + Zod são preferenciais para formulários de domínio. Campos nativos usam `register`; `Controller` apenas para integração controlada necessária. Formulário GET simples pode permanecer nativo em React. Ver detalhes na referência.
 - Labels persistentes, obrigatoriedade, ajuda/erros associados e resumo/primeiro erro focável. Validação de UX não substitui servidor; falha preserva campos seguros, nunca ecoa senha ou diagnósticos internos.
 
 ## Motion e validação
 
-Quando houver movimento, consultar [guardian-bay-motion](../guardian-bay-motion/SKILL.md); não duplicar tokens, padrões ou receitas. Preservar refs, portais, foco e identidade para React ViewTransition, conferindo runtime Next e tipos conforme essa skill. Não adicionar flag, canary, provider global ou atraso de ação por inferência.
+Toda navegação entre páginas deve ter uma transição definida conforme [guardian-bay-motion](../guardian-bay-motion/SKILL.md), com mudança direta para movimento reduzido ou ausência de suporte. Consultar essa skill também para qualquer animação ou microtransição; não duplicar seus padrões ou receitas. Reutilizar o dono de transição de rota existente antes de acrescentar outro. Preservar refs, portais, foco e identidade para React ViewTransition, conferindo runtime Next e tipos conforme essa skill. Não adicionar flag, canary, provider global ou atraso de ação por inferência.
 
 Ler [validação](references/validation.md) para os critérios do comportamento afetado. Verificar teclado, foco, semântica, anúncios, responsividade, contraste e `prefers-reduced-motion`; Radix auxilia, mas não comprova acessibilidade da composição final. Executar gates proporcionais de [qualidade](../../../docs/quality.md) e informar evidência e limites. Não declarar UI testada apenas por compilar.
 

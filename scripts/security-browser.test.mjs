@@ -372,8 +372,8 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
               });
               const email = `${randomUUID()}@example.test`;
               const unknown = `${randomUUID()}@example.test`;
-              const password = "Browser integration passphrase 40";
-              const newPassword = "New browser integration passphrase 40";
+              const password = "Browser integration passphrase 40!";
+              const newPassword = "New browser integration passphrase 40!";
               const keys = [
                 "global",
                 ...[email, unknown].flatMap((value) =>
@@ -527,12 +527,24 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 await call("Network.enable");
                 await navigate("/register");
                 await submit({ email: ` ${email.toUpperCase()} `, password });
-                await output("Solicitação processada.");
-                assert.equal(
-                  await cookie(),
-                  undefined,
-                  "registration does not authenticate",
+                await waitFor(
+                  "location.pathname === '/account' && !!document.querySelector('#currentPassword')",
+                  "registration automatically authenticates",
                 );
+                const signupCookie = await cookie();
+                assert.ok(signupCookie);
+                assert.equal(signupCookie.httpOnly, true);
+                assert.equal(signupCookie.secure, true);
+                assert.equal(signupCookie.sameSite, "Lax");
+                await evaluate(
+                  "[...document.querySelectorAll('button')].find(button=>button.textContent==='Sair').click()",
+                );
+                await waitFor(
+                  "location.pathname === '/'",
+                  "logout after signup",
+                );
+                assert.equal(await cookie(), undefined);
+                await navigate("/register");
                 const [stored] =
                   await client`SELECT * FROM users WHERE email=${email}`;
                 assert.ok(stored);
@@ -540,7 +552,10 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 assert.ok(await verify(stored.password_hash, password));
                 assert.ok(!Object.values(stored).includes(password));
                 await submit({ email, password: newPassword });
-                await output("Solicitação processada.");
+                await output(
+                  "Não foi possível criar ou acessar a conta com os dados informados.",
+                );
+                assert.equal(await cookie(), undefined);
                 const [duplicate] =
                   await client`SELECT password_hash FROM users WHERE email=${email}`;
                 assert.equal(
@@ -550,6 +565,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 );
                 await submit({ email, password });
                 await output("Tente novamente mais tarde.");
+                await client`DELETE FROM login_rate_limits WHERE key IN ${client(keys)}`;
                 await navigate("/login");
                 assert.equal(
                   await evaluate(
