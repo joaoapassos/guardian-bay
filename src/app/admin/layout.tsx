@@ -1,26 +1,33 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
+import { SystemState } from "@/components/shared/system-state";
+import { UserMenu } from "@/features/auth/components/user-menu";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
-
+import { getAuthenticatedIdentity } from "@/features/auth/server/session-cookie";
+import { AdminNavigation } from "./_components/admin-navigation";
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Early UX guard; each privileged feature independently checks authorization.
-  if (!(await requireAuthenticatedAdmin()).success) notFound();
+  const access = await requireAuthenticatedAdmin();
+  if (!access.success) {
+    if (access.code === "UNAUTHENTICATED") redirect("/login");
+    return <SystemState kind="access-denied" />;
+  }
+  const identity = await getAuthenticatedIdentity();
   return (
-    <>
-      <nav
-        aria-label="Backoffice"
-        className="mx-auto flex w-full max-w-5xl gap-6 border-b px-6 py-4"
-      >
-        <Link href="/admin">Visão geral</Link>
-        <Link href="/admin/catalog">Catálogo</Link>
-        <Link href="/admin/orders">Pedidos</Link>
-        <Link href="/admin/audit">Auditoria</Link>
-      </nav>
-      {children}
-    </>
+    <div className="admin-shell grid flex-1 font-auth lg:grid-cols-[260px_minmax(0,1fr)]">
+      <AdminNavigation />
+      <div className="min-w-0">
+        <header className="flex flex-wrap items-center justify-end gap-3 border-b border-line bg-surface px-5 py-4 sm:px-8 lg:px-10">
+          <UserMenu
+            label={identity?.email ?? "Minha conta"}
+            canAccessAdmin
+            context="admin"
+          />
+        </header>
+        {children}
+      </div>
+    </div>
   );
 }

@@ -13,7 +13,7 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Admin deliberately keeps its existing non-disclosing 404 guard.
+// Admin resolves authentication and its access-denied experience on the server.
 export const config = {
   matcher: [
     "/account/:path*",

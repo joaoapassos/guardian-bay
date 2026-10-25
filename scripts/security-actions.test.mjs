@@ -68,7 +68,7 @@ test(
         'export default function Layout({children}: {children: React.ReactNode}) { return <html lang="en"><body>{children}</body></html>; }\n',
       );
       writeFileSync(
-        join(directory, "src/app/page.tsx"),
+        join(directory, "src/app/(store)/page.tsx"),
         `
 import { redirect } from "next/navigation";
 import { loginAction } from "@/features/auth/actions/login.action";
@@ -990,8 +990,14 @@ export default async function Probe() {
           const hidden = await fetch(`${base}/products/${product.id}`);
           const missing = await fetch(`${base}/products/${randomUUID()}`);
           assert.equal(hidden.status, missing.status);
-          assert.match(await hidden.text(), /Produto não encontrado/);
-          assert.match(await missing.text(), /Produto não encontrado/);
+          assert.match(
+            await hidden.text(),
+            /Este caminho não leva a uma página/,
+          );
+          assert.match(
+            await missing.text(),
+            /Este caminho não leva a uma página/,
+          );
           assert.ok(
             !(await (await fetch(`${base}/products`)).text()).includes(
               fields.name,
@@ -1026,18 +1032,32 @@ export default async function Probe() {
             "/admin/audit",
             `/admin/orders/${randomUUID()}`,
           ]) {
-            assert.equal((await fetch(base + path)).status, 404);
+            const response = await fetch(base + path, { redirect: "manual" });
+            assert.ok([200, 307].includes(response.status));
+            if (response.status === 307)
+              assert.equal(
+                new URL(response.headers.get("location"), base).pathname,
+                "/login",
+              );
+            else assert.match(await response.text(), /NEXT_REDIRECT|\/login/);
           }
           await client`UPDATE users SET role='customer' WHERE id=${user.id}`;
           await client`DELETE FROM login_rate_limits WHERE key IN ('global',${keys[0]},${keys[1]})`;
           const login = await post(0, credentials);
           assert.deepEqual(result(login), { success: true });
           const cookie = login.headers.get("set-cookie").split(";")[0];
-          for (const path of ["/admin", "/admin/catalog", "/admin/orders"])
-            assert.equal(
-              (await fetch(base + path, { headers: { cookie } })).status,
-              404,
+          for (const path of [
+            "/admin",
+            "/admin/catalog",
+            "/admin/categories",
+            "/admin/orders",
+          ]) {
+            const response = await fetch(base + path, { headers: { cookie } });
+            assert.match(
+              await response.text(),
+              /Esta área precisa de permissão/,
             );
+          }
           await client`UPDATE users SET role='admin' WHERE id=${user.id}`;
           const key = randomUUID();
           const [order] =
@@ -1080,7 +1100,7 @@ export default async function Probe() {
               // Next.js documents 200 for notFound after streaming has started.
               assert.ok([200, 404].includes(missing.status));
               const body = await missing.text();
-              assert.match(body, /This page could not be found/);
+              assert.match(body, /Este caminho não leva a uma página/);
               assert.ok(
                 !body.includes("HTTP immutable snapshot") &&
                   !body.includes(key),
@@ -1141,18 +1161,26 @@ export default async function Probe() {
               "/admin/orders",
               "/admin/audit",
               `/admin/orders/${order.id}`,
-            ])
-              assert.equal(
-                (await fetch(base + path, { headers: { cookie } })).status,
-                404,
-              );
+            ]) {
+              const body = await (
+                await fetch(base + path, { headers: { cookie } })
+              ).text();
+              assert.match(body, /Esta área precisa de permissão/);
+              assert.ok(!body.includes("HTTP immutable snapshot"));
+            }
             await client`UPDATE users SET role='admin' WHERE id=${user.id}`;
             await client`DELETE FROM sessions WHERE user_id=${user.id}`;
-            assert.equal(
-              (await fetch(`${base}/admin/orders`, { headers: { cookie } }))
-                .status,
-              404,
-            );
+            const expired = await fetch(`${base}/admin/orders`, {
+              headers: { cookie },
+              redirect: "manual",
+            });
+            assert.ok([200, 307].includes(expired.status));
+            if (expired.status === 307)
+              assert.equal(
+                new URL(expired.headers.get("location"), base).pathname,
+                "/login",
+              );
+            else assert.match(await expired.text(), /NEXT_REDIRECT|\/login/);
           } finally {
             await client`DELETE FROM order_items WHERE order_id=${order.id}`;
             await client`DELETE FROM orders WHERE id=${order.id}`;
@@ -1271,10 +1299,12 @@ export default async function Probe() {
               1,
             );
             await client`UPDATE users SET role='customer' WHERE id=${user.id}`;
-            assert.equal(
-              (await fetch(`${base}/admin/audit`, { headers: { cookie } }))
-                .status,
-              404,
+            const deniedAudit = await fetch(`${base}/admin/audit`, {
+              headers: { cookie },
+            });
+            assert.match(
+              await deniedAudit.text(),
+              /Esta área precisa de permissão/,
             );
           } finally {
             if (categoryId)

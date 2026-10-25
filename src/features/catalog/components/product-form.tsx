@@ -19,18 +19,23 @@ type Product = {
 export function ProductForm({
   product,
   categories,
+  returnHref = "/admin/catalog",
 }: {
   product?: Product;
   categories: { id: string; name: string }[];
+  returnHref?: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
   const [confirmation, setConfirmation] = useState<Record<
     string,
     FormDataEntryValue | number | boolean | null
   > | null>(null);
   const submitRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
   async function save(
     fields: Record<string, FormDataEntryValue | number | boolean | null>,
   ) {
@@ -60,7 +65,11 @@ export function ProductForm({
                   ? "Confira os campos do produto."
                   : "Não foi possível salvar o produto.",
       );
-      if (result.success) router.refresh();
+      if (result.success) {
+        setDirty(false);
+        if (!product) router.push(returnHref);
+        router.refresh();
+      }
     } catch {
       setMessage("Não foi possível concluir agora.");
     } finally {
@@ -74,7 +83,8 @@ export function ProductForm({
           product ? `Editar produto ${product.name}` : "Criar produto"
         }
         aria-busy={busy}
-        className="space-y-3 rounded border p-4"
+        className="admin-panel space-y-5"
+        onChange={() => setDirty(true)}
         onSubmit={async (event) => {
           event.preventDefault();
           if (busy) return;
@@ -125,6 +135,14 @@ export function ProductForm({
             <option value="" disabled>
               Escolha uma categoria
             </option>
+            {product &&
+              !categories.some(
+                (category) => category.id === product.categoryId,
+              ) && (
+                <option value={product.categoryId}>
+                  Categoria atual do produto
+                </option>
+              )}
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -172,9 +190,20 @@ export function ProductForm({
           ref={submitRef}
           type="submit"
           disabled={busy || !categories.length}
-          className="rounded bg-teal-800 px-4 py-2 text-white"
+          className="admin-action"
         >
           {busy ? "Salvando…" : product ? "Salvar produto" : "Criar produto"}
+        </button>
+        <button
+          type="button"
+          ref={cancelRef}
+          disabled={busy}
+          className="auth-link ml-4"
+          onClick={() =>
+            dirty ? setDiscarding(true) : router.push(returnHref)
+          }
+        >
+          Cancelar
         </button>
         <output aria-live="polite" className="block">
           {message}
@@ -189,7 +218,7 @@ export function ProductForm({
         <AlertDialog.Portal>
           <AlertDialog.Overlay className="fixed inset-0 z-40 bg-black/60" />
           <AlertDialog.Content
-            className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 space-y-4 rounded bg-white p-6 text-black"
+            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 space-y-4 rounded-panel border border-line bg-surface p-6 font-auth text-ink"
             onCloseAutoFocus={(event) => {
               event.preventDefault();
               submitRef.current?.focus();
@@ -215,6 +244,36 @@ export function ProductForm({
                 }}
               >
                 Confirmar despublicação
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
+      <AlertDialog.Root open={discarding} onOpenChange={setDiscarding}>
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0 z-40 bg-ink/40" />
+          <AlertDialog.Content
+            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-panel bg-surface p-6 font-auth"
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              cancelRef.current?.focus();
+            }}
+          >
+            <AlertDialog.Title className="font-editorial text-2xl text-coast">
+              Descartar alterações?
+            </AlertDialog.Title>
+            <AlertDialog.Description>
+              As alterações que você ainda não salvou serão perdidas.
+            </AlertDialog.Description>
+            <div className="flex flex-wrap gap-4">
+              <AlertDialog.Cancel className="auth-link">
+                Continuar editando
+              </AlertDialog.Cancel>
+              <AlertDialog.Action
+                className="admin-action"
+                onClick={() => router.push(returnHref)}
+              >
+                Descartar e voltar
               </AlertDialog.Action>
             </div>
           </AlertDialog.Content>

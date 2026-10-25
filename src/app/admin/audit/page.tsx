@@ -1,16 +1,21 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { readAudit } from "@/features/audit/server/read-audit";
 import { auditEventTypes, auditOutcomes } from "@/lib/audit/events";
+import { AccessState } from "../_components/access-state";
 
 export default async function AuditPage({
   searchParams,
 }: PageProps<"/admin/audit">) {
   const result = await readAudit(await searchParams);
-  if (!result.success && result.code !== "INVALID_INPUT") notFound();
+  if (!result.success && result.code !== "INVALID_INPUT")
+    return <AccessState code={result.code} />;
   if (!result.success)
     return (
-      <main className="mx-auto max-w-5xl px-6 py-12">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto max-w-5xl px-6 py-12"
+      >
         <h1>Auditoria</h1>
         <p role="alert">Filtros inválidos.</p>
       </main>
@@ -18,7 +23,11 @@ export default async function AuditPage({
   const pageLink = (page: number) =>
     `/admin/audit?${new URLSearchParams({ ...result.query, page: String(page), limit: String(result.query.limit) })}`;
   return (
-    <main className="mx-auto w-full max-w-5xl space-y-6 px-6 py-12">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto w-full max-w-5xl space-y-6 px-6 py-12"
+    >
       <h1 className="text-3xl font-semibold">Auditoria</h1>
       <p>
         Eventos selecionados. Consulta administrativa sem edição ou exclusão.

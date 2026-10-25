@@ -5,8 +5,10 @@ import { manageCatalogAction } from "../actions/manage-catalog.action";
 
 export function CategoryForm({
   category,
+  onSaved,
 }: {
   category?: { id: string; name: string; revision: number };
+  onSaved?: () => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -17,7 +19,7 @@ export function CategoryForm({
         category ? `Editar categoria ${category.name}` : "Criar categoria"
       }
       aria-busy={busy}
-      className="space-y-3 rounded border p-4"
+      className="space-y-4"
       onSubmit={async (event) => {
         event.preventDefault();
         if (busy) return;
@@ -48,7 +50,10 @@ export function CategoryForm({
                       ? "Confira o nome da categoria."
                       : "Não foi possível salvar a categoria.",
           );
-          if (result.success) router.refresh();
+          if (result.success) {
+            onSaved?.();
+            router.refresh();
+          }
         } catch {
           setMessage("Não foi possível concluir agora.");
         } finally {
@@ -66,11 +71,7 @@ export function CategoryForm({
           className="block w-full border p-2"
         />
       </label>
-      <button
-        type="submit"
-        disabled={busy}
-        className="rounded bg-teal-800 px-4 py-2 text-white"
-      >
+      <button type="submit" disabled={busy} className="admin-action">
         {busy ? "Salvando…" : category ? "Salvar categoria" : "Criar categoria"}
       </button>
       <output aria-live="polite" className="block">

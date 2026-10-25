@@ -8,6 +8,7 @@ export async function manageCatalogAction(input: unknown, ...extra: unknown[]) {
   const result = await manageCatalog(extra.length ? undefined : input);
   if (result.success) {
     revalidatePath("/admin/catalog");
+    revalidatePath("/admin/categories");
     revalidatePath("/products", "layout");
   }
   return result;

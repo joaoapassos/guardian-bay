@@ -19,7 +19,7 @@ export function InventoryForm({
     <form
       aria-label={`Estoque de ${name}`}
       aria-busy={pending}
-      className="rounded border p-4"
+      className="admin-panel space-y-4"
       action={(form) => {
         setMessage("");
         startTransition(async () => {
@@ -48,9 +48,7 @@ export function InventoryForm({
         });
       }}
     >
-      <p>
-        Estoque atual: {quantity} unidades. Revisão: {revision}.
-      </p>
+      <p>Estoque atual: {quantity} unidades.</p>
       <p>Defina uma quantidade absoluta. O carrinho não reserva unidades.</p>
       <label>
         Nova quantidade em estoque de {name}
@@ -67,11 +65,7 @@ export function InventoryForm({
           className="ml-2 border p-2"
         />
       </label>
-      <button
-        disabled={pending}
-        className="ml-3 rounded border p-2"
-        type="submit"
-      >
+      <button disabled={pending} className="admin-action" type="submit">
         {pending ? "Atualizando estoque…" : "Definir estoque"}
       </button>
       <output aria-live="polite" className="block">

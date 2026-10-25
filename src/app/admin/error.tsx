@@ -1,11 +1,10 @@
 "use client";
-export default function AdminError({ reset }: { reset: () => void }) {
+import { SystemState } from "@/components/shared/system-state";
+import { Button } from "@/components/ui/button";
+export default function AdminError({ retry }: { retry: () => void }) {
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <p role="alert">Não foi possível carregar a administração.</p>
-      <button type="button" onClick={reset}>
-        Tentar novamente
-      </button>
-    </main>
+    <SystemState kind="unexpected-error">
+      <Button onClick={retry}>Tentar novamente</Button>
+    </SystemState>
   );
 }

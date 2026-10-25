@@ -145,6 +145,33 @@ test("Auth UI: validation, password visibility, network failure and reflow", asy
         "document.readyState==='complete' && !!document.querySelector('#email') && !!document.querySelector('form') && Object.keys(document.querySelector('form')).some(k=>k.startsWith('__reactProps$') && typeof document.querySelector('form')[k]?.onSubmit==='function')",
         "Form must hydrate",
       );
+      await evaluate(
+        "document.querySelector('a[href=\"#main-content\"]').click()",
+      );
+      assert.equal(
+        await evaluate("document.activeElement.id"),
+        "main-content",
+        "skip link focuses content after the store header",
+      );
+      await send("Input.dispatchKeyEvent", {
+        type: "keyDown",
+        key: "Tab",
+        code: "Tab",
+        windowsVirtualKeyCode: 9,
+      });
+      await send("Input.dispatchKeyEvent", {
+        type: "keyUp",
+        key: "Tab",
+        code: "Tab",
+        windowsVirtualKeyCode: 9,
+      });
+      assert.equal(
+        await evaluate(
+          "document.querySelector('main').contains(document.activeElement)",
+        ),
+        true,
+        "Tab stays past the header",
+      );
       await send("Emulation.setDeviceMetricsOverride", {
         width: 1440,
         height: 1100,

@@ -537,7 +537,14 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 assert.equal(signupCookie.secure, true);
                 assert.equal(signupCookie.sameSite, "Lax");
                 await evaluate(
-                  "[...document.querySelectorAll('button')].find(button=>button.textContent==='Sair').click()",
+                  "document.querySelector('button[aria-label^=\"Menu de usuário\"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}))",
+                );
+                await waitFor(
+                  "!!document.querySelector('[role=menu]')",
+                  "user menu opens for logout",
+                );
+                await evaluate(
+                  "[...document.querySelectorAll('[role=menuitem]')].find(item=>item.textContent==='Sair').click()",
                 );
                 await waitFor(
                   "location.pathname === '/'",
@@ -668,7 +675,14 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "new password works through UI",
                 );
                 await evaluate(
-                  "[...document.querySelectorAll('button')].find(button=>button.textContent==='Sair').click()",
+                  "document.querySelector('button[aria-label^=\"Menu de usuário\"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'}))",
+                );
+                await waitFor(
+                  "!!document.querySelector('[role=menu]')",
+                  "user menu opens for logout",
+                );
+                await evaluate(
+                  "[...document.querySelectorAll('[role=menuitem]')].find(item=>item.textContent==='Sair').click()",
                 );
                 await waitFor(
                   "location.pathname === '/' && ![...document.querySelectorAll('button')].some(button=>button.textContent==='Sair')",
@@ -714,32 +728,25 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "customer login before administration",
                 );
                 const customerCookie = await cookie();
-                assert.equal(
-                  (
-                    await fetch(`${base}/admin/catalog`, {
-                      headers: {
-                        cookie: `__Host-guardian-session=${customerCookie.value}`,
-                      },
-                    })
-                  ).status,
-                  404,
-                );
                 for (const path of [
                   "/admin",
+                  "/admin/catalog",
+                  "/admin/categories",
                   "/admin/orders",
                   "/admin/audit",
                   `/admin/orders/${randomUUID()}`,
-                ])
-                  assert.equal(
-                    (
-                      await fetch(base + path, {
-                        headers: {
-                          cookie: `__Host-guardian-session=${customerCookie.value}`,
-                        },
-                      })
-                    ).status,
-                    404,
+                ]) {
+                  const denied = await fetch(base + path, {
+                    headers: {
+                      cookie: `__Host-guardian-session=${customerCookie.value}`,
+                    },
+                  });
+                  assert.equal(denied.status, 200);
+                  assert.match(
+                    await denied.text(),
+                    /Esta área precisa de permissão/,
                   );
+                }
                 const [catalogUser] =
                   await client`SELECT id FROM users WHERE email=${email}`;
                 await client.begin(async (tx) => {
@@ -755,20 +762,20 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 );
                 await navigate("/admin");
                 await waitFor(
-                  "document.querySelector('h1')?.textContent === 'Backoffice'",
+                  "document.querySelector('h1')?.textContent === 'Dashboard'",
                   "admin dashboard",
                 );
                 assert.equal(
                   await evaluate(
-                    "[...document.querySelectorAll('nav[aria-label=Backoffice] a')].map(a=>a.textContent).join('|')",
+                    "[...document.querySelectorAll('nav[aria-label=\"Administração\"] a')].filter(a=>a.getAttribute('href')!=='/' && a.textContent!=='GUARDIAN BAYAdministração').map(a=>a.textContent).join('|')",
                   ),
-                  "Visão geral|Catálogo|Pedidos|Auditoria",
+                  "Dashboard|Produtos|Categorias|Pedidos|Auditoria",
                 );
                 await evaluate(
-                  "document.querySelector('nav[aria-label=Backoffice] a[href=\"/admin/catalog\"]').click()",
+                  'document.querySelector(\'nav[aria-label="Administração"] a[href="/admin/categories"]\').click()',
                 );
                 await waitFor(
-                  "!![...document.forms].find(f=>f.getAttribute('aria-label')==='Criar categoria')",
+                  "location.pathname === '/admin/categories' && !!document.querySelector('main button')",
                   "catalog through administrative navigation",
                 );
                 const adminSubmit = async (label, values, feedback = true) => {
@@ -790,23 +797,41 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                     );
                 };
                 const categoryName = `Browser category ${randomUUID()}`;
-                await adminSubmit("Criar categoria", { name: categoryName });
+                await evaluate("document.querySelector('main button').click()");
+                await adminSubmit(
+                  "Criar categoria",
+                  { name: categoryName },
+                  false,
+                );
+                await waitFor(
+                  "!document.querySelector('[role=dialog]')",
+                  "category saved and dialog closed",
+                );
                 const [category] =
                   await client`SELECT id FROM categories WHERE name=${categoryName}`;
                 catalogCategoryId = category.id;
+                await navigate("/admin/catalog/new");
                 await waitFor(
                   `!!document.querySelector('option[value="${category.id}"]')`,
                   "category available for product",
                 );
                 const catalogName = `Browser product ${randomUUID()} <img src=x onerror=window.cartXss=true>`;
-                await adminSubmit("Criar produto", {
-                  name: catalogName,
-                  description: "<script>window.catalogXss=true</script>",
-                  categoryId: category.id,
-                  amount: "1099",
-                  imageKey: "shield",
-                  isPublished: true,
-                });
+                await adminSubmit(
+                  "Criar produto",
+                  {
+                    name: catalogName,
+                    description: "<script>window.catalogXss=true</script>",
+                    categoryId: category.id,
+                    amount: "1099",
+                    imageKey: "shield",
+                    isPublished: true,
+                  },
+                  false,
+                );
+                await waitFor(
+                  "location.pathname === '/admin/catalog' && document.querySelector('h1')?.textContent==='Produtos'",
+                  "created product returns to list",
+                );
                 const [catalogProduct] =
                   await client`SELECT id,amount,image_key FROM products WHERE category_id=${category.id}`;
                 assert.equal(catalogProduct.amount, 1099);
@@ -818,7 +843,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   ),
                   true,
                 );
-                await navigate("/admin/catalog");
+                await navigate(`/admin/catalog/${catalogProduct.id}`);
                 const stockLabel = `Estoque de ${catalogName}`;
                 await adminSubmit(stockLabel, { quantity: "2" }, false);
                 await waitFor(
@@ -835,7 +860,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 );
                 assert.equal(
                   await evaluate(
-                    "!!document.querySelector('main svg[role=img][aria-label]')",
+                    "!!document.querySelector('main img[alt]') && !document.querySelector('main svg[role=img]')",
                   ),
                   true,
                 );
@@ -887,7 +912,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "[...document.querySelectorAll('output')].some(o=>o.textContent.includes('Produto adicionado ao carrinho.'))",
                   "add mutation finished",
                 );
-                await navigate("/admin/catalog");
+                await navigate(`/admin/catalog/${catalogProduct.id}`);
                 const editLabel = `Editar produto ${catalogName}`;
                 await adminSubmit(editLabel, { amount: "1200" }, false);
                 await waitFor(
@@ -1015,7 +1040,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "commercial audit in real browser",
                 );
                 await client`UPDATE products SET name=${catalogName},amount=1200,is_published=true WHERE id=${catalogProduct.id}`;
-                await navigate("/admin/catalog");
+                await navigate(`/admin/catalog/${catalogProduct.id}`);
                 await adminSubmit(stockLabel, { quantity: "2" }, false);
                 await waitFor(
                   `(() => {const f=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(stockLabel)});return f?.elements.namedItem('quantity')?.defaultValue==='2' && f.getAttribute('aria-busy')==='false';})()`,
@@ -1058,7 +1083,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   2,
                 );
                 await client`UPDATE products SET amount=1200 WHERE id=${catalogProduct.id}`;
-                await navigate("/admin/catalog");
+                await navigate(`/admin/catalog/${catalogProduct.id}`);
                 await adminSubmit(editLabel, { isPublished: false }, false);
                 await waitFor(
                   "!!document.querySelector('[role=alertdialog]')",
@@ -1136,7 +1161,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 );
                 await navigate(`/products/${catalogProduct.id}`);
                 await waitFor(
-                  "document.querySelector('main')?.textContent.includes('Produto não encontrado')",
+                  "document.querySelector('main')?.textContent.includes('Este caminho não leva a uma página')",
                   "depublication immediately reflected",
                 );
                 // Epic 11: pending Pix/boleto, non-bank artifacts and backend approval.

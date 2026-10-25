@@ -22,6 +22,8 @@
   --color-line: #cbc2b3;
   --color-danger: #8f2d2d;
   --radius-control: 6px;
+  --radius-card: 8px;
+  --radius-panel: 12px;
   --text-auth-title: 2rem;
   --duration-normal: 180ms;
 }
@@ -63,6 +65,23 @@
   }
 }
 
+.user-menu[data-state="open"] {
+  animation: gb-menu-enter 150ms ease-out both;
+}
+@keyframes gb-menu-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .user-menu[data-state="open"] {
+    animation: none;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -70,6 +89,33 @@ body {
 }
 
 @layer components {
+  .admin-action {
+    @apply inline-flex min-h-11 items-center justify-center rounded-control bg-coast px-5 py-2 font-semibold text-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coast disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .admin-page {
+    @apply mx-auto w-full max-w-7xl space-y-6 px-5 py-8 sm:px-8 lg:px-10 lg:py-12;
+  }
+  .admin-page h1 {
+    @apply font-editorial text-4xl leading-tight text-coast sm:text-5xl;
+  }
+  .admin-eyebrow {
+    @apply text-xs font-semibold uppercase tracking-widest text-muted;
+  }
+  .admin-panel {
+    @apply rounded-panel border border-line bg-surface p-6;
+  }
+  .admin-shell input:not([type="checkbox"]),
+  .admin-shell textarea,
+  .admin-shell select {
+    @apply mt-2 block min-h-11 w-full rounded-control border border-muted bg-surface px-3 py-2 text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coast;
+  }
+  .admin-shell label {
+    @apply block text-sm font-semibold;
+  }
+  .admin-shell button:focus-visible,
+  .admin-shell a:focus-visible {
+    @apply outline-2 outline-offset-2 outline-coast;
+  }
   .auth-input {
     @apply block min-h-12 w-full rounded-control border border-muted bg-surface px-4 py-3 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coast aria-invalid:border-danger;
   }

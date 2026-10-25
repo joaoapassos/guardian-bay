@@ -12,7 +12,11 @@ export function AuthShell({
 }) {
   return (
     <>
-      <main className="mx-auto grid w-full max-w-7xl flex-1 bg-paper font-auth lg:grid-cols-2">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto grid w-full max-w-7xl flex-1 bg-paper font-auth lg:grid-cols-2"
+      >
         <section
           aria-labelledby="auth-title"
           className="flex items-center px-5 py-6 sm:px-10 sm:py-8 lg:px-16"
