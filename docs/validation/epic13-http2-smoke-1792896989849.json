@@ -1,0 +1,10 @@
+{
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "status": "PASS",
+  "authenticated": 200,
+  "anonymous": 307,
+  "foreignAuthority": 400,
+  "conflictingHost": 400,
+  "cspPresent": true,
+  "note": "Real TLS HTTP2 read checks, no cookies or HTML exported; mutation transport covered separately by existing production gates"
+}

@@ -1,0 +1,84 @@
+{
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "buildId": "DrWP4iqp5d8p3_D5am9sh",
+  "status": "PASS",
+  "loadEvidence": "epic13-navigation-1000-1792896960658.json",
+  "loadReportedAt": "2026-10-25T02:56:00.626Z",
+  "verifiedAt": "2026-10-25T02:56:29.791Z",
+  "secondsAfterLoadReport": 29.165,
+  "checkElapsedSeconds": 9.178,
+  "referenceP95Ms": 12.078519999999981,
+  "limitMs": 14.494223999999978,
+  "consecutiveRequired": 10,
+  "samples": [
+    {
+      "status": 200,
+      "ms": 5.075299999999999,
+      "semanticOk": true
+    },
+    {
+      "status": 200,
+      "ms": 5.443299999999908,
+      "semanticOk": true
+    },
+    {
+      "status": 200,
+      "ms": 8.352899999999863,
+      "semanticOk": true
+    },
+    {
+      "status": 200,
+      "ms": 6.789499999999862,
+      "semanticOk": true
+    },
+    {
+      "status": 200,
+      "ms": 8.45890000000054,
+      "semanticOk": true
+    },
+    {
+      "status": 200,
+      "ms": 12.805999999999585,
+      "semanticOk": true
+    },
+    {
+      "status": 200,
+      "ms": 6.378700000000208,
+      "semanticOk": true
+    },
+    {
+      "status": 200,
+      "ms": 4.771499999999833,
+      "semanticOk": true
+    },
+    {
+      "status": 200,
+      "ms": 5.412000000000262,
+      "semanticOk": true
+    },
+    {
+      "status": 200,
+      "ms": 4.819100000000617,
+      "semanticOk": true
+    }
+  ],
+  "warm": [
+    {
+      "status": 200,
+      "ms": 12.802300000000002,
+      "semanticOk": true
+    },
+    {
+      "status": 200,
+      "ms": 3.8517999999999972,
+      "semanticOk": true
+    }
+  ],
+  "integrity": {
+    "negative_stock": 0,
+    "bad_totals": 0,
+    "inconsistent_payment": 0,
+    "duplicate_intents": 0
+  },
+  "scope": "Post-load read-only NodeHTTPS wall time, matching pre-load helper/CA/own identity/paths; final10HTTP200with semantic checks within20percent reference and within120seconds of load report; not a crash recovery or DDoS claim"
+}
