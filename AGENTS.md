@@ -8,40 +8,36 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-## Regras invariantes do Guardian Bay
+## Comece pela Task atual
 
-- Antes de implementar, analise código, instruções e configuração existentes. Reutilize padrões e faça a menor alteração correta. Informe conflitos antes de ampliar o escopo; não avance automaticamente entre Tasks.
-- Precedência entre instruções do projeto: `AGENTS.md → arquitetura aprovada → regras de segurança → frontend-patterns e recomendações genéricas`. Padrões genéricos cedem às regras específicas do Guardian Bay.
-- Consulte [a arquitetura aprovada](docs/architecture/README.md) para responsabilidades e exemplos. Pastas só devem surgir com código real; não antecipe camadas, abstrações ou diretórios globais de tipos/schemas.
-- Direção das dependências internas: `app → components, features, lib`; `features → components, db, lib`; `components → lib`; `hooks → lib, components`; `db → lib`. Não inverta essas direções nem crie dependências arbitrárias entre features.
-- `app` cuida de rotas e composição; regras de domínio ficam em `features`. Páginas/layouts não acessam Drizzle/PostgreSQL diretamente: use `app → feature/server → db`. UI não acessa DB. `db` trata apenas PostgreSQL/Drizzle; `lib` contém infraestrutura transversal e não conhece features.
-- Server é o padrão; Client é exceção para interação ou APIs do navegador. Mantenha páginas/layouts Server e `"use client"` na menor subtree necessária. Reads: `Server Component → feature/server`; writes: `Server Action → feature/server`. Fetching client-side exige motivo concreto; render não realiza mutations.
-- `actions/` representa a boundary pública Client → Server; `server/` contém implementação interna privilegiada, protegida com `import "server-only";` quando apropriado. Client pode importar uma Server Action apropriada, mas nunca `feature/server` ou `db`. Actions permanecem finas, são endpoints públicos e validam entradas, autenticação, autorização e ownership novamente nas operações sensíveis.
-- Server → Client envia DTO mínimo e serializável, inclusive nos retornos de Actions. Route Handlers exigem interface HTTP real e seguem validação/autorização; não crie endpoint para o próprio Server Component chamar. Proxy e verificações de página não substituem autorização na operação.
-- Client Components e suas dependências não acessam DB, secrets, credenciais, sessão interna, autorização ou implementação privilegiada; uma referência remota de Action é a exceção de import descrita acima. Zustand representa estado de UI, nunca a fonte de verdade de regras críticas.
-- Um arquivo contém apenas um componente React principal; componentes independentes ficam em arquivos próprios. Mantenha componentes pequenos e coesos, próximos da rota/feature; centralize em `components` apenas com possibilidade real de reutilização. Componentes compartilhados não acessam código server privilegiado.
-- Schemas, tipos e hooks específicos ficam próximos da feature/boundary responsável. Prefira inferência de Zod e tipos derivados do Drizzle a representações duplicadas; `hooks` recebe somente hooks transversais.
-- Dados do cliente nunca são confiáveis. Validação frontend serve para UX; toda operação sensível valida entradas novamente no servidor.
-- Autenticação e autorização são server-side. Esconder UI não autoriza; toda mutation verifica autorização e ownership/permissões no servidor para evitar IDOR/BOLA.
-- Cliente envia intenção, nunca autoridade. Preço, desconto, estoque, total, permissões, propriedade de recursos, status de pagamento e outros dados críticos são determinados ou validados pelo servidor. Queries/mutations retornam apenas os dados necessários ao cliente.
-- Use Drizzle de forma parametrizada, evite SQL inseguro e considere concorrência e integridade em operações críticas.
-- Biome é formatter, linter principal e quality gate; prefira seus recursos para enforcement de boundaries quando possível. Não introduza ESLint ou configuração extensa sem necessidade da Task.
+- Preserve `Sistema → Epic → Tasks → Task atual → Implementação → Validação`; não avance para outra Task. Leia instruções, código e configuração pertinentes antes de agir; preserve mudanças locais.
+- Antes de implementar/revisar, leia os [invariantes completos](docs/agent-invariants.md). Precedência: `AGENTS.md e invariantes → arquitetura aprovada → segurança → frontend-patterns e recomendações genéricas`. Skills externas cedem às regras do Guardian Bay.
+- Preserve `app → feature/server → db`, Server por padrão e Client mínimo. Actions são endpoints públicos: validam entrada, autenticação, autorização e ownership na própria operação. Cliente envia intenção, nunca autoridade; DTOs mínimos, secrets no servidor e SQL parametrizado. Detalhes obrigatórios nos invariantes.
+- Faça a menor alteração correta, com critérios e checks definidos antes de editar. Informe conflito ou ampliação de escopo. Biome é formatter/linter principal; não introduza ESLint ou camadas sem necessidade comprovada.
 
-## Orquestração do Codex
+## Comandos
 
-- Preserve `Sistema → Epic → Tasks → Task atual → Implementação → Validação`. O agente principal entende o escopo, decide delegação, consolida resultados e valida; não avance para outra Task.
-- Execute Tasks simples no principal. Delegue apenas uma pergunta delimitada cujo custo de contexto seja justificado pela complexidade, risco ou trabalho independente. Não delegue por rotina nem duplique investigações.
-- Reutilize `explorer` nativo para localização/padrões e `worker` nativo para implementação delimitada. Arquitetura fica no principal com a Skill `architecture`; delegue análise complexa ao agente nativo geral apenas quando necessário. Use `reviewer` de `.codex/agents/` para revisão independente de segurança/regressões quando o risco justificar, sem dispensar revisões obrigatórias nas demais alterações.
-- Envie objetivo, arquivos relevantes, restrições e resultado esperado; evite histórico completo, dumps e logs extensos. Subagentes não criam outros subagentes por padrão e retornam conclusões, referências, riscos e checks/limitações de forma compacta.
-- Para exploração e trabalho previsível, prefira `gpt-6-luna` com esforço `low` ou `medium` se disponível no catálogo/conta; caso contrário, herde o modelo disponível. Use esforço `high` apenas para análise complexa ou segurança crítica, inclusive ao chamar `reviewer`; os padrões nativos de modelo/esforço não são redefinidos pelo projeto.
-- O limite local é dois subagentes simultâneos, não uma meta. Paralelize somente atividades independentes com benefício concreto; atribua arquivos exclusivos a cada escritor e revise após estabilizar o diff. Nunca permita edições simultâneas nos mesmos arquivos.
-- Reutilize Skills e instruções existentes sob demanda, sem copiá-las para prompts. Execute checks proporcionais à mudança e relate evidências; redução de tokens ou latência exige medição.
+Use npm e package-lock.json. `npm run dev` inicia a aplicação; `npm run check` executa Biome, tipos e unitários; `npm run verify` acrescenta build. Use `git diff --check` e `git diff --cached --check` para whitespace. Gates por risco: [qualidade](docs/quality.md) e [SDLC](docs/architecture/sdlc.md).
 
-## Skills do projeto
+Integração exige `TEST_DATABASE_URL` local dedicada, validada pelo preflight; nunca usar produção ou DATABASE_URL como fallback. Não executar migrations, publicar ou alterar serviços por efeito colateral.
 
-Workflows complementares em `.agents/skills/<skill>/SKILL.md`:
+## Contexto e delegação
 
-- [architecture](.agents/skills/architecture/SKILL.md): ao planejar ou revisar localização de código e dependências.
-- [security-review](.agents/skills/security-review/SKILL.md): ao revisar operações sensíveis ou alterações que cruzem limites de confiança.
-- [frontend-patterns](.agents/skills/frontend-patterns/SKILL.md): boas práticas de frontend subordinadas às decisões específicas do projeto.
-- [nextjs-security-scan](.agents/skills/nextjs-security-scan/SKILL.md): auditoria complementar de segurança do projeto Next.js, incluindo secrets, dependências vulneráveis, XSS, injection e configurações inseguras; não substitui as regras específicas de `security-review` nem a arquitetura do Guardian Bay.
+Resolva trabalho simples no principal ou com ferramenta determinística. Delegue apenas quando isolamento de contexto, especialização ou independência justificarem o custo. Consulte a [política de contexto e capacidade](docs/agent-workflow.md) antes de delegar: contexto novo e mínimo, modelo/esforço explícitos quando suportados, um escritor por arquivo, até dois subagentes simultâneos. Preserve modelo principal, provedor e autenticação; respeite papéis fixados pelo host. Não crie subagentes recursivos por padrão.
+
+## Mapa de fontes — leia conforme a Task
+
+| Precisa de | Fonte |
+| --- | --- |
+| Produto e contratos implementados | [PRODUCT.md](PRODUCT.md) |
+| Rodar localmente e preparar testes | [README](README.md), [onboarding](docs/onboarding.md) |
+| Camadas, colocation, Server/Client | [arquitetura](docs/architecture/README.md), skill `architecture` |
+| Confiança, auth, dados e concorrência | skill `security-review`, [threat model](docs/architecture/threat-model.md) |
+| React/Next e interface | skill `frontend-patterns`, [DESIGN.md](DESIGN.md), [identidade visual](docs/visual-identity/README.md) |
+| Movimento solicitado | skill `guardian-bay-motion`; compatibilidade/acessibilidade antes de APIs externas |
+| Scan complementar solicitado | skill `nextjs-security-scan`; não substitui revisão contextual |
+| Skills externas e gatilhos de uso | [workflow](docs/agent-workflow.md#skills-sob-demanda), [origens](docs/skill-sources.json) |
+| Gates, revisão e avaliação do harness | [qualidade](docs/quality.md) |
+| Instalação, evidências e pendências | [setup](docs/setup.md) |
+
+Documente mudanças na fonte responsável, sem duplicar decisões. Handoff é contexto, não evidência: confira checkout, arquivos e processos ao retomar. Responda status e continue trabalho autorizado; bloqueio parcial afeta só suas dependências. Nunca alegue execução em background sem processo observável.

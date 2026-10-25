@@ -1,2 +1,6 @@
 [agents]
 max_concurrent_threads_per_session = 2
+
+# Documentação pública; credenciais ficam fora do projeto. Requer trust/carregamento do cliente.
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"

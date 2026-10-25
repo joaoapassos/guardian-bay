@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "verifiedAt": "2026-10-25",
+  "method": "Official OpenAI skill-installer with project --dest and pinned --ref; sparse Git fallback for Next on Windows. Not a skills CLI lockfile.",
+  "upstreamComparison": "Every source file compared; CRLF/LF normalized for text; PNG binary exact. Installed text uses LF per repository .gitattributes.",
+  "treeHashAlgorithm": "SHA256 over case-sensitive lexically sorted relative POSIX path + NUL + file SHA256 + LF; includes copied license files; hashes LF installed text bytes and exact PNG bytes.",
+  "skills": [
+    {
+      "name": "vercel-composition-patterns",
+      "directory": ".agents/skills/composition-patterns",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "revision": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "sourcePath": "skills/composition-patterns",
+      "license": "MIT",
+      "licenseEvidence": "README.md#license and SKILL.md where declared",
+      "treeSha256": "8b67145fc3996d42af07ddf710c9900eb80b7bcad3aaecf008127782509006e1",
+      "fileCount": 14
+    },
+    {
+      "name": "find-skills",
+      "directory": ".agents/skills/find-skills",
+      "repository": "https://github.com/vercel-labs/skills",
+      "revision": "a80e4c9d12d607631249d4d7d059f835d4b2f13a",
+      "sourcePath": "skills/find-skills",
+      "license": "MIT",
+      "licenseEvidence": "LICENSE",
+      "treeSha256": "c7b0549a5b54626af9796858f574c83889a71cbd96933bf49549276f02d4d0a0",
+      "fileCount": 2
+    },
+    {
+      "name": "gh-fix-ci",
+      "directory": ".agents/skills/gh-fix-ci",
+      "repository": "https://github.com/openai/skills",
+      "revision": "49f948faa9258a0c61caceaf225e179651397431",
+      "sourcePath": "skills/.curated/gh-fix-ci",
+      "license": "Apache-2.0",
+      "licenseEvidence": "skills/.curated/gh-fix-ci/LICENSE.txt",
+      "treeSha256": "40662e9d4177f242fb571c9c60395ee9677a07fa45ce36dc7f533412db93c060",
+      "fileCount": 6
+    },
+    {
+      "name": "next-bundle-optimizer",
+      "directory": ".agents/skills/next-bundle-optimizer",
+      "repository": "https://github.com/vercel/next.js",
+      "revision": "cbf49db30a655ac17c92c2951885c4256db14b9e",
+      "sourcePath": "skills/next-bundle-optimizer",
+      "license": "MIT",
+      "licenseEvidence": "license.md",
+      "treeSha256": "09ad8e1c7587b7ffc053582ae7bd0086493b90bb93f3ee5905a485921f4906fb",
+      "fileCount": 4
+    },
+    {
+      "name": "next-dev-loop",
+      "directory": ".agents/skills/next-dev-loop",
+      "repository": "https://github.com/vercel/next.js",
+      "revision": "cbf49db30a655ac17c92c2951885c4256db14b9e",
+      "sourcePath": "skills/next-dev-loop",
+      "license": "MIT",
+      "licenseEvidence": "license.md",
+      "treeSha256": "be086af6eba042f6a5ff28e701ce633b98eb044ec07af7745e72d1645187629b",
+      "fileCount": 2
+    },
+    {
+      "name": "vercel-react-best-practices",
+      "directory": ".agents/skills/react-best-practices",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "revision": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "sourcePath": "skills/react-best-practices",
+      "license": "MIT",
+      "licenseEvidence": "README.md#license and SKILL.md where declared",
+      "treeSha256": "741c320ab924f3d033c763574c1a166e4318454937dce6e10015f0230830a6bf",
+      "fileCount": 76
+    },
+    {
+      "name": "vercel-react-view-transitions",
+      "directory": ".agents/skills/react-view-transitions",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "revision": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "sourcePath": "skills/react-view-transitions",
+      "license": "MIT",
+      "licenseEvidence": "README.md#license and SKILL.md where declared",
+      "treeSha256": "ada4ee14b4b8380bb921b3a720c1f92fbd5e8c6aad4e3991702d3c8bd08919a8",
+      "fileCount": 9
+    },
+    {
+      "name": "supabase-postgres-best-practices",
+      "directory": ".agents/skills/supabase-postgres-best-practices",
+      "repository": "https://github.com/supabase/agent-skills",
+      "revision": "c9be0e931b7930f7d02126d04774d904c381e7d7",
+      "sourcePath": "skills/supabase-postgres-best-practices",
+      "license": "MIT",
+      "licenseEvidence": "LICENSE",
+      "treeSha256": "27588a18c46eeefa5d35ce1b83074b97e17cbc2d5e1296579d4cb4246cfbde62",
+      "fileCount": 37
+    },
+    {
+      "name": "web-design-guidelines",
+      "directory": ".agents/skills/web-design-guidelines",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "revision": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "sourcePath": "skills/web-design-guidelines",
+      "license": "MIT",
+      "licenseEvidence": "README.md#license and SKILL.md where declared",
+      "treeSha256": "f910cd9c88f04e87d03b2b7829b56fcf50b3be4582965f12bc163e3f6b5b59d2",
+      "fileCount": 1
+    },
+    {
+      "name": "writing-guidelines",
+      "directory": ".agents/skills/writing-guidelines",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "revision": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "sourcePath": "skills/writing-guidelines",
+      "license": "MIT",
+      "licenseEvidence": "README.md#license and SKILL.md where declared",
+      "treeSha256": "52968568379b0b3a2d48c21117462e219093573bed8d3b418f5a7a514e2d33be",
+      "fileCount": 1
+    }
+  ]
+}

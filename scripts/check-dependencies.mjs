@@ -7,6 +7,10 @@ const policy = JSON.parse(
 );
 const lock = JSON.parse(readFileSync("package-lock.json"));
 try {
+  // Reuse npm's JS entry point: Windows cannot spawn npm.cmd without a shell.
+  // The canonical npm run command supplies this path; never build shell text.
+  const npmCli = process.env.npm_execpath;
+  assert.ok(npmCli, "Run this gate with npm run security:dependencies");
   assert.ok(
     new Date(`${policy.reviewBy}T23:59:59Z`) >= new Date(),
     "Tooling exception requires renewed review",
@@ -15,15 +19,11 @@ try {
   let blocked = false;
   for (const production of [true, false]) {
     const args = ["audit", "--json", ...(production ? ["--omit=dev"] : [])];
-    const run = spawnSync(
-      process.platform === "win32" ? "npm.cmd" : "npm",
-      args,
-      {
-        encoding: "utf8",
-        maxBuffer: 8 * 1024 * 1024,
-        timeout: 120000,
-      },
-    );
+    const run = spawnSync(process.execPath, [npmCli, ...args], {
+      encoding: "utf8",
+      maxBuffer: 8 * 1024 * 1024,
+      timeout: 120000,
+    });
     assert.ok(
       run.status === 0 || run.status === 1,
       "Audit service unavailable",
