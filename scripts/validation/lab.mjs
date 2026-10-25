@@ -171,7 +171,7 @@ try {
     }
     await sql.end();
     const ports = instancePorts(process.env.LAB_APP_INSTANCES);
-    const poolMax = ports.length === 8 ? 5 : 10;
+    const poolMax = ports.length === 16 ? 2 : ports.length === 8 ? 5 : 10;
     const backlog = proxyBacklog(process.env.LAB_PROXY_BACKLOG);
     const protocol = proxyProtocol(process.env.LAB_PROXY_PROTOCOL);
     let upstreamIndex = 0;

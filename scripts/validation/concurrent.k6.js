@@ -14,7 +14,7 @@ const transport = __ENV.LAB_HTTP_TRANSPORT ?? "proxy";
 const appCount = Number(__ENV.LAB_APP_COUNT);
 if (
   !["proxy", "backend"].includes(transport) ||
-  ![1, 2, 4, 8].includes(appCount)
+  ![1, 2, 4, 8, 16].includes(appCount)
 )
   throw new Error("Invalid local topology");
 if (![10, 25, 50, 100, 250, 500, 1000, 2000, 3500, 5000].includes(requests))

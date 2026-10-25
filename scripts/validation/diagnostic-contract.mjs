@@ -36,13 +36,10 @@ export function errorClass(value) {
 
 export function instancePorts(value = "1") {
   assert.ok(
-    ["1", "2", "4", "8"].includes(value),
-    "Only one, two, four or eight owned local instances are supported",
+    ["1", "2", "4", "8", "16"].includes(value),
+    "Only one, two, four, eight or sixteen owned local instances are supported",
   );
-  return [3139, 3140, 3141, 3142, 3143, 3144, 3145, 3146].slice(
-    0,
-    Number(value),
-  );
+  return Array.from({ length: Number(value) }, (_, i) => 3139 + i);
 }
 
 export function proxyBacklog(value = "511") {

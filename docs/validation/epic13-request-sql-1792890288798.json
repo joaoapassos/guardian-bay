@@ -1,0 +1,52 @@
+{
+  "runId": "07a33838-2fba-4ab2-a9e5-38dd6b62ed98",
+  "instanceCount": 16,
+  "warmRequestsPerRoute": 320,
+  "buildId": "DrWP4iqp5d8p3_D5am9sh",
+  "scope": "20 sequential requests per route, one owned user, explicit warm-up per instance; SQL execution excludes network and pool acquisition; not a concurrent capacity test",
+  "groups": [
+    {
+      "route": "/products",
+      "requests": 20,
+      "averageHttpMs": 6.454780000000028,
+      "selectCalls": 60,
+      "databaseExecutionMs": 1.6315000000000168,
+      "changes": [
+        {
+          "bucket": "other-select",
+          "calls": 20,
+          "executionMs": 0.6576999999999771
+        },
+        {
+          "bucket": "other-select",
+          "calls": 20,
+          "executionMs": 0.7143999999999551
+        },
+        {
+          "bucket": "session-protected-read",
+          "calls": 20,
+          "executionMs": 0.2594000000000847
+        }
+      ]
+    },
+    {
+      "route": "/account",
+      "requests": 20,
+      "averageHttpMs": 5.074334999999882,
+      "selectCalls": 40,
+      "databaseExecutionMs": 0.45249999999998636,
+      "changes": [
+        {
+          "bucket": "session-protected-read",
+          "calls": 20,
+          "executionMs": 0.2702000000000453
+        },
+        {
+          "bucket": "session-protected-read",
+          "calls": 20,
+          "executionMs": 0.18229999999994106
+        }
+      ]
+    }
+  ]
+}

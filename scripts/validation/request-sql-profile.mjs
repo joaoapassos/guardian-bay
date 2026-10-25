@@ -16,7 +16,7 @@ const topology = JSON.parse(
   readFileSync(join(labDirectory, "processes.json"), "utf8"),
 );
 const instanceCount = (topology.apps ?? [topology.app]).length;
-assert.ok([1, 2, 4, 8].includes(instanceCount));
+assert.ok([1, 2, 4, 8, 16].includes(instanceCount));
 const warmRequestsPerRoute = 20 * instanceCount;
 try {
   await sql`CREATE EXTENSION IF NOT EXISTS pg_stat_statements`;

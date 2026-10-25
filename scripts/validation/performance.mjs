@@ -134,7 +134,7 @@ assert.ok(
 assert.ok(
   Array.isArray(appPids) &&
     appPids.length >= 1 &&
-    appPids.length <= 8 &&
+    appPids.length <= 16 &&
     appPids.every((pid) => Number.isSafeInteger(pid) && pid > 0),
 );
 const directory = join(labDirectory, `perf-${workload}-${vus}-${Date.now()}`);
