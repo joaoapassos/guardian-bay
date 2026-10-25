@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "removedChromeProfiles": 11,
+  "skippedReparseProfiles": 0,
+  "freedMiB": 413.5,
+  "scope": "Only stopped temporary Chrome profiles directly under ignored laboratory directory; absolute parent and reparse points checked; reports, PostgreSQL and fixtures retained"
+}

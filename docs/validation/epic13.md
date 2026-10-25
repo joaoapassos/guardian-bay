@@ -1,5 +1,7 @@
 # Epic 13 — diagnóstico e capacidade
 
+> Histórico do planejamento e das primeiras Tasks. A meta vigente mudou para 1.000 usuários navegando e foi validada no laboratório: [relatório consolidado](epic13-navigation-results.md). As referências abaixo a 5.000 e a scripts aposentados pertencem às revisões históricas.
+
 Base histórica: c071a9b; resultados da Epic 12 permanecem preservados. Objetivo: localizar PERF-01 antes de escalar, com produto e harness em alterações separadas. Nenhuma declaração de capacidade para 5000 VUs.
 
 ## Task 01 — instrumentação de PERF-01

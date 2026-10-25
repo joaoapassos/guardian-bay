@@ -2,6 +2,8 @@
 
 > Relatório histórico da Task 17. A meta atual é **1.000 usuários virtuais navegando**, conforme o [procedimento vigente](epic13-navigation.md). Comandos para scripts aposentados neste relatório descrevem a revisão original do Git e não devem ser usados no fluxo atual. As conclusões abaixo permanecem como evidência daquela execução; não são o status da campanha de navegação em andamento.
 
+> A campanha atual foi concluída: [1.000 VUs por 20 minutos — resultados e condições](epic13-navigation-results.md).
+
 **Meta de5000 usuários não demonstrada. PERF-01 continua aberto.** Não há correção causal aprovada nem baseline representativa sustentada. Todos os resultados históricos da Epic12 permanecem preservados; os documentos epic13-* acrescentam diagnósticos e decisões.
 
 ## Resultados observados

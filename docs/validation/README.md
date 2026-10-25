@@ -2,6 +2,8 @@
 
 Meta atual da Epic 13: **1.000 usuários virtuais navegando com pausas**, conforme o [procedimento de navegação sustentada](epic13-navigation.md). A investigação de 5.000 requisições em voo foi encerrada por mudança de escopo. Os relatórios abaixo preservam campanhas históricas; scripts pontuais aposentados estão identificados no [registro de limpeza](epic13-cleanup-and-target.md). Aprovação exige relatório do patamar efetivamente executado, não apenas configuração de VUs.
 
+**Resultado atual: PASS com 1.000 VUs por 20 minutos, um processo, zero erros e integridade persistida.** Veja o [relatório consolidado e seus limites](epic13-navigation-results.md).
+
 Base comercial: Epic 11 em f1252b4. A campanha não altera regras da aplicação. Scripts ficam em scripts/validation, procedimentos e resultados sanitizados nesta pasta, dados brutos privados em .vitest/epic12 (ignorada). Nenhum endpoint de bootstrap, bypass de autenticação ou redução de rate limit será adicionado à aplicação.
 
 ## Autorização e isolamento
