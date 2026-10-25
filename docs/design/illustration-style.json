@@ -1,0 +1,93 @@
+{
+  "$schema": "./illustration-contract.schema.json",
+  "kind": "style",
+  "contract_version": "1.0.0",
+  "style_id": "guardian-bay-illustration",
+  "style_version": "1.0.0",
+  "sources": {
+    "specification": "illustration-language.md",
+    "catalog": "illustration-references.md",
+    "references": [
+      {
+        "id": "GB-ILL-A",
+        "path": "studies/a-floresta.png",
+        "sha256": "c60cd094a647b8fe7b8dcf3f071463a8b4b3d074558112d3415e32dd41f2881c"
+      },
+      {
+        "id": "GB-ILL-B",
+        "path": "studies/b-oficina.png",
+        "sha256": "aa515a26673681bc52a88ea3c3971737c86f802095139744ad2a373d79a59797"
+      },
+      {
+        "id": "GB-ILL-C",
+        "path": "studies/c-lanterna.png",
+        "sha256": "80f92868a4f2f2c823a59ffb0f657a2224215c23c27ed41749a5f072da652e64"
+      }
+    ]
+  },
+  "style": {
+    "forms": [
+      "Conservar silhuetas, proporções, apoios e encaixes reconhecíveis; representar volumes por poucos planos de valor e cor.",
+      "Simplificar cada marca sem apagar informação estrutural nem transformar objetos em blocos vagos."
+    ],
+    "brushwork": [
+      "Construir planos com pinceladas amplas, opacas, direcionais e sobrepostas, visíveis no próprio assunto.",
+      "Orientar a marca pela forma: longitudinal na madeira e troncos, curva ou facetada nos volumes; não impor direção universal.",
+      "Integrar detalhes menores com traços simples e diferenças discretas de tom; não tornar toda superfície igualmente gestual."
+    ],
+    "materials": {
+      "wood": "Planos alongados e junções seletivas; veios e desgaste não são obrigatórios.",
+      "vegetation": "Massas assimétricas sobrepostas; poucas subdivisões úteis à leitura, sem enumerar folhas ou agulhas.",
+      "fabric": "Dobras por poucos planos; alças e costuras apenas quando explicam estrutura ou função.",
+      "painted_metal": "Volume por planos foscos e poucos acentos; sem esmalte polido ou arranhões espalhados.",
+      "glass": "Abertura e transparência sugeridas por planos e reflexos seletivos; manter leitura do interior quando visível.",
+      "stone_wall_ground": "Grandes manchas de valor próximo, faces ou juntas úteis; sem grão ou patina uniformes.",
+      "other": "Aplicar a mesma economia de planos e marcas à estrutura do material, sem inventar uma textura decorativa."
+    },
+    "edges": [
+      "Separar formas pelo encontro de valores e cores, sem contorno preto contínuo.",
+      "Usar bordas firmes em peças funcionais e silhuetas úteis, suaves ou perdidas onde luz, distância e valores permitirem.",
+      "A proporção de bordas firmes e perdidas depende da cena; não borrar para forçar uniformidade."
+    ],
+    "light_shadow": [
+      "Traduzir a luz existente ou solicitada em planos amplos e sombras coerentes com fontes e apoios.",
+      "Conter brilhos especulares, feixes e efeitos luminosos sem escurecer globalmente; luz natural ou artificial depende da cena.",
+      "Manter transparência e reflexos funcionais; fosco é tratamento pictórico, não proibição de toda reflexão."
+    ],
+    "space": [
+      "Preservar perspectiva e relações espaciais da origem salvo alteração explícita de composição.",
+      "Representar profundidade por sobreposição, escala, contraste e definição; atmosfera apenas quando pertinente.",
+      "Espaço raso da oficina, distância da floresta e apoio neutro da lanterna são soluções locais, não cenários obrigatórios."
+    ],
+    "color": [
+      "Usar massas de baixa saturação e cores acinzentadas com escuros cromáticos; hierarquia por valores, sem filtro sépia ou cinza global.",
+      "Adaptar famílias ambientais ao assunto; preservar identidade cromática reconhecível dos elementos, sem recolorir um item automaticamente para azul.",
+      "Permitir luzes e acentos localizados contidos; não impor a paleta literal nem as proporções cromáticas da interface."
+    ],
+    "detail": [
+      "Conservar detalhes que dão forma e função, integrando-os aos planos maiores com baixo contraste local.",
+      "Distribuir contraste e definição por foco e profundidade; não confundir quantidade de objetos com densidade de microtextura.",
+      "Evitar tanto minúcia de superfície quanto abstração extrema; o assunto deve permanecer legível em miniatura."
+    ],
+    "avoid": [
+      "Rabiscos, riscos e ruído decorativo uniformes.",
+      "Patina, lascas, ferrugem ou sujeira usados como receita de nostalgia.",
+      "Folhas, veios, tramas e parafusos minuciosos em toda a imagem.",
+      "Render 3D polido, filtro pictórico sobre foto, cartoon exagerado ou vetor de contorno uniforme.",
+      "Saturação generalizada, brilho plástico, néon, halos e dourado luminoso obrigatórios.",
+      "Copiar composições, personagens, marcas ou símbolos exclusivos das referências externas.",
+      "Adicionar automaticamente acessórios nostálgicos, cenário costeiro, militarismo ou ameaça para afirmar a marca."
+    ]
+  },
+  "constraints": {
+    "essential_subject": "preserve",
+    "functional_geometry": "preserve",
+    "source_content": "change_only_when_explicit",
+    "source_composition": "preserve_unless_explicit",
+    "source_lighting": "preserve_unless_explicit",
+    "semantic_color_identity": "preserve_unless_explicit",
+    "accidental_text_and_logos": "reject",
+    "visual_and_functional_artifacts": "reject",
+    "commercial_product_photography": "out_of_scope"
+  }
+}

@@ -35,6 +35,7 @@ Resolva trabalho simples no principal ou com ferramenta determinística. Delegue
 | Confiança, auth, dados e concorrência | skill `security-review`, [threat model](docs/architecture/threat-model.md) |
 | React/Next e interface | skill `frontend-patterns`, [DESIGN.md](DESIGN.md), [identidade visual](docs/visual-identity/README.md) |
 | Componentização, formulários, estado e notificações | skill [guardian-bay-components](.agents/skills/guardian-bay-components/SKILL.md) |
+| Ilustração editorial, criação por descrição e transformação pictórica | skill [guardian-bay-illustration](.agents/skills/guardian-bay-illustration/SKILL.md) |
 | Movimento solicitado | skill `guardian-bay-motion`; compatibilidade/acessibilidade antes de APIs externas |
 | Scan complementar solicitado | skill `nextjs-security-scan`; não substitui revisão contextual |
 | Skills externas e gatilhos de uso | [workflow](docs/agent-workflow.md#skills-sob-demanda), [origens](docs/skill-sources.json) |

@@ -1,0 +1,179 @@
+{
+  "$schema": "./illustration-contract.schema.json",
+  "kind": "examples",
+  "contract_version": "1.0.0",
+  "requests": [
+    {
+      "kind": "request",
+      "contract_version": "1.0.0",
+      "request_id": "forest-photo",
+      "style": {
+        "path": "./illustration-style.json",
+        "style_id": "guardian-bay-illustration",
+        "style_version": "1.0.0"
+      },
+      "scene": {
+        "source": {
+          "kind": "image",
+          "asset_id": "forest-photo-source",
+          "description": "Fotografia fornecida pelo usuário: Trilha entre coníferas."
+        },
+        "subject": {
+          "main": "Trilha entre coníferas",
+          "secondary": ["Vegetação e pedras presentes na fotografia"]
+        },
+        "context": {
+          "environment": "Floresta costeira da fotografia, sem acrescentar mar, farol ou construções.",
+          "color_context": "Conservar relações cromáticas reconhecíveis da foto, traduzidas em verdes e terras mais foscos."
+        },
+        "preserve_elements": [
+          "Traçado e posição da trilha",
+          "Posição relativa dos troncos e pedras",
+          "Perspectiva e relações entre planos"
+        ],
+        "allowed_changes": [],
+        "composition": {
+          "mode": "preserve_source"
+        },
+        "lighting": {
+          "mode": "preserve_source"
+        },
+        "output": {
+          "width_px": 1536,
+          "height_px": 1024,
+          "fit": "contain_source"
+        }
+      }
+    },
+    {
+      "kind": "request",
+      "contract_version": "1.0.0",
+      "request_id": "workshop-photo",
+      "style": {
+        "path": "./illustration-style.json",
+        "style_id": "guardian-bay-illustration",
+        "style_version": "1.0.0"
+      },
+      "scene": {
+        "source": {
+          "kind": "image",
+          "asset_id": "workshop-photo-source",
+          "description": "Fotografia fornecida pelo usuário: Bancada da oficina fotografada."
+        },
+        "subject": {
+          "main": "Bancada da oficina fotografada",
+          "secondary": [
+            "Ferramentas, armários e equipamentos efetivamente presentes"
+          ]
+        },
+        "context": {
+          "environment": "Oficina existente na imagem; não copiar a disposição da oficina de referência.",
+          "color_context": "Preservar distinção entre madeira, parede e equipamentos sem impor azul, olivas ou terracota a cada objeto."
+        },
+        "preserve_elements": [
+          "Quantidade e posição dos objetos visíveis",
+          "Geometria e apoio da bancada",
+          "Portas, aberturas e perspectiva",
+          "Silhuetas úteis de ferramentas e equipamentos"
+        ],
+        "allowed_changes": [],
+        "composition": {
+          "mode": "preserve_source"
+        },
+        "lighting": {
+          "mode": "preserve_source"
+        },
+        "output": {
+          "width_px": 1536,
+          "height_px": 1024,
+          "fit": "contain_source"
+        }
+      }
+    },
+    {
+      "kind": "request",
+      "contract_version": "1.0.0",
+      "request_id": "lantern-photo",
+      "style": {
+        "path": "./illustration-style.json",
+        "style_id": "guardian-bay-illustration",
+        "style_version": "1.0.0"
+      },
+      "scene": {
+        "source": {
+          "kind": "image",
+          "asset_id": "lantern-photo-source",
+          "description": "Fotografia fornecida pelo usuário: Lanterna de camping fotografada."
+        },
+        "subject": {
+          "main": "Lanterna de camping fotografada",
+          "secondary": ["Superfície de apoio e fundo presentes"]
+        },
+        "context": {
+          "environment": "Objeto e apoio da fotografia; não adicionar mochila, floresta ou outros acessórios.",
+          "color_context": "Preservar a cor reconhecível da lanterna, reduzindo brilho e saturação sem recolori-la automaticamente."
+        },
+        "preserve_elements": [
+          "Proporções e silhueta da lanterna",
+          "Alça e seus pontos de ligação",
+          "Câmara, tampa, suportes e base",
+          "Peças funcionais visíveis e sombra de contato"
+        ],
+        "allowed_changes": [],
+        "composition": {
+          "mode": "preserve_source"
+        },
+        "lighting": {
+          "mode": "preserve_source"
+        },
+        "output": {
+          "width_px": 1536,
+          "height_px": 1024,
+          "fit": "contain_source"
+        }
+      }
+    },
+    {
+      "kind": "request",
+      "contract_version": "1.0.0",
+      "request_id": "text-scene",
+      "style": {
+        "path": "./illustration-style.json",
+        "style_id": "guardian-bay-illustration",
+        "style_version": "1.0.0"
+      },
+      "scene": {
+        "source": {
+          "kind": "text",
+          "description": "Pequena loja independente numa rua costeira tranquila. Um banco de madeira e uma mochila junto da entrada sugerem uma saída planejada. Sem pessoas, letreiros ou logotipos."
+        },
+        "subject": {
+          "main": "Entrada de uma pequena loja independente",
+          "secondary": ["Banco de madeira", "Mochila junto do banco"]
+        },
+        "context": {
+          "environment": "Rua tranquila de uma comunidade costeira, cenário original.",
+          "color_context": "Cinzas costeiros e madeira neutra com pequenos acentos contidos."
+        },
+        "preserve_elements": [
+          "Entrada legível e acessível",
+          "Banco apoiado e mochila com proporções plausíveis"
+        ],
+        "allowed_changes": [],
+        "composition": {
+          "mode": "specified",
+          "instructions": "Vista à altura dos olhos com leve perspectiva lateral; entrada como foco, banco e mochila como apoios, sem copiar a composição das referências."
+        },
+        "lighting": {
+          "mode": "specified",
+          "instructions": "Luz natural ampla de manhã nublada; sombra discreta de apoio, sem brilhos ou feixe dourado."
+        },
+        "output": {
+          "width_px": 1536,
+          "height_px": 1024,
+          "fit": "requested_frame"
+        }
+      }
+    }
+  ]
+}

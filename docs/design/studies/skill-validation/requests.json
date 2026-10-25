@@ -1,0 +1,137 @@
+{
+  "kind": "examples",
+  "contract_version": "1.0.0",
+  "requests": [
+    {
+      "kind": "request",
+      "contract_version": "1.0.0",
+      "request_id": "skill-forest-text",
+      "style": {
+        "path": "./illustration-style.json",
+        "style_id": "guardian-bay-illustration",
+        "style_version": "1.0.0"
+      },
+      "scene": {
+        "source": {
+          "kind": "text",
+          "description": "Trilha tranquila em floresta úmida de coníferas, troncos em grupos e rochas baixas. Sem mar, farol, construções ou pessoas."
+        },
+        "subject": {
+          "main": "Trilha em floresta úmida de coníferas",
+          "secondary": ["Grupos de troncos e rochas baixas"]
+        },
+        "context": {
+          "environment": "Floresta costeira original, sem copiar o traçado aprovado.",
+          "color_context": "Verdes acinzentados, terra neutra e distância azul-cinza; sem dourado."
+        },
+        "preserve_elements": [
+          "Trilha legível e transitável",
+          "Troncos e pedras apoiados",
+          "Profundidade por sobreposição"
+        ],
+        "allowed_changes": [],
+        "composition": {
+          "mode": "specified",
+          "instructions": "Trilha em curva suave como foco; observação à altura dos olhos, troncos e pedras como apoios e planos sobrepostos."
+        },
+        "lighting": {
+          "mode": "specified",
+          "instructions": "Luz natural difusa de céu nublado; contraste diminui com a distância."
+        },
+        "output": {
+          "width_px": 1536,
+          "height_px": 1024,
+          "fit": "requested_frame"
+        }
+      }
+    },
+    {
+      "kind": "request",
+      "contract_version": "1.0.0",
+      "request_id": "skill-workshop-text",
+      "style": {
+        "path": "./illustration-style.json",
+        "style_id": "guardian-bay-illustration",
+        "style_version": "1.0.0"
+      },
+      "scene": {
+        "source": {
+          "kind": "text",
+          "description": "Oficina pequena com bancada de madeira, um armário baixo, quatro ferramentas de mão guardadas, uma mochila e uma lona dobrada. Janela alta simples sem vista externa detalhada. Sem pessoas, letreiros ou logotipos."
+        },
+        "subject": {
+          "main": "Pequena oficina original",
+          "secondary": ["Quatro ferramentas, mochila e lona"]
+        },
+        "context": {
+          "environment": "Interior cuidado e utilizável, sem copiar o arranjo aprovado.",
+          "color_context": "Madeira cinza-marrom, parede neutra, lona oliva discreta; fosco, sem feixe dourado."
+        },
+        "preserve_elements": [
+          "Bancada e armário apoiados",
+          "Quatro ferramentas reconhecíveis",
+          "Mochila e lona plausíveis",
+          "Área de trabalho livre"
+        ],
+        "allowed_changes": [],
+        "composition": {
+          "mode": "specified",
+          "instructions": "Vista quase frontal e profundidade rasa; bancada como foco, ferramentas e equipamentos em dois grupos de apoio."
+        },
+        "lighting": {
+          "mode": "specified",
+          "instructions": "Luz ambiente difusa de janela alta, sombras amplas e contidas."
+        },
+        "output": {
+          "width_px": 1536,
+          "height_px": 1024,
+          "fit": "requested_frame"
+        }
+      }
+    },
+    {
+      "kind": "request",
+      "contract_version": "1.0.0",
+      "request_id": "skill-lantern-text",
+      "style": {
+        "path": "./illustration-style.json",
+        "style_id": "guardian-bay-illustration",
+        "style_version": "1.0.0"
+      },
+      "scene": {
+        "source": {
+          "kind": "text",
+          "description": "Uma lanterna de camping tradicional vermelha fosca, apagada, isolada sobre superfície cinza simples com fundo neutro. Alça ligada aos dois lados, dois suportes, base, tampa, câmara de vidro e regulador reconhecíveis. Sem outros acessórios."
+        },
+        "subject": {
+          "main": "Lanterna tradicional vermelha",
+          "secondary": ["Superfície cinza de apoio"]
+        },
+        "context": {
+          "environment": "Objeto isolado editorial, sem cenário nostálgico e sem fotografia de catálogo.",
+          "color_context": "Vermelho terroso dessaturado e cinzas neutros; manter vermelho, não copiar azul da referência."
+        },
+        "preserve_elements": [
+          "Identidade vermelha",
+          "Alça e dois pontos de ligação",
+          "Câmara, tampa, dois suportes e base",
+          "Regulador e sombra de apoio"
+        ],
+        "allowed_changes": [],
+        "composition": {
+          "mode": "specified",
+          "instructions": "Objeto inteiro com margens confortáveis, leve vista de três quartos, alça e base totalmente visíveis."
+        },
+        "lighting": {
+          "mode": "specified",
+          "instructions": "Luz ampla suave de cima à esquerda, sombra de contato à direita e reflexo discreto no vidro."
+        },
+        "output": {
+          "width_px": 1536,
+          "height_px": 1024,
+          "fit": "requested_frame"
+        }
+      }
+    }
+  ]
+}

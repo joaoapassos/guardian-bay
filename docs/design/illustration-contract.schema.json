@@ -1,0 +1,741 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Guardian Bay — contrato de ilustração 1.0.0",
+  "description": "Contrato documental independente de modelo. Valida perfil fixo, pedido individual ou coleção de exemplos; não executa geração nem valida semântica visual.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/styleProfile"
+    },
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/examples"
+    }
+  ],
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "styleReference": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "const": "./illustration-style.json"
+        },
+        "style_id": {
+          "const": "guardian-bay-illustration"
+        },
+        "style_version": {
+          "const": "1.0.0"
+        }
+      },
+      "required": ["path", "style_id", "style_version"],
+      "additionalProperties": false
+    },
+    "sourceImage": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "image"
+        },
+        "asset_id": {
+          "$ref": "#/$defs/text"
+        },
+        "description": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "required": ["kind", "asset_id", "description"],
+      "additionalProperties": false
+    },
+    "sourceText": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "text"
+        },
+        "description": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "required": ["kind", "description"],
+      "additionalProperties": false
+    },
+    "change": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "enum": [
+            "add_object",
+            "remove_object",
+            "change_environment",
+            "change_characteristic"
+          ]
+        },
+        "target": {
+          "$ref": "#/$defs/text"
+        },
+        "instructions": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "required": ["operation", "target", "instructions"],
+      "additionalProperties": false
+    },
+    "sceneImagePreserved": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/sourceImage"
+        },
+        "subject": {
+          "type": "object",
+          "properties": {
+            "main": {
+              "$ref": "#/$defs/text"
+            },
+            "secondary": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/text"
+              }
+            }
+          },
+          "required": ["main", "secondary"],
+          "additionalProperties": false
+        },
+        "context": {
+          "type": "object",
+          "properties": {
+            "environment": {
+              "$ref": "#/$defs/text"
+            },
+            "color_context": {
+              "$ref": "#/$defs/text"
+            }
+          },
+          "required": ["environment", "color_context"],
+          "additionalProperties": false
+        },
+        "preserve_elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 1
+        },
+        "allowed_changes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/change"
+          }
+        },
+        "composition": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "preserve_source"
+            }
+          },
+          "required": ["mode"],
+          "additionalProperties": false
+        },
+        "lighting": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "const": "preserve_source"
+                }
+              },
+              "required": ["mode"],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "const": "change_source"
+                },
+                "instructions": {
+                  "$ref": "#/$defs/text"
+                }
+              },
+              "required": ["mode", "instructions"],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "width_px": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height_px": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "fit": {
+              "const": "contain_source"
+            }
+          },
+          "required": ["width_px", "height_px", "fit"],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "source",
+        "subject",
+        "context",
+        "preserve_elements",
+        "allowed_changes",
+        "composition",
+        "lighting",
+        "output"
+      ],
+      "additionalProperties": false
+    },
+    "sceneImageReframed": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/sourceImage"
+        },
+        "subject": {
+          "type": "object",
+          "properties": {
+            "main": {
+              "$ref": "#/$defs/text"
+            },
+            "secondary": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/text"
+              }
+            }
+          },
+          "required": ["main", "secondary"],
+          "additionalProperties": false
+        },
+        "context": {
+          "type": "object",
+          "properties": {
+            "environment": {
+              "$ref": "#/$defs/text"
+            },
+            "color_context": {
+              "$ref": "#/$defs/text"
+            }
+          },
+          "required": ["environment", "color_context"],
+          "additionalProperties": false
+        },
+        "preserve_elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 1
+        },
+        "allowed_changes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/change"
+          }
+        },
+        "composition": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "change_source"
+            },
+            "instructions": {
+              "$ref": "#/$defs/text"
+            }
+          },
+          "required": ["mode", "instructions"],
+          "additionalProperties": false
+        },
+        "lighting": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "const": "preserve_source"
+                }
+              },
+              "required": ["mode"],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "const": "change_source"
+                },
+                "instructions": {
+                  "$ref": "#/$defs/text"
+                }
+              },
+              "required": ["mode", "instructions"],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "width_px": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height_px": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "fit": {
+              "const": "requested_frame"
+            }
+          },
+          "required": ["width_px", "height_px", "fit"],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "source",
+        "subject",
+        "context",
+        "preserve_elements",
+        "allowed_changes",
+        "composition",
+        "lighting",
+        "output"
+      ],
+      "additionalProperties": false
+    },
+    "sceneText": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/sourceText"
+        },
+        "subject": {
+          "type": "object",
+          "properties": {
+            "main": {
+              "$ref": "#/$defs/text"
+            },
+            "secondary": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/text"
+              }
+            }
+          },
+          "required": ["main", "secondary"],
+          "additionalProperties": false
+        },
+        "context": {
+          "type": "object",
+          "properties": {
+            "environment": {
+              "$ref": "#/$defs/text"
+            },
+            "color_context": {
+              "$ref": "#/$defs/text"
+            }
+          },
+          "required": ["environment", "color_context"],
+          "additionalProperties": false
+        },
+        "preserve_elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 1
+        },
+        "allowed_changes": {
+          "type": "array",
+          "maxItems": 0,
+          "items": {
+            "$ref": "#/$defs/change"
+          }
+        },
+        "composition": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "specified"
+            },
+            "instructions": {
+              "$ref": "#/$defs/text"
+            }
+          },
+          "required": ["mode", "instructions"],
+          "additionalProperties": false
+        },
+        "lighting": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "specified"
+            },
+            "instructions": {
+              "$ref": "#/$defs/text"
+            }
+          },
+          "required": ["mode", "instructions"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "width_px": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height_px": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "fit": {
+              "const": "requested_frame"
+            }
+          },
+          "required": ["width_px", "height_px", "fit"],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "source",
+        "subject",
+        "context",
+        "preserve_elements",
+        "allowed_changes",
+        "composition",
+        "lighting",
+        "output"
+      ],
+      "additionalProperties": false
+    },
+    "styleProfile": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "const": "./illustration-contract.schema.json"
+        },
+        "kind": {
+          "const": "style"
+        },
+        "contract_version": {
+          "const": "1.0.0"
+        },
+        "style_id": {
+          "const": "guardian-bay-illustration"
+        },
+        "style_version": {
+          "const": "1.0.0"
+        },
+        "sources": {
+          "type": "object",
+          "properties": {
+            "specification": {
+              "const": "illustration-language.md"
+            },
+            "catalog": {
+              "const": "illustration-references.md"
+            },
+            "references": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "prefixItems": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "const": "GB-ILL-A"
+                    },
+                    "path": {
+                      "const": "studies/a-floresta.png"
+                    },
+                    "sha256": {
+                      "const": "c60cd094a647b8fe7b8dcf3f071463a8b4b3d074558112d3415e32dd41f2881c"
+                    }
+                  },
+                  "required": ["id", "path", "sha256"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "const": "GB-ILL-B"
+                    },
+                    "path": {
+                      "const": "studies/b-oficina.png"
+                    },
+                    "sha256": {
+                      "const": "aa515a26673681bc52a88ea3c3971737c86f802095139744ad2a373d79a59797"
+                    }
+                  },
+                  "required": ["id", "path", "sha256"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "const": "GB-ILL-C"
+                    },
+                    "path": {
+                      "const": "studies/c-lanterna.png"
+                    },
+                    "sha256": {
+                      "const": "80f92868a4f2f2c823a59ffb0f657a2224215c23c27ed41749a5f072da652e64"
+                    }
+                  },
+                  "required": ["id", "path", "sha256"],
+                  "additionalProperties": false
+                }
+              ],
+              "items": false
+            }
+          },
+          "required": ["specification", "catalog", "references"],
+          "additionalProperties": false
+        },
+        "style": {
+          "type": "object",
+          "properties": {
+            "forms": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "minItems": 1
+            },
+            "brushwork": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "minItems": 1
+            },
+            "materials": {
+              "type": "object",
+              "properties": {
+                "wood": {
+                  "$ref": "#/$defs/text"
+                },
+                "vegetation": {
+                  "$ref": "#/$defs/text"
+                },
+                "fabric": {
+                  "$ref": "#/$defs/text"
+                },
+                "painted_metal": {
+                  "$ref": "#/$defs/text"
+                },
+                "glass": {
+                  "$ref": "#/$defs/text"
+                },
+                "stone_wall_ground": {
+                  "$ref": "#/$defs/text"
+                },
+                "other": {
+                  "$ref": "#/$defs/text"
+                }
+              },
+              "required": [
+                "wood",
+                "vegetation",
+                "fabric",
+                "painted_metal",
+                "glass",
+                "stone_wall_ground",
+                "other"
+              ],
+              "additionalProperties": false
+            },
+            "edges": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "minItems": 1
+            },
+            "light_shadow": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "minItems": 1
+            },
+            "space": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "minItems": 1
+            },
+            "color": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "minItems": 1
+            },
+            "detail": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "minItems": 1
+            },
+            "avoid": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "forms",
+            "brushwork",
+            "materials",
+            "edges",
+            "light_shadow",
+            "space",
+            "color",
+            "detail",
+            "avoid"
+          ],
+          "additionalProperties": false
+        },
+        "constraints": {
+          "type": "object",
+          "properties": {
+            "essential_subject": {
+              "const": "preserve"
+            },
+            "functional_geometry": {
+              "const": "preserve"
+            },
+            "source_content": {
+              "const": "change_only_when_explicit"
+            },
+            "source_composition": {
+              "const": "preserve_unless_explicit"
+            },
+            "source_lighting": {
+              "const": "preserve_unless_explicit"
+            },
+            "semantic_color_identity": {
+              "const": "preserve_unless_explicit"
+            },
+            "accidental_text_and_logos": {
+              "const": "reject"
+            },
+            "visual_and_functional_artifacts": {
+              "const": "reject"
+            },
+            "commercial_product_photography": {
+              "const": "out_of_scope"
+            }
+          },
+          "required": [
+            "essential_subject",
+            "functional_geometry",
+            "source_content",
+            "source_composition",
+            "source_lighting",
+            "semantic_color_identity",
+            "accidental_text_and_logos",
+            "visual_and_functional_artifacts",
+            "commercial_product_photography"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "kind",
+        "contract_version",
+        "style_id",
+        "style_version",
+        "sources",
+        "style",
+        "constraints"
+      ],
+      "additionalProperties": false
+    },
+    "request": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "const": "./illustration-contract.schema.json"
+        },
+        "kind": {
+          "const": "request"
+        },
+        "contract_version": {
+          "const": "1.0.0"
+        },
+        "request_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "style": {
+          "$ref": "#/$defs/styleReference"
+        },
+        "scene": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sceneImagePreserved"
+            },
+            {
+              "$ref": "#/$defs/sceneImageReframed"
+            },
+            {
+              "$ref": "#/$defs/sceneText"
+            }
+          ]
+        }
+      },
+      "required": ["kind", "contract_version", "request_id", "style", "scene"],
+      "additionalProperties": false
+    },
+    "examples": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "const": "./illustration-contract.schema.json"
+        },
+        "kind": {
+          "const": "examples"
+        },
+        "contract_version": {
+          "const": "1.0.0"
+        },
+        "requests": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/request"
+          }
+        }
+      },
+      "required": ["kind", "contract_version", "requests"],
+      "additionalProperties": false
+    }
+  }
+}

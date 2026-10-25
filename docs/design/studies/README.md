@@ -1,5 +1,7 @@
 # Estudos visuais — seleção validada
 
+[Catálogo oficial das referências](../illustration-references.md): identificação, características compartilhadas, origem, prompts correspondentes e hashes dos originais. Este relatório mantém a avaliação dos estudos e os limites dos recortes.
+
 ## Seleção
 
 Em 25/10/2026, após revisão visual com o usuário, foram mantidos apenas os três estudos escolhidos como referência artística. As variantes descartadas foram removidas do repositório a pedido do usuário. A oficina frontal refinada (antes identificada como F) passa a usar o nome canônico `b-oficina.png`, sem alterar seus pixels.

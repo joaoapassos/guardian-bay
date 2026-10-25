@@ -90,7 +90,7 @@ Esta tabela prescreve produção futura; não identifica materiais de pincéis u
 
 Calibração após os [estudos visuais](studies/README.md) e correções explícitas do usuário: as marcas de material abaixo são opcionais e subordinadas à economia de pinceladas. Madeira pode ser sugerida só por planos e direção horizontal; vegetação por massas; metal por volume; vidro por abertura e uma mancha seletiva. Não é necessário mostrar veio, folha, costura ou desgaste para validar o material. Se uma marca não acrescenta reconhecimento, omiti-la.
 
-A tentativa de abstração extrema foi rejeitada pelo usuário: a referência da oficina do David conserva objetos e detalhes reconhecíveis, resolvidos por formas e traços simples. Esse equilíbrio, acrescido de pinceladas grandes e marcantes, substitui a interpretação de reduzir cada assunto ao mínimo absoluto de marcas. A seleção dos estudos ainda é parcial; não transformar suas falhas em acabamento aprovado.
+Na seleção inicial, a abstração que prejudicava a leitura foi rejeitada. Na rodada 02, o usuário pediu explicitamente planos simples e o mínimo de detalhes possível, com pinceladas que sugiram o assunto, e depois aprovou as revisões de floresta/oficina. Essa aprovação mais recente define a calibração vigente: poucas massas 2D legíveis, pinceladas grandes construindo a forma e somente encontros necessários à função. Não preencher planos com folhas, veios, costuras ou pequenas manchas para demonstrar acabamento. Simplificação não autoriza deformar peças ou apagar o assunto. Ver [referências prioritárias e precedência](illustration-references.md#calibração-vigente--rodada-02-aprovada).
 
 | Material | Construção reproduzível | Evitar |
 | --- | --- | --- |
@@ -184,5 +184,7 @@ Os itens de função, originalidade, identidade e legibilidade são impeditivos:
 **Validação documental:** conferir links internos e créditos, separar observado de proposto, verificar cobertura dos sete blocos desta Task e comparar com IDV/Fundamentos. Nenhum build ou teste de aplicação é necessário por esta alteração exclusivamente Markdown.
 
 **Evidência visual posterior:** [seleção validada de floresta, oficina e lanterna](studies/README.md), com originais, comparação em miniatura/cinza, recortes e limites. O usuário selecionou esses três estudos como referência artística; ensaios descartados foram removidos do acervo do projeto. Essa seleção não aprova uso comercial, acessibilidade ou repetibilidade do gerador. Casa e rua e composição com texto HTML permanecem fora do que foi verificado.
+
+**Calibração mais recente aprovada:** [floresta e oficina da rodada 02](studies/skill-validation/round-02/README.md), com prioridade sobre a densidade dos estudos iniciais. Essa aprovação consolida o tratamento econômico por planos e pinceladas grandes; repetibilidade em novas gerações e preservação de fotografias ainda exigem validação própria.
 
 **Próxima Task sugerida:** revisar e aprovar esta direção com a equipe, resolvendo eventuais ajustes antes de definir o contrato estruturado de geração. JSON, Skill e produção de banners dependem de Tasks próprias.
