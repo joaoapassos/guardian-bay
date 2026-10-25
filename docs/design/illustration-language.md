@@ -72,7 +72,7 @@ Não se estabeleceu recorrência suficiente para exigir luz artificial quente, n
 ### Princípios e intensidade
 
 1. **Volume antes de textura:** começar com três a cinco grupos grandes de valor como estudo, sem obrigar a pintura final a ter apenas cinco tons. O assunto deve continuar reconhecível reduzido a cerca de 240 px de largura.
-2. **Estilização moderada:** reconhecer espécie geral de árvore, função de ferramenta e estrutura de uma casa; dispensar precisão fotográfica de superfícies. Preservar encaixes, espessuras e contato com o chão. Não usar proporções caricaturais ou deformação de lente como assinatura.
+2. **Formas bem definidas, traços simples:** conservar detalhes estruturais que distinguem árvore, ferramenta ou casa; resolver cada elemento com silhueta intencional e poucos planos de cor. Simplificar a maneira de pintar, sem reduzir tudo a blocos vagos nem esvaziar o cenário. Preservar encaixes essenciais, espessuras e contato com o chão. Não usar proporções caricaturais ou deformação de lente como assinatura.
 3. **Detalhe com propósito:** escolher um foco principal e até dois apoios narrativos. Descrever esses papéis no briefing. Uma cena editorial pode ser mais ocupada, mas não ter todos os objetos com o mesmo contraste.
 4. **Cuidado visível:** desgaste restrito a cantos, apoio e manuseio; caminhos livres e equipamentos íntegros. Nostalgia por manutenção e continuidade, sem ferrugem generalizada, sujeira ou abandono obrigatórios.
 
@@ -80,13 +80,17 @@ Não se estabeleceu recorrência suficiente para exigir luz artificial quente, n
 
 - Arquitetura e objetos: planos amplos, linhas de construção coerentes, pequenas irregularidades na pintura. Uma porta precisa caber no vão; uma lanterna precisa ter corpo, pega e lente distinguíveis.
 - Natureza: grupos assimétricos, interrupções de silhueta e variação de tamanho. Não repetir a mesma árvore ou carimbo de folhagem com espaçamento regular.
-- Pinceladas largas para bloqueio; médias orientadas pelo volume; pequenas apenas para pontos de interesse. Não aplicar ruído com igual escala em céu, metal e tecido.
+- Pinceladas grandes, exageradas e marcantes devem construir o resultado final, inclusive objetos pequenos. Um gesto descreve um plano, uma copa ou parte do corpo da lanterna; não apenas reveste uma renderização detalhada. Traços menores podem definir uma alça, junção ou ferramenta com clareza. A economia está na simplicidade de cada marca, não numa contagem mínima rígida nem na eliminação de detalhes estruturais. Não preencher planos com microtextura, ranhuras, lascas ou fios de cerdas desenhados individualmente.
 - Alternar bordas firmes, suaves e perdidas. Borda firme separa peças e materiais no foco; suave descreve luz difusa; perdida aproxima valores no fundo/sombra. Não perder a borda que explica a função de um objeto.
 - Acabamento manual observável: sobreposição de manchas, pequenas falhas de cobertura e variação de direção, sem franja aleatória ao redor de tudo. Não simular manualidade com filtro de papel aplicado sobre uma fotografia.
 
 ### Textura por material
 
 Esta tabela prescreve produção futura; não identifica materiais de pincéis usados nas referências.
+
+Calibração após os [estudos visuais](studies/README.md) e correções explícitas do usuário: as marcas de material abaixo são opcionais e subordinadas à economia de pinceladas. Madeira pode ser sugerida só por planos e direção horizontal; vegetação por massas; metal por volume; vidro por abertura e uma mancha seletiva. Não é necessário mostrar veio, folha, costura ou desgaste para validar o material. Se uma marca não acrescenta reconhecimento, omiti-la.
+
+A tentativa de abstração extrema foi rejeitada pelo usuário: a referência da oficina do David conserva objetos e detalhes reconhecíveis, resolvidos por formas e traços simples. Esse equilíbrio, acrescido de pinceladas grandes e marcantes, substitui a interpretação de reduzir cada assunto ao mínimo absoluto de marcas. A seleção dos estudos ainda é parcial; não transformar suas falhas em acabamento aprovado.
 
 | Material | Construção reproduzível | Evitar |
 | --- | --- | --- |
@@ -102,7 +106,8 @@ Esta tabela prescreve produção futura; não identifica materiais de pincéis u
 
 - Definir no briefing uma família dominante, uma secundária e um acento: por exemplo, cinza azulado costeiro, madeira umber e pequeno âmbar. São relações de cena, não novos tokens da interface.
 - Exterior nublado: céu claro acinzentado, verdes quebrados e sombras com cor ambiente. Interior: madeira/neutros podem dominar, com abertura fria e iluminação localizada mais quente. Crepúsculo é opção, não requisito.
-- Saturação baixa a média nas massas; reservar maior saturação a pequenas áreas que expliquem o foco. Uma pintura de floresta pode ter verde dominante sem mudar o papel subordinado do sálvia na interface. Avaliar sua área e intensidade junto do entorno creme e do CTA azul.
+- Saturação baixa nas massas, cores misturadas visualmente com cinza e pigmento de aparência opaca/fosca; acentos continuam contidos, sem exigir cor viva no foco. Não confundir opacidade pictórica com vidro sem transparência. Uma pintura de floresta pode ter verde dominante sem mudar o papel subordinado do sálvia na interface. Avaliar sua área e intensidade junto do entorno creme e do CTA azul.
+- Manter luzes amplas e discretas, sem pinceladas brancas cintilantes, esmalte polido ou dourado luminoso como acabamento padrão. Menos brilho não significa subexpor: preservar separação de planos por valores médios e escuros cromáticos. A calibração fosca e os grandes gestos resultam das correções do usuário e dos estudos; não redefinem os tokens da interface.
 - Evitar preto puro em grandes sombras e branco puro em grandes brilhos como receita de acabamento. Usar escuros cromáticos e reservar extremos para necessidade focal, sem proibição absoluta.
 - Determinar fonte principal, direção e abrangência da luz. Luz natural ampla produz sombras suaves; fonte pequena produz sombra mais definida perto do contato. Toda luz artificial visível deve afetar plausivelmente superfícies próximas.
 - Contraste quente/frio é opcional: se houver luminária âmbar, usar entorno relativamente mais frio, sem transformar toda sombra em ciano. Não depender de iluminação dramática para reconhecer a linguagem.
@@ -178,6 +183,6 @@ Os itens de função, originalidade, identidade e legibilidade são impeditivos:
 
 **Validação documental:** conferir links internos e créditos, separar observado de proposto, verificar cobertura dos sete blocos desta Task e comparar com IDV/Fundamentos. Nenhum build ou teste de aplicação é necessário por esta alteração exclusivamente Markdown.
 
-**Validação visual futura, ainda não executada:** avaliar uma série de cinco estudos originais — floresta, oficina, lanterna, casa e rua — lado a lado, em miniatura, cinza e cor; aplicar a lista e os recortes com texto HTML de teste. A série deve conservar tratamento de formas, bordas e materiais mesmo com paletas diferentes. Não se declara consistência de artes ou acessibilidade de banners comprovada nesta Task.
+**Evidência visual posterior:** [seleção validada de floresta, oficina e lanterna](studies/README.md), com originais, comparação em miniatura/cinza, recortes e limites. O usuário selecionou esses três estudos como referência artística; ensaios descartados foram removidos do acervo do projeto. Essa seleção não aprova uso comercial, acessibilidade ou repetibilidade do gerador. Casa e rua e composição com texto HTML permanecem fora do que foi verificado.
 
 **Próxima Task sugerida:** revisar e aprovar esta direção com a equipe, resolvendo eventuais ajustes antes de definir o contrato estruturado de geração. JSON, Skill e produção de banners dependem de Tasks próprias.
