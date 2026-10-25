@@ -1,6 +1,6 @@
 # Documentação visual do Guardian Bay
 
-[Guia central](../DESIGN.md)
+[Guia central](../../DESIGN.md)
 
 Consolidação de 25/10/2026. A organização abaixo serve à documentação, sem modificar arquitetura, rotas ou componentes de código. Não foram encontrados DESIGN.md ou diretório visual-identity preexistentes no repositório durante a busca inicial.
 
@@ -9,6 +9,7 @@ Consolidação de 25/10/2026. A organização abaixo serve à documentação, se
 | Documento | Responsabilidade exclusiva |
 | --- | --- |
 | [IDV resumida](idv.md) | Personalidade, voz e direção de arte |
+| [Linguagem de ilustração](../design/illustration-language.md) | Análise de referências, técnica pictórica e composição de artes editoriais |
 | [Fundamentos](fundamentos.md) | Valores visuais, medidas, cores semânticas e critérios de acessibilidade |
 | [Componentes](componentes.md) | Aplicação individual dos fundamentos aos 26 componentes |
 | [Páginas](paginas.md) | Composição individual das 27 páginas e relação com componentes |

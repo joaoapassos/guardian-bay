@@ -37,6 +37,8 @@ components:
 
 Preparo, acolhimento e confiança; atmosfera costeira e nostalgia discreta, com produtos e tarefas acima da decoração. [Identidade operacional](docs/visual-identity/idv.md).
 
+[Linguagem de ilustração](docs/design/illustration-language.md): referências, técnica pictórica e composição editorial, preservando a identidade e a fotografia comercial.
+
 Formato: tokens em YAML e orientação em Markdown, conforme a [especificação Google DESIGN.md](https://github.com/google-labs-code/design.md/blob/main/docs/spec.md). Não utiliza TOON. O frontmatter concentra valores para leitura estruturada; a prosa explica sua aplicação sem repetir a tabela de tokens.
 
 Precedência: [AGENTS.md](AGENTS.md), [arquitetura](docs/architecture/README.md) e segurança permanecem vigentes. A IDV determina identidade visual; estudos de páginas/componentes determinam estrutura e comportamento. [Fontes, divergências e pendências](docs/visual-identity/README.md).

@@ -34,6 +34,8 @@ Wordmark em Fraunces, caixa alta e peso 800. Fraunces editorial dá personalidad
 
 Ilustração: pintura digital com sensação analógica, narrativa cotidiana e referência atmosférica ao primeiro Life is Strange; não reutilizar personagens, marcas ou artes do jogo. Nenhum militarismo, camuflagem, survivalismo alarmista ou estética cyber genérica.
 
+A [linguagem de ilustração](../design/illustration-language.md) detalha formas, pinceladas, materiais, luz e recortes, distinguindo observações das referências e decisões propostas para Guardian Bay.
+
 Produto: apresentação limpa inspirada na Huckberry, item isolado e aparência real preservada; sem filtro pictórico, fundo dramático, texto sobre a foto ou efeito que altere cor/formato. A imagem nunca compete com preço/nome por meio de decoração. As [regras de mídia](fundamentos.md#midia) tratam proporções e ausência.
 
 ## Sinais de descaracterização
