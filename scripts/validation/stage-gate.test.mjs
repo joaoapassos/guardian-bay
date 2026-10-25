@@ -35,4 +35,6 @@ test("missing, short, failed or stale-profile measurements block escalation", ()
     );
   assert.equal(stageEligibility(500, [record], scope).eligible, true);
   assert.equal(stageEligibility(1000, [record], scope).eligible, false);
+  for (const target of [2000, 3500, 5000])
+    assert.throws(() => stageEligibility(target, [], scope));
 });

@@ -17,7 +17,7 @@ if (
   ![1, 2, 4, 8, 16].includes(appCount)
 )
   throw new Error("Invalid local topology");
-if (![10, 25, 50, 100, 250, 500, 1000, 2000, 3500, 5000].includes(requests))
+if (![10, 25, 50, 100, 250, 500, 1000].includes(requests))
   throw new Error("Unapproved request concurrency level");
 const connectionProfile = __ENV.LAB_CONNECTION_PROFILE ?? "new";
 if (!["new", "reuse"].includes(connectionProfile))

@@ -5,9 +5,6 @@ export const stagePlan = [
   { vus: 250, seconds: 600 },
   { vus: 500, seconds: 900 },
   { vus: 1000, seconds: 1200 },
-  { vus: 2000, seconds: 1800 },
-  { vus: 3500, seconds: 2700 },
-  { vus: 5000, seconds: 3600 },
 ];
 
 export function stageEligibility(target, records, scope) {

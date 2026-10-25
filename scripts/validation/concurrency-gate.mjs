@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 
-export const concurrencyLevels = [
-  10, 25, 50, 100, 250, 500, 1000, 2000, 3500, 5000,
-];
+export const concurrencyLevels = [10, 25, 50, 100, 250, 500, 1000];
 
 export function priorConcurrencyPassed(report, previous, context) {
   const m = report?.metrics;
