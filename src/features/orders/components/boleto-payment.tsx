@@ -14,10 +14,12 @@ export function BoletoPayment({
 }) {
   return (
     <section
-      className="mt-6 border-2 border-dashed p-5"
+      className="space-y-5 rounded-panel border border-line bg-surface p-5 sm:p-7"
       aria-label="Boleto fictício"
     >
-      <h2 className="text-xl font-semibold">Boleto fictício — Guardian Bay</h2>
+      <h2 className="font-editorial text-2xl text-coast">
+        Boleto fictício — Guardian Bay
+      </h2>
       <p className="my-3 font-bold">
         SIMULAÇÃO — SEM VALOR FINANCEIRO — NÃO PAGÁVEL
       </p>

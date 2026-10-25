@@ -2,17 +2,20 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { FormField } from "@/components/forms/form-field";
+import { Button } from "@/components/ui/button";
 import { saveTestCardAction } from "../actions/test-cards.action";
 import { saveTestCardSchema } from "../schemas/test-card";
 import { recognizeTestCard, testCardFixtures } from "../test-card-fixtures";
 
-export function TestCardForm() {
+export function TestCardForm({ cardCount = 0 }: { cardCount?: number }) {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const {
     register,
     handleSubmit,
     reset,
+    resetField,
     formState: { errors, isSubmitting },
   } = useForm<{
     number: string;
@@ -21,13 +24,13 @@ export function TestCardForm() {
     expiry: string;
   }>();
   return (
-    <section className="mt-6 rounded border p-4">
+    <section className="mt-6 border-t border-line pt-6">
       <h3 className="text-lg font-semibold">Cadastrar cartão fictício</h3>
       <p>
         Simulação sem movimentação de dinheiro. Use exclusivamente uma das
         fixtures abaixo; nunca informe dados bancários reais.
       </p>
-      <ul className="my-3 text-sm">
+      <ul className="my-4 grid gap-2 rounded-control border border-line bg-paper p-4 font-mono text-sm">
         {testCardFixtures.map((f) => (
           <li key={f.id}>
             {f.number.replace(/(.{4})(?=.)/g, "$1 ")} — CVV de teste: {f.cvv}
@@ -39,7 +42,7 @@ export function TestCardForm() {
         autoComplete="off"
         noValidate
         aria-busy={isSubmitting}
-        className="grid gap-3"
+        className="grid gap-5 sm:grid-cols-2"
         onSubmit={handleSubmit(async (input) => {
           setMessage("");
           const fixture = recognizeTestCard(input.number, input.cvv);
@@ -53,7 +56,7 @@ export function TestCardForm() {
             setMessage(
               "Use uma fixture autorizada, seu CVV de teste e validade MM/AAAA.",
             );
-            reset();
+            resetField("cvv");
             return;
           }
           try {
@@ -65,18 +68,29 @@ export function TestCardForm() {
                   ? "Muitas operações. Aguarde um minuto."
                   : "Não foi possível cadastrar. Confira a validade e sua sessão.",
             );
-            if (result.success) router.refresh();
+            if (result.success) {
+              reset();
+              router.refresh();
+            }
           } catch {
             setMessage("Não foi possível cadastrar o cartão fictício.");
           } finally {
-            reset();
+            resetField("cvv");
           }
         })}
       >
-        <label>
-          Número de teste
+        <FormField
+          id="test-card-number"
+          label="Número de teste"
+          error={
+            errors.number ? "Use um dos números fictícios listados." : undefined
+          }
+        >
           <input
-            className="block w-full rounded border p-2"
+            required
+            id="test-card-number"
+            aria-describedby="test-card-number-error"
+            className="auth-input"
             inputMode="numeric"
             maxLength={19}
             placeholder="0000 0000 0000 0001"
@@ -89,14 +103,21 @@ export function TestCardForm() {
                 ),
             })}
           />
-        </label>
-        {errors.number && (
-          <p role="alert">Use um dos números fictícios listados.</p>
-        )}
-        <label>
-          Titular fictício
+        </FormField>
+        <FormField
+          id="test-card-holder"
+          label="Titular fictício"
+          error={
+            errors.holder
+              ? "Informe um nome fictício de 2 a 60 caracteres."
+              : undefined
+          }
+        >
           <input
-            className="block w-full rounded border p-2"
+            required
+            id="test-card-holder"
+            aria-describedby="test-card-holder-error"
+            className="auth-input"
             maxLength={60}
             placeholder="PESSOA DE TESTE"
             aria-invalid={!!errors.holder}
@@ -106,14 +127,17 @@ export function TestCardForm() {
               maxLength: 60,
             })}
           />
-        </label>
-        {errors.holder && (
-          <p role="alert">Informe um nome fictício de 2 a 60 caracteres.</p>
-        )}
-        <label>
-          Validade (MM/AAAA)
+        </FormField>
+        <FormField
+          id="test-card-expiry"
+          label="Validade (MM/AAAA)"
+          error={errors.expiry ? "Use MM/AAAA." : undefined}
+        >
           <input
-            className="block w-full rounded border p-2"
+            required
+            id="test-card-expiry"
+            aria-describedby="test-card-expiry-error"
+            className="auth-input"
             inputMode="numeric"
             maxLength={7}
             placeholder="12/2099"
@@ -123,32 +147,44 @@ export function TestCardForm() {
               pattern: /^(0[1-9]|1[0-2])\/20\d{2}$/,
             })}
           />
-        </label>
-        {errors.expiry && <p role="alert">Use MM/AAAA.</p>}
-        <label>
-          CVV de teste
+        </FormField>
+        <FormField
+          id="test-card-cvv"
+          label="CVV de teste"
+          error={errors.cvv ? "Informe os três dígitos da fixture." : undefined}
+        >
           <input
-            className="block w-full rounded border p-2"
+            required
+            id="test-card-cvv"
+            aria-describedby="test-card-cvv-error"
+            className="auth-input"
             type="password"
             inputMode="numeric"
             maxLength={3}
             aria-invalid={!!errors.cvv}
             {...register("cvv", { required: true, pattern: /^\d{3}$/ })}
           />
-        </label>
-        {errors.cvv && <p role="alert">Informe os três dígitos da fixture.</p>}
-        <p className="text-sm">
+        </FormField>
+        <p className="text-sm text-muted sm:col-span-2">
           Número, CVV e titular não são enviados nem salvos. Até três cartões;
           remova um existente para alterar sua validade.
         </p>
-        <button
+        <Button
           type="submit"
-          disabled={isSubmitting}
-          className="rounded border p-2 disabled:opacity-50"
+          disabled={isSubmitting || cardCount >= 3}
+          className="justify-self-start"
         >
           {isSubmitting ? "Cadastrando…" : "Cadastrar cartão fictício"}
-        </button>
-        <output aria-live="polite">{message}</output>
+        </Button>
+        {cardCount >= 3 && (
+          <p className="text-sm font-semibold sm:col-span-2">
+            Você já possui três cartões fictícios. Remova um para cadastrar
+            outro.
+          </p>
+        )}
+        <output aria-live="polite" className="sm:col-span-2">
+          {message}
+        </output>
       </form>
     </section>
   );

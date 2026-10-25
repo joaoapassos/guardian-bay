@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
+import { FormField } from "@/components/forms/form-field";
+import { PasswordField } from "@/components/forms/password-field";
+import { Button } from "@/components/ui/button";
 import { changePasswordAction } from "../actions/change-password.action";
 import { changePasswordSchema } from "../schemas/change-password.schema";
 
@@ -48,61 +51,50 @@ export function ChangePasswordForm() {
         }
       })}
     >
-      <div>
-        <label htmlFor="currentPassword" className="block font-medium">
-          Senha atual
-        </label>
-        <input
+      <FormField
+        id="currentPassword"
+        label="Senha atual"
+        error={errors.currentPassword?.message}
+      >
+        <PasswordField
+          required
           id="currentPassword"
-          type="password"
           autoComplete="current-password"
           maxLength={256}
           aria-invalid={!!errors.currentPassword}
-          aria-describedby="current-password-error"
-          className="mt-2 w-full rounded border border-zinc-400 px-3 py-2"
+          aria-describedby="currentPassword-error"
+          className="auth-input"
           {...register("currentPassword", {
             validate: (value) =>
               changePasswordSchema.shape.currentPassword.safeParse(value)
                 .success || "Informe sua senha atual, até 128 caracteres.",
           })}
         />
-        <p id="current-password-error" className="mt-2 text-red-700">
-          {errors.currentPassword?.message}
-        </p>
-      </div>
-      <div>
-        <label htmlFor="newPassword" className="block font-medium">
-          Nova senha
-        </label>
-        <input
+      </FormField>
+      <FormField
+        id="newPassword"
+        label="Nova senha"
+        error={errors.newPassword?.message}
+        help="Use uma nova frase de 15 a 128 caracteres. Todas as sessões serão encerradas; entre novamente com a nova senha."
+      >
+        <PasswordField
+          required
           id="newPassword"
-          type="password"
           autoComplete="new-password"
           maxLength={256}
           aria-invalid={!!errors.newPassword}
-          aria-describedby="new-password-help new-password-error"
-          className="mt-2 w-full rounded border border-zinc-400 px-3 py-2"
+          aria-describedby="newPassword-help newPassword-error"
+          className="auth-input"
           {...register("newPassword", {
             validate: (value) =>
               changePasswordSchema.shape.newPassword.safeParse(value).success ||
               "Use entre 15 e 128 caracteres.",
           })}
         />
-        <p id="new-password-help" className="mt-2 text-sm text-zinc-600">
-          Use uma nova frase de 15 a 128 caracteres. Todas as sessões serão
-          encerradas; entre novamente com a nova senha.
-        </p>
-        <p id="new-password-error" className="mt-2 text-red-700">
-          {errors.newPassword?.message}
-        </p>
-      </div>
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded bg-teal-800 px-4 py-3 font-medium text-white disabled:opacity-60"
-      >
+      </FormField>
+      <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Processando…" : "Alterar senha"}
-      </button>
+      </Button>
       {message && (
         <output ref={feedback} tabIndex={-1} className="block">
           {message}

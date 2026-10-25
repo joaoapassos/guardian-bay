@@ -36,7 +36,17 @@ Original: `exec-86002c97-5c39-4519-8a8c-3d14a9b202a2.png`. Solicitado 1024 × 10
 New original Guardian Bay generic product-image-not-defined illustration, square composition 1024x1024. One simple CLOSED unbranded cream cardboard equipment box on a pale cream ground with a folded sage fabric pad beside it, subtle soft contact shadow. The box is a generic parcel, not a depiction of a purchasable specific product. Large clear central silhouette with generous margins, elegant deliberate placeholder for tiny catalog thumbnails. Painted directly using very few broad matte opaque directional planes, clean structural edges, no woodgrain or grain overlay, no microtexture, no realistic product photo, no 3D render, no icon outline, no text, logos, question marks, broken image symbols. Cream #F8F4EC, warm kraft muted brown, sage #71816E, one subtle blue #256A94 accent on fabric edge. Style reference only for economical brushstroke planes and simple materials; do not copy bench or workshop contents.
 ```
 
-## Avaliação técnica
+## Home — Preparado para tudo
+
+Banner estático, sem gestão administrativa. Gerado nesta execução com imagegen; modelo e seed não informados pela ferramenta. Original `exec-05785b3d-96c0-4089-bd7e-4f23ddc21942.png`, observado 1536 × 1024; publicação `public/images/home/prepared.webp`, 1200 × 800, 51.664 bytes. A referência de oficina foi usada apenas para linguagem pictórica.
+
+```text
+Create ONE original Guardian Bay homepage editorial painting, landscape 1536x1024, opaque. A quiet small independent coastal outfitter storefront seen obliquely from outside. Main focal mass is a simple blue wooden door and cream shopfront at right; a low wooden bench and one folded sage canvas beside it are subordinate. Left opens to a calm pale gray-blue coastal horizon, no busy street. No people, signage, writing, numbers or logos. Broad diffuse overcast daylight, muted cream, sage, coastal blue and gray-brown. Build everything DIRECTLY from a few LARGE FLAT OPAQUE brushstrokes, economical 2D block-in like the approved reference: door two quiet blue planes, wall one cream plane with one shadow, bench only essential construction, cloth two folded bands, vegetation at most two connected sage masses. No fine woodgrain, chips, individual leaves, tiny surface marks, overlaid grain, polished 3D volume or photographic detail. Keep large breathing areas; UI text will sit beside this illustration, not embedded. Style reference is only economical painted treatment, do NOT copy workshop layout or inventory. Clear structural shapes and matte subdued values, deliberate irregular broad brush edges; no blur. One scene, no collage.
+```
+
+Inspeção na resolução original: silhuetas legíveis, tons creme/azul/sálvia e ausência de texto adequados; pinceladas e arbustos têm mais subdivisões que a referência econômica ideal. Integração não representa aprovação como nova referência oficial. O banner não retrata produto à venda e recebe alt institucional.
+
+## Avaliação dos estados de sistema
 
 Saídas examinadas individualmente na resolução original. Formas, função, cores foscas, luz, profundidade por planos e ausência de texto são adequadas para integração. Not Found e Access Denied são **parciais** quanto à economia pictórica: vegetação e pinceladas têm mais subdivisões que a floresta revisada. Unexpected Error e fallback preservam silhuetas claras; o tecido do fallback lembra equipamento concreto, portanto o alt identifica explicitamente imagem padrão, sem promessa de produto fotografado. Não foram classificados como novas referências oficiais. A validação responsiva da aplicação é registrada separadamente da aprovação artística.
 

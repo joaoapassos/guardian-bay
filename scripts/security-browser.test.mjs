@@ -330,7 +330,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
             // Allow hydration, then submit an empty form: no network/DB needed.
             await new Promise((done) => setTimeout(done, 300));
             await call("Runtime.evaluate", {
-              expression: "document.querySelector('form').requestSubmit()",
+              expression: "document.querySelector('main form').requestSubmit()",
             });
             let validation = false;
             for (let i = 0; i < 100 && !validation; i++) {
@@ -488,7 +488,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                     await new Promise((done) => setTimeout(done, 50));
                   }
                   const state = await evaluate(
-                    "({path:location.pathname, message:document.querySelector('output')?.textContent, busy:document.querySelector('form')?.getAttribute('aria-busy'), invalid:[...document.querySelectorAll('[aria-invalid=true]')].map(input=>input.id)})",
+                    "({path:location.pathname, message:document.querySelector('output')?.textContent, busy:document.querySelector('main form')?.getAttribute('aria-busy'), invalid:[...document.querySelectorAll('[aria-invalid=true]')].map(input=>input.id)})",
                   );
                   assert.fail(`${description}: ${JSON.stringify(state)}`);
                 };
@@ -508,12 +508,12 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                     await call("Input.insertText", { text: value });
                   }
                   await evaluate(
-                    "document.querySelector('form').requestSubmit()",
+                    "document.querySelector('main form').requestSubmit()",
                   );
                 };
                 const output = (message) =>
                   waitFor(
-                    `document.querySelector('output')?.textContent?.includes(${JSON.stringify(message)}) && document.querySelector('form').getAttribute('aria-busy') === 'false'`,
+                    `document.querySelector('output')?.textContent?.includes(${JSON.stringify(message)}) && document.querySelector('main form').getAttribute('aria-busy') === 'false'`,
                     message,
                   );
                 const cookie = async () => {
@@ -883,7 +883,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   true,
                 );
                 await evaluate(
-                  "document.querySelector('input[name=quantity]').value='2'; document.querySelector('input[name=quantity]').form.requestSubmit()",
+                  "document.querySelector('button[aria-label^=Aumentar]').click(); document.querySelector('input[name=quantity]').form.requestSubmit()",
                 );
                 await waitFor(
                   "document.querySelector('main').textContent.includes('21,98') && document.querySelector('input[name=quantity]').defaultValue==='2'",
@@ -898,7 +898,14 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 );
                 await navigate("/products");
                 await evaluate(
-                  `(() => { const row=[...document.querySelectorAll('main li')].find(li=>li.textContent.includes(${JSON.stringify(catalogName)})); row.querySelector('button').click(); })()`,
+                  `(() => { const row=[...document.querySelectorAll('main li')].find(li=>li.textContent.includes(${JSON.stringify(catalogName)})); row.querySelector('a').click(); })()`,
+                );
+                await waitFor(
+                  "!!document.querySelector('main input[name=quantity]')",
+                  "product details before purchase",
+                );
+                await evaluate(
+                  "[...document.querySelectorAll('button')].find(b=>b.textContent==='Adicionar ao carrinho').click()",
                 );
                 await waitFor(
                   "[...document.querySelectorAll('output')].some(o=>o.textContent.includes('Produto adicionado ao carrinho.'))",
@@ -944,6 +951,28 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 await waitFor(
                   "document.querySelector('main').textContent.includes('TEST •••• 0001')",
                   "synthetic card registered and masked",
+                );
+                await navigate("/account/addresses");
+                await evaluate(
+                  "[...document.querySelectorAll('main button')].find(button=>button.textContent==='Adicionar endereço').click()",
+                );
+                await adminSubmit(
+                  "Cadastrar endereço",
+                  {
+                    recipient: "Pessoa de teste",
+                    postalCode: "12345-678",
+                    street: "Rua de teste",
+                    number: "10",
+                    complement: "",
+                    neighborhood: "Centro",
+                    city: "São Paulo",
+                    state: "SP",
+                  },
+                  false,
+                );
+                await waitFor(
+                  "document.querySelector('main').textContent.includes('Rua de teste')",
+                  "address saved for checkout",
                 );
                 await navigate("/checkout");
                 await waitFor(
@@ -1057,7 +1086,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 );
                 await navigate("/cart");
                 await evaluate(
-                  "document.querySelector('input[name=quantity]').value='2'; document.querySelector('input[name=quantity]').form.requestSubmit()",
+                  "document.querySelector('button[aria-label^=Aumentar]').click(); document.querySelector('input[name=quantity]').form.requestSubmit()",
                 );
                 await waitFor(
                   "document.querySelector('input[name=quantity]').defaultValue==='2'",
@@ -1183,7 +1212,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                     "payment method selector",
                   );
                   await evaluate(
-                    `(() => {const s=document.querySelector('form[aria-label="Confirmar checkout"] select');s.value=${JSON.stringify(method)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`,
+                    `(() => {const s=document.querySelector('#checkout-payment-method');s.value=${JSON.stringify(method)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`,
                   );
                   await adminSubmit("Confirmar checkout", {}, false);
                   await waitFor(

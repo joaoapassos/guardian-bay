@@ -10,10 +10,14 @@ import {
 import { join, resolve } from "node:path";
 
 // Isolated UI-only build. No application files, database or credentials are changed.
-export async function startAdminFixture() {
+export async function startAdminFixture({
+  customize,
+  prefix = "admin-ui-",
+  port = 3211,
+} = {}) {
   const root = resolve(".");
   mkdirSync(join(root, ".vitest"), { recursive: true });
-  const directory = mkdtempSync(join(root, ".vitest", "admin-ui-"));
+  const directory = mkdtempSync(join(root, ".vitest", prefix));
   for (const file of [
     "package.json",
     "tsconfig.json",
@@ -104,6 +108,7 @@ export async function startAdminFixture() {
     "features/orders/server/admin-order-detail.ts",
     `import {requireAuthenticatedAdmin} from '@/features/auth/server/require-admin'; export async function adminOrderDetail(input:string) { const auth=await requireAuthenticatedAdmin(); if(!auth.success) return auth; return input==='${id}' ? {success:true as const,order:${JSON.stringify(order)}} : {success:false as const,code:'NOT_FOUND' as const}; }`,
   );
+  if (customize) customize({ write, directory, root });
   const build = spawn(
     process.execPath,
     [join(root, "node_modules/next/dist/bin/next"), "build", "--webpack"],
@@ -131,7 +136,7 @@ export async function startAdminFixture() {
       "--hostname",
       "127.0.0.1",
       "--port",
-      "3211",
+      String(port),
     ],
     {
       cwd: directory,
@@ -151,5 +156,5 @@ export async function startAdminFixture() {
     server.kill();
     throw new Error("UI fixture did not start");
   }
-  return { server, directory, origin: "http://127.0.0.1:3211" };
+  return { server, directory, origin: `http://127.0.0.1:${port}` };
 }

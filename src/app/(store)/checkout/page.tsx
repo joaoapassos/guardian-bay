@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { readCheckoutAddresses } from "@/features/addresses/server/read-addresses";
 import { readCart } from "@/features/cart/server/read-cart";
 import { CheckoutConfirmation } from "@/features/orders/components/checkout-confirmation";
+import { OrderSummary } from "@/features/orders/components/order-summary";
 import { TestCardForm } from "@/features/orders/components/test-card-form";
 import { checkoutPreview } from "@/features/orders/server/checkout-preview";
 import { readTestCards } from "@/features/orders/server/test-cards";
@@ -11,20 +13,23 @@ import { moneyDto } from "@/lib/money/price";
 export default async function CheckoutPage() {
   const preview = await checkoutPreview();
   if (!preview.success && preview.code === "UNAUTHENTICATED")
-    redirect("/login");
+    redirect("/login?returnTo=%2Fcheckout");
   const cards = preview.success ? await readTestCards() : [];
+  const addressResult = preview.success ? await readCheckoutAddresses() : null;
+  if (addressResult && !addressResult.success) redirect("/login");
   const cart =
     !preview.success &&
     (preview.code === "UNAVAILABLE" || preview.code === "OUT_OF_STOCK")
       ? await readCart()
       : null;
   return (
-    <main
-      id="main-content"
-      tabIndex={-1}
-      className="mx-auto w-full max-w-5xl flex-1 px-6 py-12"
-    >
-      <h1 className="mb-6 text-3xl font-semibold">Checkout</h1>
+    <main id="main-content" tabIndex={-1} className="store-page max-w-5xl">
+      <header>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted">
+          Revise sua compra
+        </p>
+        <h1 className="store-title">Checkout</h1>
+      </header>
       <p>
         Valores e elegibilidade são confirmados novamente no servidor. O
         carrinho não reserva estoque nem congela preços.
@@ -35,21 +40,22 @@ export default async function CheckoutPage() {
       </p>
       {preview.success ? (
         <>
-          <ul className="mt-6 grid gap-4">
-            {preview.snapshot.items.map((item) => (
-              <li key={item.productId} className="rounded border p-4">
-                <h2>{item.productName}</h2>
-                <p>Quantidade: {item.quantity}</p>
-                <p>Preço atual: {moneyDto(item.unitAmount).formatted}</p>
-                <p>Subtotal: {moneyDto(item.subtotalAmount).formatted}</p>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-6 font-semibold">
-            Total: {preview.snapshot.total.formatted}
-          </p>
-          <CheckoutConfirmation checkoutKey={randomUUID()} cards={cards} />
-          <TestCardForm />
+          <OrderSummary
+            priceLabel="Preço atual"
+            items={preview.snapshot.items.map((item) => ({
+              productName: item.productName,
+              quantity: item.quantity,
+              price: moneyDto(item.unitAmount),
+              subtotal: moneyDto(item.subtotalAmount),
+            }))}
+            total={preview.snapshot.total}
+          />
+          <CheckoutConfirmation
+            checkoutKey={randomUUID()}
+            cards={cards}
+            addresses={addressResult?.success ? addressResult.addresses : []}
+          />
+          <TestCardForm cardCount={cards.length} />
         </>
       ) : (
         <>
@@ -72,7 +78,7 @@ export default async function CheckoutPage() {
           )}
         </>
       )}
-      <Link href="/cart" className="mt-6 block underline">
+      <Link href="/cart" className="auth-link mt-6 inline-block">
         Voltar ao carrinho
       </Link>
     </main>

@@ -2,6 +2,7 @@ import "server-only";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
+import { addresses } from "@/db/schema/addresses";
 import { cartItems } from "@/db/schema/cart-items";
 import { inventory } from "@/db/schema/inventory";
 import { orderItems } from "@/db/schema/order-items";
@@ -11,6 +12,10 @@ import { products } from "@/db/schema/products";
 import { savedTestCards } from "@/db/schema/saved-test-cards";
 import { sessions } from "@/db/schema/sessions";
 import { users } from "@/db/schema/users";
+import {
+  type AddressSnapshot,
+  addressSnapshotSchema,
+} from "@/features/addresses/schemas/address";
 import { tokenHash } from "@/features/auth/server/session";
 import { sessionCookiePolicy } from "@/features/auth/server/session-cookie";
 import { reserveAbuseBudget } from "@/lib/abuse/server";
@@ -89,6 +94,36 @@ export async function createOrder(input: unknown) {
           )
             throw expired;
           let cardLast4: string | null = null;
+          let shippingAddress: AddressSnapshot | null = null;
+          if (parsed.data.addressId) {
+            const [address] = await tx
+              .select({
+                recipient: addresses.recipient,
+                postalCode: addresses.postalCode,
+                street: addresses.street,
+                number: addresses.number,
+                complement: addresses.complement,
+                neighborhood: addresses.neighborhood,
+                city: addresses.city,
+                state: addresses.state,
+                country: addresses.country,
+              })
+              .from(addresses)
+              .where(
+                and(
+                  eq(addresses.id, parsed.data.addressId),
+                  eq(addresses.userId, user.id),
+                ),
+              )
+              .for("share");
+            const snapshot = addressSnapshotSchema.safeParse(address);
+            if (!snapshot.success)
+              return {
+                success: false as const,
+                code: "INVALID_ADDRESS" as const,
+              };
+            shippingAddress = snapshot.data;
+          }
           if (parsed.data.payment?.method === "CARD") {
             const [card] = await tx
               .select({ last4: savedTestCards.last4 })
@@ -179,6 +214,7 @@ export async function createOrder(input: unknown) {
             .values({
               userId: user.id,
               checkoutKey: parsed.data.checkoutKey,
+              shippingAddress,
               totalAmount: checked.snapshot.total.amount,
             })
             .returning({ orderId: orders.id, status: orders.status });

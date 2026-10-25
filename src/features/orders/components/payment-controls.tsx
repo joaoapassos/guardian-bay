@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
 import { confirmPaymentAction } from "../actions/confirm-payment.action";
 
 export function PaymentControls({
@@ -32,7 +33,10 @@ export function PaymentControls({
   );
   const ready = Date.parse(approvableAt) <= Date.parse(serverNow) + elapsed;
   return (
-    <div className="mt-4" aria-busy={pending}>
+    <div
+      className="rounded-panel border border-line bg-surface p-5"
+      aria-busy={pending}
+    >
       <p>
         Tempo restante:{" "}
         <span role="timer" aria-label="Tempo restante do pagamento">
@@ -43,8 +47,8 @@ export function PaymentControls({
         O servidor confirma prazo, valor e estoque. O contador não aprova o
         pagamento.
       </p>
-      <button
-        className="mt-3 rounded border p-2 disabled:opacity-50"
+      <Button
+        className="mt-4"
         type="button"
         disabled={pending || (!ready && remaining > 0)}
         onClick={() =>
@@ -74,15 +78,15 @@ export function PaymentControls({
           : ready
             ? "Confirmar pagamento simulado"
             : "Aguardando intervalo de simulação"}
-      </button>
-      <button
-        className="ml-3 underline"
+      </Button>
+      <Button
+        className="mt-3 sm:ml-3"
         type="button"
         disabled={pending}
         onClick={() => router.refresh()}
       >
         Atualizar status
-      </button>
+      </Button>
       <output className="block" aria-live="polite">
         {message}
       </output>

@@ -7,12 +7,15 @@ import { type ReactNode, ViewTransition } from "react";
 // Server children stay in the Server graph; no navigation interception or timer.
 export function PageTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  // Product image boundaries own catalog/detail continuity. Do not animate
+  // their ancestor snapshot as well; streaming may safely omit the morph.
+  const productContext = pathname === "/" || pathname.startsWith("/products");
   return (
     <ViewTransition
       key={pathname}
       default="none"
-      enter="gb-page-enter"
-      exit="gb-page-exit"
+      enter={productContext ? "none" : "gb-page-enter"}
+      exit={productContext ? "none" : "gb-page-exit"}
     >
       <div className="flex flex-1 flex-col">{children}</div>
     </ViewTransition>

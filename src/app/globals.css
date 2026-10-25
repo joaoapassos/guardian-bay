@@ -58,7 +58,18 @@
     opacity: 0;
   }
 }
+::view-transition-group(.gb-product-morph) {
+  animation-duration: 250ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+::view-transition-new(.gb-product-reveal) {
+  animation: gb-page-fade-in 180ms ease-out both;
+}
 @media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(.gb-product-morph),
+  ::view-transition-old(.gb-product-morph),
+  ::view-transition-new(.gb-product-morph),
+  ::view-transition-new(.gb-product-reveal),
   ::view-transition-old(.gb-page-exit),
   ::view-transition-new(.gb-page-enter) {
     animation: none;
@@ -89,6 +100,18 @@ body {
 }
 
 @layer components {
+  .store-page {
+    @apply mx-auto w-full max-w-7xl flex-1 space-y-8 px-5 py-8 font-auth sm:px-8 lg:py-12;
+  }
+  .store-title {
+    @apply font-editorial text-4xl leading-tight text-coast sm:text-5xl;
+  }
+  .store-panel {
+    @apply rounded-panel border border-line bg-surface p-5 sm:p-6;
+  }
+  .store-nav-link {
+    @apply inline-flex min-h-11 items-center rounded-sm text-coast underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coast;
+  }
   .admin-action {
     @apply inline-flex min-h-11 items-center justify-center rounded-control bg-coast px-5 py-2 font-semibold text-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coast disabled:cursor-not-allowed disabled:opacity-60;
   }

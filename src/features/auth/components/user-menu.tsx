@@ -6,6 +6,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   LogOut,
+  MapPin,
   Package,
   ScrollText,
   ShieldCheck,
@@ -83,6 +84,14 @@ export function UserMenu({
               Meu perfil
             </Link>
           </DropdownMenu.Item>
+          {context === "store" && (
+            <DropdownMenu.Item asChild disabled={pending}>
+              <Link href="/account/addresses" className={itemClass}>
+                <MapPin size={18} aria-hidden="true" />
+                Meus endereços
+              </Link>
+            </DropdownMenu.Item>
+          )}
           {context === "store" && (
             <DropdownMenu.Item asChild disabled={pending}>
               <Link href="/orders" className={itemClass}>

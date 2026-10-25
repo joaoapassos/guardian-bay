@@ -11,6 +11,8 @@
 
 `npm run test:integration` exige TEST_DATABASE_URL explícita, loopback e banco guardian_bay_test, diferente do banco normal. Preflight impede fallback. A suíte aplica migrations e cria/limpa suas fixtures; só execute com destino dedicado confirmado.
 
+Para repetir localmente, mantenha `TEST_DATABASE_URL` em `.env.test.local` (ignorado pelo Git), apontando explicitamente para `guardian_bay_test`, com credencial própria. Execute `npm run test:integration:local`: o comando carrega somente esse arquivo, valida o destino, aplica migrations nesse banco e executa a suíte sequencial. Não carrega `.env` nem deriva conexão de `DATABASE_URL`. O usuário de testes deve poder gerenciar o schema desse banco, sem ser superusuário, criar bancos ou administrar roles. Não reutilize a credencial da aplicação.
+
 `npm run test:security` também exige SECURITY_BROWSER_PATH executável e OpenSSL. O contrato documentado de browser aceita Node 22.12+ ou 24+; Node 24.19.0 é referência do CI, não requisito exclusivo. O preflight atual verifica somente major >= 22: não comprova o minor mínimo documentado. Usa perfil/certificado temporários em loopback; sem login pessoal ou trust no sistema. Consulte README/harness antes de rodar. Instaladores de scanners SDLC são específicos de Linux x64; não reproduzir comandos bash como instaladores Windows.
 
 ## Diagnóstico e recuperação

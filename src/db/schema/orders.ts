@@ -3,12 +3,14 @@ import {
   bigint,
   check,
   index,
+  jsonb,
   pgTable,
   timestamp,
   unique,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import type { ShippingAddressSnapshot } from "./addresses";
 import { users } from "./users";
 
 export const orders = pgTable(
@@ -19,6 +21,7 @@ export const orders = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     checkoutKey: uuid("checkout_key").notNull(),
+    shippingAddress: jsonb("shipping_address").$type<ShippingAddressSnapshot>(),
     status: varchar("status", { length: 16 })
       .default("PENDING_PAYMENT")
       .notNull(),

@@ -6,6 +6,7 @@ import { getDb } from "@/db";
 import { orderItems } from "@/db/schema/order-items";
 import { orders } from "@/db/schema/orders";
 import { sessions } from "@/db/schema/sessions";
+import { addressSnapshotSchema } from "@/features/addresses/schemas/address";
 import { sessionValidity, tokenHash } from "@/features/auth/server/session";
 import { sessionCookiePolicy } from "@/features/auth/server/session-cookie";
 import { moneyDto } from "@/lib/money/price";
@@ -25,6 +26,7 @@ export async function orderDetail(input: unknown) {
         status: orders.status,
         createdAt: orders.createdAt,
         total: orders.totalAmount,
+        shippingAddress: orders.shippingAddress,
         productName: orderItems.productName,
         quantity: orderItems.quantity,
         unitAmount: orderItems.unitAmount,
@@ -52,6 +54,9 @@ export async function orderDetail(input: unknown) {
         status: order.status,
         createdAt: order.createdAt.toISOString(),
         total: moneyDto(order.total),
+        shippingAddress: order.shippingAddress
+          ? addressSnapshotSchema.parse(order.shippingAddress)
+          : null,
         items: rows.map((row) => ({
           productName: row.productName,
           quantity: row.quantity,

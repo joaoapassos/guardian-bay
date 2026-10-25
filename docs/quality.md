@@ -13,6 +13,7 @@
 | `npm run security:dependencies` | Audit runtime/tooling com política datada, sem autofix |
 | `npm run security:secrets`, `npm run security:sast`, `npm run ci:validate` | Scanners fixados via fluxo Linux suportado; execução depende da instalação |
 | `git diff --check` e `git diff --cached --check` | Whitespace unstaged/staged; não substituem revisão de arquivos novos |
+| `node --test scripts/store-ui.test.mjs` | UI isolada da Loja/Minha Conta, Chrome em `SECURITY_BROWSER_PATH`; execute build antes para disponibilizar fontes locais. Reads sintéticos, banco proibido e POST bloqueado: não comprova checkout ou persistência reais |
 
 CI não foi substituído. Biome recomendado/Next/React e TypeScript strict permanecem. Os módulos ESLint do toolkit não foram copiados como código morto: o Biome 2.4.2 já oferece noFloatingPromises/noMisusedPromises em nursery com inferência própria. As duas regras foram medidas sem violações e habilitadas como error, sem novo linter. Casos negativos/positivos descartáveis validaram os diagnósticos; não equivalem ao typechecker completo. Rever compatibilidade ao atualizar Biome, pois nursery é experimental. [Documentação](https://biomejs.dev/linter/rules/no-floating-promises/) e [uso incorreto](https://biomejs.dev/linter/rules/no-misused-promises/).
 

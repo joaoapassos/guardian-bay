@@ -12,6 +12,12 @@ Cartões aceitam exclusivamente fixtures versionadas exibidas na UI. Número com
 
 ## Ciclo de vida
 
+### Endereço e preço na interface Loja
+
+A interface exige um endereço brasileiro salvo pelo próprio usuário. A Action recebe somente `addressId`, e o servidor consulta ownership sob lock e copia os campos validados para `orders.shippingAddress`; não aceita endereço, frete ou totais arbitrários do cliente. Edições/exclusões futuras do cadastro não alteram o snapshot. O retry idempotente continua retornando o pedido original antes de consultar endereço. O campo é opcional no contrato para preservar clientes e pedidos legados; a nova interface exige seleção. A migration 0016 adiciona a tabela de endereços e o snapshot nullable, sem preencher histórico artificialmente.
+
+O checkout não calcula frete. O aviso informa que os preços vigentes serão aceitos no fechamento; a revisão não congela valores nem reserva estoque. Não há novo aceite obrigatório, gateway ou método de entrega.
+
 Uma tentativa por pedido; nova tentativa usa nova intenção de checkout. UNIQUE(userId, checkoutKey) permanece; retry retorna o original antes de tocar carrinho, budget ou cartão, mesmo se a escolha tiver mudado. Não há exactly-once entre chaves diferentes.
 
 Pagamento PENDING → APPROVED, DECLINED ou EXPIRED; finais imutáveis. Pedido PENDING_PAYMENT → PAID, PAYMENT_FAILED ou PAYMENT_EXPIRED. Atualizações condicionais, estado do pedido/pagamento, estoque e evento final são atômicos. Valor é relido do snapshot server-side; preços do catálogo só são utilizados na criação. Regra v1 aprova total < 1.000.000 centavos, recusa demais, para todos os métodos.

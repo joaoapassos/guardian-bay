@@ -8,6 +8,8 @@ E-commerce acadêmico com identidade, catálogo, carrinho autenticado e pedidos;
 - Customer mantém conta, senha, sessão e carrinho persistido; confirma checkout e consulta somente seus pedidos.
 - Admin com role persistida gerencia catálogo/estoque, consulta pedidos e auditoria selecionada; cada operação revalida acesso.
 - Checkout recalcula valores/publicação/estoque no servidor, mantém snapshot e idempotência e consome estoque somente para PAID na transação. Carrinho não reserva estoque.
+- Minha Conta permite manter até 20 endereços brasileiros, com revisão otimista e isolamento por sessão. A nova interface de checkout exige escolher um endereço próprio; o servidor registra uma cópia histórica no pedido. Não há cálculo de frete nem endereço principal. Pedidos legados podem não ter endereço.
+- Home apresenta até oito produtos; catálogo mantém pesquisa, categoria, preço, disponibilidade, ordenação e paginação na URL. Novidades permanece adiada até existir um critério de data aprovado. O perfil exibe e-mail e permite alterar senha; não oferece edição de dados sem contrato existente.
 - Cartão fictício, Pix e boleto são simulados e não movimentam dinheiro. Aprovação/recusa segue o [contrato de pagamentos](docs/architecture/payments.md).
 
 ## Garantias e limites

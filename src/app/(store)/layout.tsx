@@ -1,3 +1,5 @@
+import { StoreChrome } from "./_components/store-chrome";
+import { StoreFooter } from "./_components/store-footer";
 import { StoreHeader } from "./_components/store-header";
 
 export default function StoreLayout({
@@ -6,9 +8,8 @@ export default function StoreLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
-      <StoreHeader />
+    <StoreChrome header={<StoreHeader />} footer={<StoreFooter />}>
       {children}
-    </>
+    </StoreChrome>
   );
 }

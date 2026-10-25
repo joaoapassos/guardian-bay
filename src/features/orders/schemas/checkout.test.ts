@@ -25,3 +25,21 @@ it("ECMSG-76: intenção estrita rejeita autoridade comercial, ownership e statu
   for (const key of ["", "x".repeat(1000), "' OR 1=1 --", null, 1])
     expect(checkoutSchema.safeParse({ checkoutKey: key }).success).toBe(false);
 });
+
+it("accepts an optional address reference without accepting an address snapshot", () => {
+  const checkoutKey = randomUUID();
+  expect(checkoutSchema.safeParse({ checkoutKey }).success).toBe(true);
+  expect(
+    checkoutSchema.safeParse({ checkoutKey, addressId: randomUUID() }).success,
+  ).toBe(true);
+  for (const addressId of ["", "not-an-id", null, 1])
+    expect(checkoutSchema.safeParse({ checkoutKey, addressId }).success).toBe(
+      false,
+    );
+  expect(
+    checkoutSchema.safeParse({
+      checkoutKey,
+      shippingAddress: { recipient: "Untrusted" },
+    }).success,
+  ).toBe(false);
+});

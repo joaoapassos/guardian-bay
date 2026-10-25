@@ -318,8 +318,10 @@ it("ECMSG-75: detalhes usam snapshot, ownership na query e DTO mínimo", async (
       "status",
       "createdAt",
       "total",
+      "shippingAddress",
       "items",
     ]);
+    expect(before.order.shippingAddress).toBeNull();
     expect(Object.keys(before.order.items[0])).toEqual([
       "productName",
       "quantity",

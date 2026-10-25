@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { loginAction } from "../actions/login.action";
 import { CredentialFields, type CredentialInput } from "./credential-fields";
 
-export function LoginForm() {
+export function LoginForm({ returnTo = "/account" }: { returnTo?: string }) {
   const router = useRouter();
   const form = useForm<CredentialInput>();
   const [message, setMessage] = useState<FormMessage>(null);
@@ -36,7 +36,7 @@ export function LoginForm() {
               try {
                 const result = await loginAction(input);
                 if (result.success) {
-                  router.replace("/account");
+                  router.replace(returnTo);
                   router.refresh();
                 } else setMessage({ kind: "error", text: result.message });
               } catch {
@@ -63,7 +63,14 @@ export function LoginForm() {
       <FormFeedback message={message} />
       <p className="text-center text-sm leading-relaxed text-muted">
         Ainda não tem uma conta?{" "}
-        <Link href="/register" className="auth-link">
+        <Link
+          href={
+            returnTo === "/account"
+              ? "/register"
+              : `/register?returnTo=${encodeURIComponent(returnTo)}`
+          }
+          className="auth-link"
+        >
           Criar conta
         </Link>
       </p>

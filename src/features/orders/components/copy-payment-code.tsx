@@ -1,13 +1,16 @@
 "use client";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 export function CopyPaymentCode({ code }: { code: string }) {
   const [message, setMessage] = useState("");
   return (
     <div>
-      <p className="break-all rounded border p-3 font-mono">{code}</p>
-      <button
+      <p className="break-all rounded-control border border-line bg-paper p-4 font-mono text-sm">
+        {code}
+      </p>
+      <Button
         type="button"
-        className="mt-2 underline"
+        className="mt-3"
         onClick={async () => {
           try {
             await navigator.clipboard.writeText(code);
@@ -18,7 +21,7 @@ export function CopyPaymentCode({ code }: { code: string }) {
         }}
       >
         Copiar código fictício
-      </button>
+      </Button>
       <output className="block" aria-live="polite">
         {message}
       </output>

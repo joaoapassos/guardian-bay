@@ -13,13 +13,17 @@ export function PixPayment({ reference }: { reference: string }) {
     for (let x = 0; x < size; x++)
       if (qr.isDark(y, x)) path += `M${x + 4} ${y + 4}h1v1h-1z`;
   return (
-    <section className="mt-6 rounded border p-4" aria-label="Pix fictício">
-      <h2 className="text-xl font-semibold">Pix fictício</h2>
+    <section
+      className="space-y-5 rounded-panel border border-line bg-surface p-5 sm:p-7"
+      aria-label="Pix fictício"
+    >
+      <h2 className="font-editorial text-2xl text-coast">Pix fictício</h2>
       <p>
         SIMULAÇÃO — SEM VALOR FINANCEIRO. Este QR contém texto de teste; não
         transfere dinheiro e não é um código Pix bancário.
       </p>
       <svg
+        className="max-w-full"
         role="img"
         aria-label="QR Code de texto fictício, sem transferência bancária"
         viewBox={`0 0 ${size + 8} ${size + 8}`}

@@ -1,13 +1,19 @@
 "use client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { FormField } from "@/components/forms/form-field";
+import { Button } from "@/components/ui/button";
+import type { AddressDto } from "@/features/addresses/schemas/address";
 import { checkoutAction } from "../actions/checkout.action";
 
 export function CheckoutConfirmation({
   checkoutKey,
   cards,
+  addresses,
 }: {
   checkoutKey: string;
+  addresses: AddressDto[];
   cards: {
     id: string;
     last4: string;
@@ -21,16 +27,23 @@ export function CheckoutConfirmation({
   const router = useRouter();
   const [method, setMethod] = useState(cards.length ? "CARD" : "PIX");
   const [cardId, setCardId] = useState(cards[0]?.id ?? "");
+  const [addressId, setAddressId] = useState(addresses[0]?.id ?? "");
   return (
     <form
       aria-label="Confirmar checkout"
       aria-busy={pending}
+      className="mt-8 space-y-6 rounded-panel border border-line bg-surface p-5 sm:p-7"
       action={() => {
         setMessage("");
+        if (!addresses.some((address) => address.id === addressId)) {
+          setMessage("Selecione um endereço de entrega.");
+          return;
+        }
         startTransition(async () => {
           try {
             const result = await checkoutAction({
               checkoutKey: key,
+              addressId,
               payment: method === "CARD" ? { method, cardId } : { method },
             });
             if (result.success) router.push(`/orders/${result.orderId}`);
@@ -42,13 +55,15 @@ export function CheckoutConfirmation({
                     ? "Sessão expirada. Entre novamente."
                     : result.code === "INVALID_CARD"
                       ? "Cartão indisponível ou vencido. Selecione outro."
-                      : result.code === "EMPTY_CART"
-                        ? "O carrinho está vazio. Volte ao catálogo."
-                        : result.code === "OUT_OF_STOCK"
-                          ? "Estoque insuficiente. Revise o carrinho."
-                          : result.code === "UNAVAILABLE"
-                            ? "Um produto está indisponível. Corrija o carrinho."
-                            : "Confirmação inválida. Recarregue o checkout.",
+                      : result.code === "INVALID_ADDRESS"
+                        ? "Endereço indisponível. Confira seus endereços e recarregue o checkout."
+                        : result.code === "EMPTY_CART"
+                          ? "O carrinho está vazio. Volte ao catálogo."
+                          : result.code === "OUT_OF_STOCK"
+                            ? "Estoque insuficiente. Revise o carrinho."
+                            : result.code === "UNAVAILABLE"
+                              ? "Um produto está indisponível. Corrija o carrinho."
+                              : "Confirmação inválida. Recarregue o checkout.",
               );
           } catch {
             setMessage(
@@ -58,10 +73,43 @@ export function CheckoutConfirmation({
         });
       }}
     >
-      <label className="mt-6 block">
-        Método de pagamento simulado
+      <h2 className="font-editorial text-2xl text-coast">
+        Entrega e pagamento
+      </h2>
+      {addresses.length ? (
+        <FormField id="checkout-address" label="Endereço de entrega no Brasil">
+          <select
+            id="checkout-address"
+            className="auth-input"
+            value={addressId}
+            disabled={pending}
+            required
+            onChange={(event) => setAddressId(event.target.value)}
+          >
+            {addresses.map((address) => (
+              <option key={address.id} value={address.id}>
+                {address.recipient} — {address.street}, {address.number} ·{" "}
+                {address.city}/{address.state} · {address.postalCode}
+              </option>
+            ))}
+          </select>
+        </FormField>
+      ) : (
+        <p>Adicione um endereço brasileiro antes de confirmar o pedido.</p>
+      )}
+      <Link href="/account/addresses" className="auth-link inline-block">
+        Gerenciar endereços
+      </Link>
+      <p className="text-sm text-muted">
+        Nenhum frete é calculado neste checkout simulado.
+      </p>
+      <FormField
+        id="checkout-payment-method"
+        label="Método de pagamento simulado"
+      >
         <select
-          className="ml-3 rounded border p-2"
+          id="checkout-payment-method"
+          className="auth-input"
           value={method}
           disabled={pending}
           onChange={(event) => setMethod(event.target.value)}
@@ -70,12 +118,12 @@ export function CheckoutConfirmation({
           <option value="PIX">Pix fictício</option>
           <option value="BOLETO">Boleto fictício</option>
         </select>
-      </label>
+      </FormField>
       {method === "CARD" && (
-        <label className="mt-3 block">
-          Cartão cadastrado
+        <FormField id="checkout-card" label="Cartão cadastrado">
           <select
-            className="ml-3 rounded border p-2"
+            id="checkout-card"
+            className="auth-input"
             value={cardId}
             disabled={pending}
             onChange={(event) => setCardId(event.target.value)}
@@ -88,7 +136,7 @@ export function CheckoutConfirmation({
               </option>
             ))}
           </select>
-        </label>
+        </FormField>
       )}
       <p className="mt-3">
         Nenhum dinheiro será movimentado. Pix e boleto convertem o carrinho em
@@ -96,17 +144,22 @@ export function CheckoutConfirmation({
         na confirmação. Falhas e expiração não restauram o carrinho
         automaticamente.
       </p>
-      <button
+      <p className="text-sm text-muted">
+        Ao confirmar, serão usados os preços vigentes. Os valores e a
+        disponibilidade serão conferidos novamente; o carrinho não congela
+        preços nem reserva estoque.
+      </p>
+      <Button
         type="submit"
         disabled={
           pending ||
+          !addresses.some((address) => address.id === addressId) ||
           (method === "CARD" && !cards.some((card) => card.id === cardId))
         }
-        className="mt-6 rounded border px-4 py-2 disabled:opacity-50"
         aria-describedby="checkout-feedback"
       >
         Confirmar pedido simulado
-      </button>
+      </Button>
       <output id="checkout-feedback" aria-live="polite" className="block mt-3">
         {pending ? "Confirmando pedido…" : message}
       </output>

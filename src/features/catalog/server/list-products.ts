@@ -1,18 +1,28 @@
 import "server-only";
-import { and, asc, desc, eq, ilike } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, ilike, lte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { categories } from "@/db/schema/categories";
 import { inventory } from "@/db/schema/inventory";
 import { products } from "@/db/schema/products";
 import { priceDto } from "@/lib/money/price";
 import { productImage } from "../images";
-import { listQuerySchema } from "../schemas/list-query";
+import { publicListQuerySchema } from "../schemas/list-query";
+import { readPublicCategories } from "./read-public-categories";
 
 export async function listProducts(input: unknown) {
-  const parsed = listQuerySchema.safeParse(input);
+  const parsed = publicListQuerySchema.safeParse(input);
   if (!parsed.success)
     return { success: false as const, code: "INVALID_INPUT" as const };
-  const { page, limit, query, category, sort } = parsed.data;
+  const {
+    page,
+    limit,
+    query,
+    category,
+    sort,
+    minPrice,
+    maxPrice,
+    availability,
+  } = parsed.data;
   // LIKE metacharacters are literals, not client-selected wildcard queries.
   const escaped = query.replace(/[\\%_]/g, "\\$&");
   const ordering =
@@ -21,13 +31,23 @@ export async function listProducts(input: unknown) {
       : sort === "price-desc"
         ? desc(products.amount)
         : asc(products.name);
-  const publicCategories = await getDb()
-    .selectDistinct({ id: categories.id, name: categories.name })
-    .from(categories)
-    .innerJoin(products, eq(products.categoryId, categories.id))
-    .where(eq(products.isPublished, true))
-    .orderBy(asc(categories.name), asc(categories.id))
-    .limit(100);
+  const publicCategories = await readPublicCategories();
+  const conditions = and(
+    eq(products.isPublished, true),
+    category ? eq(products.categoryId, category) : undefined,
+    query ? ilike(products.name, `%${escaped}%`) : undefined,
+    minPrice === undefined ? undefined : gte(products.amount, minPrice),
+    maxPrice === undefined ? undefined : lte(products.amount, maxPrice),
+    availability === "in-stock"
+      ? gt(inventory.availableQuantity, 0)
+      : undefined,
+  );
+  const [summary] = await getDb()
+    .select({ total: count() })
+    .from(products)
+    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(inventory, eq(inventory.productId, products.id))
+    .where(conditions);
   const rows = await getDb()
     .select({
       id: products.id,
@@ -41,13 +61,7 @@ export async function listProducts(input: unknown) {
     .from(products)
     .innerJoin(categories, eq(products.categoryId, categories.id))
     .leftJoin(inventory, eq(inventory.productId, products.id))
-    .where(
-      and(
-        eq(products.isPublished, true),
-        category ? eq(products.categoryId, category) : undefined,
-        query ? ilike(products.name, `%${escaped}%`) : undefined,
-      ),
-    )
+    .where(conditions)
     .orderBy(ordering, asc(products.id))
     .limit(limit + 1)
     .offset((page - 1) * limit);
@@ -58,6 +72,10 @@ export async function listProducts(input: unknown) {
     query,
     category,
     sort,
+    minPrice,
+    maxPrice,
+    availability,
+    total: summary.total,
     categories: publicCategories,
     hasNext: rows.length > limit,
     products: rows

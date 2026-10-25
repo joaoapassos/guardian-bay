@@ -30,7 +30,8 @@
     "security:secrets": "node scripts/check-secrets.mjs",
     "security:sast": "node scripts/check-sast.mjs",
     "ci:validate": ".vitest/tools/actionlint -color",
-    "ci:integrity": "node scripts/check-integrity.mjs"
+    "ci:integrity": "node scripts/check-integrity.mjs",
+    "test:integration:local": "node --env-file=.env.test.local scripts/test-integration-local.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.1.24",
