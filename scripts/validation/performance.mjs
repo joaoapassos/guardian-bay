@@ -17,6 +17,11 @@ import {
 } from "./concurrency-gate.mjs";
 import { writeEvidence } from "./evidence.mjs";
 import { httpMeasurementWindow, measuredPeak } from "./measurement-window.mjs";
+import {
+  navigationEligible,
+  navigationProfile,
+} from "./navigation-contract.mjs";
+import { prepareNavigation, verifyNavigation } from "./navigation-state.mjs";
 import { labDirectory, labLease } from "./scope.mjs";
 import { assertIntegrity, openLabDb } from "./state.mjs";
 import { boundedMonitor, stopChild, supervise } from "./supervision.mjs";
@@ -43,9 +48,15 @@ if (diagnostic) {
 }
 assert.ok(["capacity", "stress"].includes(phase));
 assert.ok([1, 2, 10, 50, 100, 250, 500, 1000].includes(vus));
-assert.ok(Number.isInteger(seconds) && seconds >= 5 && seconds <= 600);
 assert.ok(
-  ["read", "commerce", "representative", "concurrent"].includes(workload),
+  Number.isInteger(seconds) &&
+    seconds >= 5 &&
+    seconds <= (workload === "navigation" ? 1200 : 600),
+);
+assert.ok(
+  ["read", "commerce", "representative", "concurrent", "navigation"].includes(
+    workload,
+  ),
 );
 const concurrentRequests =
   workload === "concurrent" ? Number(process.env.LAB_REQUESTS) : null;
@@ -78,11 +89,13 @@ if (workload === "representative") {
   assert.equal(diagnostic, false);
 }
 const workloadPath =
-  workload === "representative"
-    ? "scripts/validation/representative.k6.js"
-    : workload === "concurrent"
-      ? "scripts/validation/concurrent.k6.js"
-      : "scripts/validation/load.k6.js";
+  workload === "navigation"
+    ? "scripts/validation/navigation.k6.js"
+    : workload === "representative"
+      ? "scripts/validation/representative.k6.js"
+      : workload === "concurrent"
+        ? "scripts/validation/concurrent.k6.js"
+        : "scripts/validation/load.k6.js";
 // Fail closed while the production dependency gate has an unresolved finding.
 const sca = JSON.parse(
   readFileSync(".vitest/dependencies-production.json", "utf8"),
@@ -102,6 +115,62 @@ assert.ok(Number.isSafeInteger(pids.app) && pids.app > 0);
 const appPids = pids.apps ?? [pids.app];
 const appPoolMax = pids.poolMax ?? 10;
 const listenerBacklog = pids.proxyBacklog ?? 511;
+const navigationRecordsPath = join(labDirectory, "navigation-stages.json");
+const navigationRecords = existsSync(navigationRecordsPath)
+  ? JSON.parse(readFileSync(navigationRecordsPath, "utf8"))
+  : [];
+const navigationScope = {
+  runId: labLease().runId,
+  buildId: readFileSync(".next/BUILD_ID", "utf8").trim(),
+  sourceTree: execFileSync("git", ["rev-parse", "HEAD:src"], {
+    encoding: "utf8",
+  }).trim(),
+  harnessSha256: createHash("sha256")
+    .update(
+      [
+        "scripts/validation/navigation.k6.js",
+        "scripts/validation/navigation-contract.mjs",
+        "scripts/validation/navigation-state.mjs",
+        "scripts/validation/performance.mjs",
+      ]
+        .map((path) => readFileSync(path, "utf8"))
+        .join("\0"),
+    )
+    .digest("hex"),
+  topology: JSON.stringify({
+    apps: appPids.length,
+    pool: appPoolMax,
+    protocol: pids.proxyProtocol ?? "h1",
+    upstream: pids.upstreamMaxSockets ?? 0,
+    backlog: listenerBacklog,
+  }),
+};
+let navigationSnapshot;
+let navigationPending;
+if (workload === "navigation") {
+  assert.equal(diagnostic, false);
+  assert.equal(safeScaCount(), 0);
+  assert.ok(
+    navigationEligible(vus, seconds, navigationRecords, navigationScope),
+    "Previous sustained navigation stage missing, failed, unreviewed or different scope",
+  );
+  navigationSnapshot = await prepareNavigation();
+  navigationPending = {
+    ...navigationScope,
+    profileId: navigationProfile,
+    vus,
+    seconds,
+    passed: false,
+    integrityPassed: false,
+    reviewApproved: false,
+    state: "RUNNING_OR_INTERRUPTED",
+    startedAt: new Date().toISOString(),
+  };
+  writeFileSync(
+    navigationRecordsPath,
+    `${JSON.stringify([...navigationRecords, navigationPending], null, 2)}\n`,
+  );
+}
 if (workload === "concurrent") {
   if (concurrentRequests > 500) {
     assert.equal(httpTransport, "proxy");
@@ -239,7 +308,7 @@ const deadline = setTimeout(
     abort = "runner-deadline";
     stopChild(child);
   },
-  (seconds + 45) * 1000,
+  (seconds + (workload === "navigation" ? 270 : 45)) * 1000,
 );
 const monitor = (async () => {
   // CPU counters need a real interval; an immediate zero delta is not 100% usage.
@@ -371,9 +440,11 @@ const summary = existsSync(path)
   ? JSON.parse(readFileSync(path, "utf8"))
   : null;
 const duration =
-  workload === "concurrent"
-    ? summary?.metrics?.measured_http_ms
-    : summary?.metrics?.http_req_duration;
+  workload === "navigation"
+    ? summary?.metrics?.nav_read_ms
+    : workload === "concurrent"
+      ? summary?.metrics?.measured_http_ms
+      : summary?.metrics?.http_req_duration;
 const measurementEndedAt = Date.now();
 const httpWindow =
   workload === "concurrent"
@@ -406,6 +477,20 @@ for (const name of readdirSync(join(labDirectory, "observability"))) {
 }
 const metrics = {
   appInstances: appPids.length,
+  navigationVus: workload === "navigation" ? vus : 0,
+  navigationReadRequests: summary?.metrics?.nav_read_count?.count ?? 0,
+  navigationWriteRequests: summary?.metrics?.nav_write_count?.count ?? 0,
+  navigationWriteP95Ms: summary?.metrics?.nav_write_ms?.["p(95)"] ?? 0,
+  navigationWriteP99Ms: summary?.metrics?.nav_write_ms?.["p(99)"] ?? 0,
+  navigationActiveVusMin: summary?.metrics?.nav_active_vus?.min ?? 0,
+  navigationPlateauObservedSeconds:
+    summary?.metrics?.nav_plateau_elapsed_seconds?.max ?? 0,
+  navigationOrders: summary?.metrics?.nav_orders?.count ?? 0,
+  navigationCompletedUsers: summary?.metrics?.nav_completed_users?.count ?? 0,
+  navigationMinimumReadsPerUser: summary?.metrics?.nav_per_user_reads?.min ?? 0,
+  navigationCardOrders: summary?.metrics?.nav_orders_card?.count ?? 0,
+  navigationPixOrders: summary?.metrics?.nav_orders_pix?.count ?? 0,
+  navigationBoletoOrders: summary?.metrics?.nav_orders_boleto?.count ?? 0,
   appPoolMax,
   proxyBacklog: listenerBacklog,
   proxyHttp2Configured: pids.proxyProtocol === "h2" ? 1 : 0,
@@ -459,29 +544,60 @@ const metrics = {
   warmRefused: summary?.metrics?.warm_refused?.count ?? 0,
   measuredRefused: summary?.metrics?.measured_refused?.count ?? 0,
 };
+let navigationIntegrity;
+if (workload === "navigation") {
+  const verificationDb = await openLabDb();
+  try {
+    navigationIntegrity = await verifyNavigation(
+      verificationDb,
+      navigationSnapshot,
+      metrics.navigationOrders,
+    );
+  } catch {
+    abort = "navigation-integrity-failed";
+  } finally {
+    await verificationDb.end();
+  }
+}
 const validMeasurement =
-  workload !== "concurrent" ||
-  (!!httpWindow &&
-    !!duration &&
-    metrics.measuredRequests === concurrentRequests &&
-    (httpTransport !== "proxy" ||
-      metrics.maxProxyInflight >= concurrentRequests) &&
-    (httpTransport !== "proxy" ||
-      pids.proxyProtocol !== "h2" ||
-      metrics.measuredHttp2Requests === metrics.measuredRequests) &&
-    [...appPids, pids.supervisor].every((pid) =>
-      observerSamples.some((s) => s.pid === pid),
-    ));
+  workload === "navigation"
+    ? metrics.navigationActiveVusMin === vus &&
+      metrics.navigationCompletedUsers === vus &&
+      metrics.navigationMinimumReadsPerUser >= Math.floor(seconds / 40) &&
+      (vus < 100 ||
+        (metrics.navigationCardOrders > 0 &&
+          metrics.navigationPixOrders > 0 &&
+          metrics.navigationBoletoOrders > 0)) &&
+      metrics.navigationPlateauObservedSeconds >= seconds - 20 &&
+      metrics.navigationReadRequests >= Math.floor((vus * seconds) / 40) &&
+      metrics.navigationWriteRequests > 0 &&
+      [...appPids, pids.supervisor].every((pid) =>
+        observerSamples.some((s) => s.pid === pid),
+      )
+    : workload !== "concurrent" ||
+      (!!httpWindow &&
+        !!duration &&
+        metrics.measuredRequests === concurrentRequests &&
+        (httpTransport !== "proxy" ||
+          metrics.maxProxyInflight >= concurrentRequests) &&
+        (httpTransport !== "proxy" ||
+          pids.proxyProtocol !== "h2" ||
+          metrics.measuredHttp2Requests === metrics.measuredRequests) &&
+        [...appPids, pids.supervisor].every((pid) =>
+          observerSamples.some((s) => s.pid === pid),
+        ));
 const passed =
   code === 0 && !abort && !!summary && samples.length >= 2 && validMeasurement;
-writeEvidence(
+const report = writeEvidence(
   diagnostic
     ? diagnosticId
-    : workload === "representative"
-      ? `task-07-calibration-${Date.now()}`
-      : workload === "concurrent"
-        ? `task-18-http-burst-${concurrentRequests}-${Date.now()}`
-        : `task-${phase === "stress" ? "13" : vus <= 2 ? "11" : "12"}-perf-${workload}-${vus}`,
+    : workload === "navigation"
+      ? `task-35-navigation-${vus}-${Date.now()}`
+      : workload === "representative"
+        ? `task-07-calibration-${Date.now()}`
+        : workload === "concurrent"
+          ? `task-18-http-burst-${concurrentRequests}-${Date.now()}`
+          : `task-${phase === "stress" ? "13" : vus <= 2 ? "11" : "12"}-perf-${workload}-${vus}`,
   [
     {
       id: "PERFORMANCE",
@@ -492,4 +608,25 @@ writeEvidence(
   ],
   metrics,
 );
+if (workload === "navigation") {
+  const record = {
+    ...navigationScope,
+    profileId: navigationProfile,
+    vus,
+    seconds,
+    passed,
+    integrityPassed: !!navigationIntegrity,
+    reviewApproved: false,
+    report: report.task,
+    integrity: navigationIntegrity,
+  };
+  writeFileSync(
+    navigationRecordsPath,
+    `${JSON.stringify([...navigationRecords, navigationPending, record], null, 2)}\n`,
+  );
+  writeFileSync(
+    `docs/validation/epic13-navigation-${vus}-${Date.now()}.json`,
+    `${JSON.stringify({ ...report, profileId: navigationProfile, harnessSha256: navigationScope.harnessSha256, topology: navigationScope.topology, integrity: navigationIntegrity, scope: "Local HTTP navigation with pre-provisioned1000identities; not1000concurrentHTTPrequests, real browser rendering, login throughput or production guarantee" }, null, 2)}\n`,
+  );
+}
 if (!passed) process.exitCode = 1;

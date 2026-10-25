@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { withBrowser } from "./browser.mjs";
 import { writeEvidence } from "./evidence.mjs";
@@ -13,7 +13,7 @@ const cases = [];
 let current;
 await withBrowser(async ({ send, evaluate, wait, navigate, events }) => {
   events.add((event) => {
-    if (event.method !== "Network.requestWillBeSent" || !current) return;
+    if (event.method !== "Network.requestWillBeSent") return;
     const request = event.params.request;
     const actionId = Object.entries(request.headers).find(
       ([name]) => name.toLowerCase() === "next-action",
@@ -22,12 +22,21 @@ await withBrowser(async ({ send, evaluate, wait, navigate, events }) => {
       request.url.startsWith(`${labOrigin}/`) &&
       request.method === "POST" &&
       actionId
-    )
+    ) {
+      if (request.postData === "[]") {
+        captures.recordActivity = {
+          path: new URL(request.url).pathname,
+          actionId,
+        };
+        return;
+      }
+      if (!current) return;
       captures[current] = {
         path: new URL(request.url).pathname,
         actionId,
         body: request.postData ?? null,
       };
+    }
   });
   const fill = async (values, selector = "form") => {
     await wait(
@@ -55,6 +64,26 @@ await withBrowser(async ({ send, evaluate, wait, navigate, events }) => {
   });
   await submit("form");
   await wait("location.pathname==='/account'", "real login");
+  await wait(
+    "[...document.querySelectorAll('button')].some(b=>b.textContent==='Sair'&&Object.keys(b).some(k=>k.startsWith('__reactProps$')&&typeof b[k]?.onClick==='function'))",
+    "account hydration",
+  );
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  for (const type of ["mousePressed", "mouseReleased"])
+    await send("Input.dispatchMouseEvent", {
+      type,
+      x: 5,
+      y: 400,
+      button: "left",
+      clickCount: 1,
+    });
+  const activityDeadline = Date.now() + 10000;
+  while (!captures.recordActivity && Date.now() < activityDeadline)
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.ok(
+    captures.recordActivity,
+    "Real browser interaction must capture activity Action",
+  );
   cases.push({
     id: "CAPTURE_LOGIN",
     expected: "Actual UI login reaches account",
@@ -148,8 +177,20 @@ for (const name of [
   "updateCart",
   "checkout",
   "confirmPayment",
+  "recordActivity",
 ])
   assert.ok(captures[name]?.actionId, `Missing real capture: ${name}`);
+const previousCaptures = join(labDirectory, "captures.json");
+if (existsSync(previousCaptures))
+  copyFileSync(
+    previousCaptures,
+    join(labDirectory, `captures-before-${Date.now()}.json`),
+  );
+captures._meta = {
+  runId: data.runId,
+  buildId: readFileSync(".next/BUILD_ID", "utf8").trim(),
+  capturedAt: new Date().toISOString(),
+};
 writeFileSync(
   join(labDirectory, "captures.json"),
   JSON.stringify(captures, null, 2),
@@ -167,8 +208,9 @@ assert.equal(
 );
 cases.push({
   id: "CAPTURE_REAL_ACTIONS",
-  expected: "Seven Action IDs captured from real UI, replay positive succeeds",
-  observed: "Seven captured; saveCard replay returned success",
+  expected: "Eight Action IDs captured from real UI, replay positive succeeds",
+  observed:
+    "Eight captured including activity; saveCard replay returned success",
   status: "PASS",
 });
 cases.push({
@@ -178,5 +220,5 @@ cases.push({
   status: "PASS",
 });
 writeEvidence("task-05-real-surface", cases, {
-  actions: Object.keys(captures).length,
+  actions: Object.keys(captures).filter((key) => key !== "_meta").length,
 });
