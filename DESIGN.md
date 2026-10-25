@@ -35,29 +35,29 @@ components:
 
 ## Overview
 
-Preparo, acolhimento e confiança; atmosfera costeira e nostalgia discreta, com produtos e tarefas acima da decoração. [Identidade operacional](visual-identity/idv.md).
+Preparo, acolhimento e confiança; atmosfera costeira e nostalgia discreta, com produtos e tarefas acima da decoração. [Identidade operacional](docs/visual-identity/idv.md).
 
 Formato: tokens em YAML e orientação em Markdown, conforme a [especificação Google DESIGN.md](https://github.com/google-labs-code/design.md/blob/main/docs/spec.md). Não utiliza TOON. O frontmatter concentra valores para leitura estruturada; a prosa explica sua aplicação sem repetir a tabela de tokens.
 
-Precedência: [AGENTS.md](AGENTS.md), [arquitetura](docs/architecture/README.md) e segurança permanecem vigentes. A IDV determina identidade visual; estudos de páginas/componentes determinam estrutura e comportamento. [Fontes, divergências e pendências](visual-identity/README.md).
+Precedência: [AGENTS.md](AGENTS.md), [arquitetura](docs/architecture/README.md) e segurança permanecem vigentes. A IDV determina identidade visual; estudos de páginas/componentes determinam estrutura e comportamento. [Fontes, divergências e pendências](docs/visual-identity/README.md).
 
 ## Colors
 
 `neutral` é cenário; `primary`, principal destaque de marca/interação; `secondary` e `tertiary`, apoios discretos. A estimativa 60/20/10/10 orienta o conjunto, sem cotas por página. Verde não é CTA principal; terracota não equivale a erro.
 
-Tokens cromáticos vêm da IDV. Semânticas propostas N01 e contrastes estão em [Fundamentos](visual-identity/fundamentos.md#cores), sem transformar propostas em cores de marca aprovadas.
+Tokens cromáticos vêm da IDV. Semânticas propostas N01 e contrastes estão em [Fundamentos](docs/visual-identity/fundamentos.md#cores), sem transformar propostas em cores de marca aprovadas.
 
 ## Typography
 
-Wordmark: Fraunces 800 em caixa alta, com dimensão final pendente. Fraunces editorial, IBM Plex Sans na interface e IBM Plex Mono apenas em dados técnicos úteis. Os níveis YAML são um recorte da proposta operacional N04, não uma nova escala. [Tipografia completa e fallbacks](visual-identity/fundamentos.md#tipografia).
+Wordmark: Fraunces 800 em caixa alta, com dimensão final pendente. Fraunces editorial, IBM Plex Sans na interface e IBM Plex Mono apenas em dados técnicos úteis. Os níveis YAML são um recorte da proposta operacional N04, não uma nova escala. [Tipografia completa e fallbacks](docs/visual-identity/fundamentos.md#tipografia).
 
 ## Layout
 
-Container fluido; `spacing.container` é limite aproximado, não largura fixa. Home: quatro colunas desktop, tablet adaptativo, duas mobile. Catálogo: quatro/três/duas, com filtros laterais/recolhíveis/Drawer. [Espaçamento, margens e faixas](visual-identity/fundamentos.md#containers-e-grids).
+Container fluido; `spacing.container` é limite aproximado, não largura fixa. Home: quatro colunas desktop, tablet adaptativo, duas mobile. Catálogo: quatro/três/duas, com filtros laterais/recolhíveis/Drawer. [Espaçamento, margens e faixas](docs/visual-identity/fundamentos.md#containers-e-grids).
 
 ## Elevation & Depth
 
-Usar espaço, contorno e contraste entre superfícies; sombras mínimas. Sem textura em campos, preços ou checkout. A borda decorativa não identifica sozinha controles: aplicar N03 em [Bordas e superfícies](visual-identity/fundamentos.md#bordas-e-superficies).
+Usar espaço, contorno e contraste entre superfícies; sombras mínimas. Sem textura em campos, preços ou checkout. A borda decorativa não identifica sozinha controles: aplicar N03 em [Bordas e superfícies](docs/visual-identity/fundamentos.md#bordas-e-superficies).
 
 ## Shapes
 
@@ -65,9 +65,9 @@ Raios e alturas YAML expressam a proposta N06 existente; espaços operacionais e
 
 ## Components
 
-Os dois exemplos YAML reutilizam tokens por referência; variações e estados permanecem na aplicação dos [26 componentes](visual-identity/componentes.md). Começar pela composição da página entre as [27 páginas](visual-identity/paginas.md), preservando seus condicionantes.
+Os dois exemplos YAML reutilizam tokens por referência; variações e estados permanecem na aplicação dos [26 componentes](docs/visual-identity/componentes.md). Começar pela composição da página entre as [27 páginas](docs/visual-identity/paginas.md), preservando seus condicionantes.
 
-Padrões: [formulários](visual-identity/padroes/formularios.md), [navegação](visual-identity/padroes/navegacao.md), [feedback e estados](visual-identity/padroes/feedback-estados.md), [interações e foco](visual-identity/padroes/interacoes.md). Alterar um valor exige manter frontmatter e Fundamentos coerentes; não criar uma segunda escala nos documentos de páginas.
+Padrões: [formulários](docs/visual-identity/padroes/formularios.md), [navegação](docs/visual-identity/padroes/navegacao.md), [feedback e estados](docs/visual-identity/padroes/feedback-estados.md), [interações e foco](docs/visual-identity/padroes/interacoes.md). Alterar um valor exige manter frontmatter e Fundamentos coerentes; não criar uma segunda escala nos documentos de páginas.
 
 ## Do's and Don'ts
 
