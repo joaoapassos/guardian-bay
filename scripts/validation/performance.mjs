@@ -123,6 +123,7 @@ if (workload === "concurrent") {
     appInstances: appPids.length,
     appPoolMax,
     backlog: listenerBacklog,
+    upstreamMaxSockets: pids.upstreamMaxSockets ?? 0,
   });
 }
 assert.ok([511, 2048].includes(listenerBacklog));
@@ -165,6 +166,7 @@ writeFileSync(
       appInstances: appPids.length,
       appPoolMax,
       proxyBacklog: listenerBacklog,
+      upstreamMaxSockets: pids.upstreamMaxSockets ?? 0,
       commit: execFileSync("git", ["rev-parse", "HEAD"], {
         encoding: "utf8",
       }).trim(),
@@ -407,6 +409,7 @@ const metrics = {
   appPoolMax,
   proxyBacklog: listenerBacklog,
   proxyHttp2Configured: pids.proxyProtocol === "h2" ? 1 : 0,
+  upstreamMaxSockets: pids.upstreamMaxSockets ?? 0,
   reuseProfileSelected: connectionProfile === "reuse" ? 1 : 0,
   measuredHttp2Requests: summary?.metrics?.measured_http2_requests?.count ?? 0,
   requestedConcurrency: concurrentRequests ?? 0,

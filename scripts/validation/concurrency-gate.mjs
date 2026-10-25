@@ -22,6 +22,7 @@ export function priorConcurrencyPassed(report, previous, context) {
     m.proxyHttp2Configured === 1 &&
     m.reuseProfileSelected === 1 &&
     m.proxyBacklog === context.backlog &&
+    (m.upstreamMaxSockets ?? 0) === (context.upstreamMaxSockets ?? 0) &&
     m.unexpectedFailureRate === 0 &&
     m.p95 > 0 &&
     m.p95 < 500 &&

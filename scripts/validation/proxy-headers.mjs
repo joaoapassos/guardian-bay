@@ -5,6 +5,14 @@ export function proxyProtocol(value = "h1") {
   return value;
 }
 
+export function upstreamConnectionLimit(value = "unbounded") {
+  assert.ok(
+    ["unbounded", "16"].includes(value),
+    "Invalid local upstream connection budget",
+  );
+  return value === "unbounded" ? Infinity : 16;
+}
+
 export function upstreamHeaders(input) {
   const headers = { ...input };
   const authority = headers[":authority"];

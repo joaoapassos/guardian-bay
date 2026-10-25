@@ -8,7 +8,7 @@ import {
   realpathSync,
   writeFileSync,
 } from "node:fs";
-import { request as httpRequest } from "node:http";
+import { Agent, request as httpRequest } from "node:http";
 import { createSecureServer } from "node:http2";
 import { createServer } from "node:https";
 import { join } from "node:path";
@@ -24,6 +24,7 @@ import {
 import {
   downstreamHeaders,
   proxyProtocol,
+  upstreamConnectionLimit,
   upstreamHeaders,
 } from "./proxy-headers.mjs";
 import {
@@ -174,6 +175,16 @@ try {
     const poolMax = ports.length === 16 ? 2 : ports.length === 8 ? 5 : 10;
     const backlog = proxyBacklog(process.env.LAB_PROXY_BACKLOG);
     const protocol = proxyProtocol(process.env.LAB_PROXY_PROTOCOL);
+    const upstreamMax = upstreamConnectionLimit(
+      process.env.LAB_UPSTREAM_CONNECTIONS,
+    );
+    const upstreamAgent = Number.isFinite(upstreamMax)
+      ? new Agent({
+          keepAlive: true,
+          maxSockets: upstreamMax,
+          maxFreeSockets: upstreamMax,
+        })
+      : undefined;
     let upstreamIndex = 0;
     const apps = ports.map((port) =>
       spawn(
@@ -235,6 +246,7 @@ try {
             method: request.method,
             path: request.url,
             headers,
+            agent: upstreamAgent,
             timeout: 15000,
           },
           (result) => {
@@ -257,6 +269,9 @@ try {
           response.end();
         });
         request.on("aborted", () => upstream.destroy());
+        response.on("close", () => {
+          if (!response.writableFinished) upstream.destroy();
+        });
         request.pipe(upstream);
       },
     );
@@ -290,6 +305,9 @@ try {
                 poolMax,
                 proxyBacklog: backlog,
                 proxyProtocol: protocol,
+                upstreamMaxSockets: Number.isFinite(upstreamMax)
+                  ? upstreamMax
+                  : 0,
                 startedAt: new Date().toISOString(),
               }),
             );
@@ -300,6 +318,7 @@ try {
     const shutdown = () => {
       proxy.closeAllConnections?.();
       for (const session of http2Sessions) session.destroy();
+      upstreamAgent?.destroy();
       if (proxy.listening) proxy.close();
       for (const app of apps) app.kill();
     };
