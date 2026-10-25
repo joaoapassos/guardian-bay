@@ -191,6 +191,7 @@ const child = spawn(
       LAB_HTTP_TRANSPORT: httpTransport,
       LAB_APP_COUNT: String(appPids.length),
       LAB_CONNECTION_PROFILE: connectionProfile,
+      LAB_PROXY_PROTOCOL: pids.proxyProtocol ?? "h1",
     },
     windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
@@ -378,7 +379,9 @@ const metrics = {
   appInstances: appPids.length,
   appPoolMax,
   proxyBacklog: listenerBacklog,
+  proxyHttp2Configured: pids.proxyProtocol === "h2" ? 1 : 0,
   reuseProfileSelected: connectionProfile === "reuse" ? 1 : 0,
+  measuredHttp2Requests: summary?.metrics?.measured_http2_requests?.count ?? 0,
   requestedConcurrency: concurrentRequests ?? 0,
   vus,
   seconds,
@@ -431,6 +434,9 @@ const validMeasurement =
   (!!httpWindow &&
     !!duration &&
     metrics.measuredRequests === concurrentRequests &&
+    (httpTransport !== "proxy" ||
+      pids.proxyProtocol !== "h2" ||
+      metrics.measuredHttp2Requests === metrics.measuredRequests) &&
     [...appPids, pids.supervisor].every((pid) =>
       observerSamples.some((s) => s.pid === pid),
     ));

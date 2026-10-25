@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { request as httpRequest } from "node:http";
+import { createSecureServer } from "node:http2";
 import { createServer } from "node:https";
 import { join } from "node:path";
 import { argon2id, hash } from "argon2";
@@ -20,6 +21,11 @@ import {
   instancePorts,
   proxyBacklog,
 } from "./diagnostic-contract.mjs";
+import {
+  downstreamHeaders,
+  proxyProtocol,
+  upstreamHeaders,
+} from "./proxy-headers.mjs";
 import {
   assertScope,
   databaseUrl,
@@ -115,7 +121,9 @@ try {
     );
   } else if (command === "serve") {
     labLease();
-    const { countDiagnostic } = await import("./runtime-observer.mjs");
+    const { countDiagnostic, observeHttp2Response } = await import(
+      "./runtime-observer.mjs"
+    );
     assert.ok(existsSync(".next/BUILD_ID"), "Production build required");
     const certPath = join(labDirectory, "cert.pem");
     const keyPath = join(labDirectory, "key.pem");
@@ -165,6 +173,7 @@ try {
     const ports = instancePorts(process.env.LAB_APP_INSTANCES);
     const poolMax = ports.length === 8 ? 5 : 10;
     const backlog = proxyBacklog(process.env.LAB_PROXY_BACKLOG);
+    const protocol = proxyProtocol(process.env.LAB_PROXY_PROTOCOL);
     let upstreamIndex = 0;
     const apps = ports.map((port) =>
       spawn(
@@ -196,15 +205,22 @@ try {
       app.stderr.on("data", (chunk) =>
         countDiagnostic(`app.stderr.${errorClass(chunk).toLowerCase()}`),
       );
-    const proxy = createServer(
-      { key: readFileSync(keyPath), cert: readFileSync(certPath) },
+    const proxy = (protocol === "h2" ? createSecureServer : createServer)(
+      {
+        key: readFileSync(keyPath),
+        cert: readFileSync(certPath),
+        allowHTTP1: true,
+      },
       (request, response) => {
+        const isHttp2 = request.httpVersionMajor === 2;
+        if (isHttp2) observeHttp2Response(response);
+        const headers = upstreamHeaders(request.headers);
         countDiagnostic("proxy.requests");
         response.on("finish", () =>
           countDiagnostic(`proxy.status.${response.statusCode}`),
         );
         if (
-          request.headers.host !== "127.0.0.1:3449" ||
+          !headers ||
           !request.url?.startsWith("/") ||
           request.url.startsWith("//")
         ) {
@@ -212,13 +228,6 @@ try {
           response.end();
           return;
         }
-        const headers = { ...request.headers };
-        for (const name of Object.keys(headers))
-          if (
-            name.startsWith("x-forwarded-") ||
-            ["forwarded", "x-real-ip"].includes(name)
-          )
-            delete headers[name];
         const upstream = httpRequest(
           {
             hostname: "127.0.0.1",
@@ -229,7 +238,10 @@ try {
             timeout: 15000,
           },
           (result) => {
-            response.writeHead(result.statusCode, result.headers);
+            response.writeHead(
+              result.statusCode,
+              downstreamHeaders(result.headers, isHttp2),
+            );
             result.pipe(response);
           },
         );
@@ -249,6 +261,12 @@ try {
       },
     );
     proxy.on("connection", () => countDiagnostic("proxy.connections"));
+    const http2Sessions = new Set();
+    proxy.on("session", (session) => {
+      http2Sessions.add(session);
+      session.once("close", () => http2Sessions.delete(session));
+      session.on("error", () => countDiagnostic("proxy.http2_session_error"));
+    });
     proxy.on("tlsClientError", (error) =>
       countDiagnostic(
         `proxy.tls_error.${errorClass(error.code).toLowerCase()}`,
@@ -271,6 +289,7 @@ try {
                 ports,
                 poolMax,
                 proxyBacklog: backlog,
+                proxyProtocol: protocol,
                 startedAt: new Date().toISOString(),
               }),
             );
@@ -279,7 +298,8 @@ try {
         }
       });
     const shutdown = () => {
-      proxy.closeAllConnections();
+      proxy.closeAllConnections?.();
+      for (const session of http2Sessions) session.destroy();
       if (proxy.listening) proxy.close();
       for (const app of apps) app.kill();
     };

@@ -20,6 +20,11 @@ let dropped = 0;
 let bytes = 0;
 const counters = Object.create(null);
 const inflight = createInflightCounter();
+export function observeHttp2Response(response) {
+  const finish = inflight.start();
+  response.once("finish", finish);
+  response.once("close", finish);
+}
 channel("http.server.request.start").subscribe(({ response }) => {
   const finish = inflight.start();
   response.once("finish", finish);

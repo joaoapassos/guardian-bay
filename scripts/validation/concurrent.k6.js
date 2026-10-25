@@ -23,6 +23,8 @@ const connectionProfile = __ENV.LAB_CONNECTION_PROFILE ?? "new";
 if (!["new", "reuse"].includes(connectionProfile))
   throw new Error("Invalid connection profile");
 const reuse = connectionProfile === "reuse";
+const primeHttp2 =
+  reuse && transport === "proxy" && __ENV.LAB_PROXY_PROTOCOL === "h2";
 const lease = JSON.parse(open("../../.vitest/epic12/lease.json"));
 const fixtures = JSON.parse(open("../../.vitest/epic12/load-fixtures.json"));
 const age = Date.now() - Date.parse(lease.createdAt);
@@ -40,6 +42,7 @@ const warmHttp = new Trend("warm_http_ms", true);
 const measuredTls = new Trend("measured_tls_ms", true);
 const measuredCount = new Counter("measured_requests");
 const measuredNewTls = new Counter("measured_new_tls_requests");
+const measuredHttp2 = new Counter("measured_http2_requests");
 const started = new Gauge("measurement_start_epoch_ms");
 const ended = new Gauge("measurement_end_epoch_ms");
 const statusCodes = [0, 200, 302, 400, 401, 403, 429, 500, 502, 503, "other"];
@@ -69,7 +72,7 @@ export const options = {
   summaryTrendStats: ["med", "p(95)", "p(99)", "max"],
   thresholds: {
     checks: ["rate==1"],
-    http_reqs: [`count==${requests * (reuse ? 2 : 1)}`],
+    http_reqs: [`count==${requests * (reuse ? 2 : 1) + (primeHttp2 ? 1 : 0)}`],
     measured_requests: [`count==${requests}`],
     measured_http_ms: ["p(95)<500", "p(99)<1500"],
     ...(!reuse ? { http_req_duration: ["p(95)<500", "p(99)<1500"] } : {}),
@@ -112,6 +115,11 @@ export default function () {
     return ok;
   };
   if (reuse) {
+    if (primeHttp2) {
+      const response = http.get(batch[0].url, batch[0].params);
+      const valid = validate(response, "warm") && response.proto === "HTTP/2.0";
+      if (!valid) throw new Error("HTTP2 connection preflight failed");
+    }
     const warmResponses = http.batch(batch);
     let valid = true;
     for (const response of warmResponses) {
@@ -129,6 +137,7 @@ export default function () {
   for (const response of responses) {
     validate(response);
     measuredCount.add(1);
+    measuredHttp2.add(response.proto === "HTTP/2.0" ? 1 : 0);
     measuredHttp.add(response.timings.duration);
     measuredTls.add(response.timings.tls_handshaking);
     measuredNewTls.add(response.timings.tls_handshaking > 0 ? 1 : 0);
