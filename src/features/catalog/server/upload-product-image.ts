@@ -96,7 +96,9 @@ export async function uploadProductImage(request: Request) {
           ? ("BODY_TOO_LARGE" as const)
           : code === "MEDIA_BUSY"
             ? ("MEDIA_BUSY" as const)
-            : ("INVALID_IMAGE" as const),
+            : code === "INVALID_IMAGE" || code === "INVALID_BODY"
+              ? ("INVALID_IMAGE" as const)
+              : ("UPLOAD_UNAVAILABLE" as const),
     };
   }
 }

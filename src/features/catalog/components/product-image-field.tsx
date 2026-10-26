@@ -51,8 +51,17 @@ export function ProductImageField({
       request.current = null;
       setProgress(null);
       setFailed(true);
+      const code = xhr.response?.code;
       setMessage(
-        "Não foi possível enviar. Use JPEG, PNG ou WebP estático de até 5 MiB e 20 MP. Tente novamente ou cancele a seleção.",
+        code === "UPLOAD_UNAVAILABLE" || xhr.status >= 500
+          ? "O armazenamento de imagens está indisponível no servidor. Tente novamente mais tarde ou cancele a seleção."
+          : code === "RATE_LIMITED" || code === "MEDIA_BUSY"
+            ? "Muitos envios no momento. Aguarde antes de tentar novamente ou cancele a seleção."
+            : code === "FORBIDDEN"
+              ? "Sua sessão administrativa não permite este envio. Entre novamente."
+              : xhr.status === 0
+                ? "Não foi possível conectar ao servidor. Tente novamente ou cancele a seleção."
+                : "Não foi possível enviar. Use JPEG, PNG ou WebP estático de até 5 MiB e 20 MP. Tente novamente ou cancele a seleção.",
       );
       onBlocked(true);
     };
