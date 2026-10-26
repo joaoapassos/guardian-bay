@@ -39,14 +39,14 @@ export default function AboutPage() {
           </p>
           <Link
             href="/products"
-            className="inline-flex min-h-11 items-center justify-center rounded-control bg-coast px-5 py-3 font-semibold text-paper focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coast"
+            className="inline-flex min-h-11 items-center justify-center rounded-control border border-ink bg-primary px-5 py-3 font-semibold text-on-primary hover:bg-ink hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coast"
           >
             Explorar produtos
           </Link>
         </div>
         <Image
           src="/images/home/prepared.webp"
-          alt="Ilustração de uma pequena fachada azul diante de uma paisagem costeira tranquila."
+          alt=""
           width={1200}
           height={800}
           className="h-auto w-full rounded-panel"

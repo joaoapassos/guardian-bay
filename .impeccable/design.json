@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-26T00:00:00-03:00",
+  "title": "Design System: Guardian Bay",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Âmbar Boundary Supply"
+      },
+      "ink": {
+        "role": "foreground",
+        "displayName": "Preto de leitura"
+      }
+    },
+    "motion": [
+      {
+        "name": "existing-navigation",
+        "value": "Preservar Curtain e Shared Element existentes",
+        "purpose": "Trocar somente cores; nenhuma alteração em duração, curva ou comportamento."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação principal âmbar; métricas da UI existente.",
+      "html": "<button class=\"ds-primary\">Salvar</button>",
+      "css": ".ds-primary{background:var(--color-primary);color:var(--color-on-primary);border:1px solid currentColor;border-radius:var(--radius-control,6px);padding:12px 20px;min-height:44px;font:600 16px var(--font-ibm-plex-sans,sans-serif)}.ds-primary:hover{background:var(--color-ink);color:var(--color-primary)}.ds-primary:focus-visible{outline:2px solid var(--color-ink);outline-offset:4px}"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "description": "Campo com contorno legível e superfície neutra.",
+      "html": "<label class=\"ds-field\">Nome<input name=\"name\"></label>",
+      "css": ".ds-field{display:grid;gap:8px;color:var(--color-ink)}.ds-field input{background:var(--color-surface);color:var(--color-ink);border:1px solid var(--color-body);border-radius:var(--radius-control,6px);padding:12px 16px;min-height:48px}.ds-field input:focus-visible{outline:2px solid var(--color-ink);outline-offset:2px}"
+    },
+    {
+      "name": "Navigation Link",
+      "kind": "nav",
+      "description": "Link de navegação preto, com foco e hover.",
+      "html": "<nav aria-label=\"Exemplo\"><a class=\"ds-nav\" href=\"#\">Produtos</a></nav>",
+      "css": ".ds-nav{display:inline-flex;align-items:center;min-height:44px;color:var(--color-ink);text-decoration:none}.ds-nav:hover{text-decoration:underline;text-underline-offset:4px}.ds-nav:focus-visible{outline:2px solid var(--color-ink);outline-offset:4px}"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "description": "Painel neutro existente.",
+      "html": "<section class=\"ds-panel\"><h2>Resumo</h2><p>Informações da tarefa.</p></section>",
+      "css": ".ds-panel{background:var(--color-surface);color:var(--color-ink);border:1px solid var(--color-line);border-radius:var(--radius-panel,12px);padding:24px}"
+    },
+    {
+      "name": "Availability Label",
+      "kind": "chip",
+      "description": "Estado textual; cor não é autoridade comercial.",
+      "html": "<span class=\"ds-label\">Disponível</span>",
+      "css": ".ds-label{color:var(--color-body);font-size:14px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Direção fotográfica Boundary Supply aplicada a cores e mídia das interfaces existentes.",
+    "rules": [
+      "Preservar layouts e contratos.",
+      "Texto em preto, CTA âmbar com texto preto.",
+      "Imagem editorial sintética não substitui foto real de SKU."
+    ]
+  }
+}

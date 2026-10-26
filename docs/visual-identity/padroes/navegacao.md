@@ -1,5 +1,6 @@
 # Padrão de navegação
 
+Identidade vigente em [DESIGN.md](../../../DESIGN.md); sem reconstrução de componentes ou mudanças de motion.
 [Índice](../README.md) · [Fundamentos](../fundamentos.md) · [Componentes](../componentes.md)
 
 Origem: I §6; C/header, footer, navegacao-mobile, menu-de-usuario, navegacao-de-conta, sidebar-administrativa, breadcrumb e pagination; P/catalogo e demais páginas. Os destinos funcionais permanecem nos estudos; este documento centraliza orientação e interação.

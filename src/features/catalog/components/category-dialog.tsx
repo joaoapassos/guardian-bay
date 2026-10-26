@@ -21,7 +21,7 @@ export function CategoryDialog({
         {category ? `Editar ${category.name}` : "Nova categoria"}
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/40" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-overlay-strong" />
         <Dialog.Content className="admin-shell fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-panel border border-line bg-surface p-6 font-auth">
           <Dialog.Title className="font-editorial text-2xl text-coast">
             {category ? "Editar categoria" : "Nova categoria"}

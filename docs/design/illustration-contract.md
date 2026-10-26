@@ -1,3 +1,5 @@
+> HISTÓRICO REVOGADO em 26/10/2026. Não aplicar estas regras a novos assets. Direção vigente: [fotografia](../visual-identity/media.md) e [DESIGN.md](../../DESIGN.md).
+
 # Contrato de ilustração — Guardian Bay 1.0.0
 
 Contrato documental, independente de provedor, para transformação de imagens e geração por descrição. Implementa a [linguagem](illustration-language.md) com base nas [três referências aprovadas](illustration-references.md); não implementa executor, Skill, chamada de API ou transformação real nesta Task.

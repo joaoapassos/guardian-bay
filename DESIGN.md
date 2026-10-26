@@ -1,89 +1,77 @@
 ---
 version: alpha
 name: Guardian Bay
-description: Preparo, acolhimento e confiança em uma interface comercial limpa.
+source_url: https://github.com/xjli360/awesome-design-md-ecommerce/blob/main/design-md/boundary-supply/DESIGN.md
 colors:
-  primary: "#256A94"
-  secondary: "#71816E"
-  tertiary: "#AB6248"
-  neutral: "#EEE7D9"
-  on-surface: "#232A27"
-  text-muted: "#4B5551"
-  surface: "#F8F4EC"
-  product: "#FFFFFF"
-  border: "#CBC2B3"
-typography:
-  body-md: {fontFamily: IBM Plex Sans, fontSize: 16px, fontWeight: 400, lineHeight: 1.6}
-  headline-editorial: {fontFamily: Fraunces, fontSize: 56px, fontWeight: 700, lineHeight: 1.1}
-  headline-editorial-mobile: {fontFamily: Fraunces, fontSize: 40px, fontWeight: 700, lineHeight: 1.1}
-spacing: {xs: 4px, sm: 8px, field: 16px, group: 24px, section: 32px, editorial: 64px, container: 1280px}
-rounded: {control: 6px, card: 8px, panel: 12px}
+  primary: "#fdc656"
+  ink: "#121212"
+  canvas: "#ffffff"
+  body: "#434343"
+  muted: "#acacac"
+  hairline: "#dedede"
+  surface-soft: "#f5f5f5"
+  surface-card: "#f7f7f7"
+  on-primary: "#121212"
+  overlay-scrim: "#00000033"
+  overlay-strong: "#00000066"
+  border-dark: "#000000"
+  text-hover: "#555555"
+  danger: "#8f2d2d"
+  warning: "#755016"
+  success: "#2f5a3d"
+rounded:
+  control: 6px
+  card: 8px
+  panel: 12px
 components:
   button-primary:
     backgroundColor: "{colors.primary}"
-    textColor: "{colors.neutral}"
+    textColor: "{colors.on-primary}"
     rounded: "{rounded.control}"
-    height: 44px
-  input:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.on-surface}"
-    rounded: "{rounded.control}"
-    height: 44px
+  button-primary-hover:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.primary}"
 ---
 
 # Guardian Bay — Design System
 
 ## Overview
 
-Preparo, acolhimento e confiança; atmosfera costeira e nostalgia discreta, com produtos e tarefas acima da decoração. [Identidade operacional](docs/visual-identity/idv.md).
+Direção visual Boundary Supply: equipamentos, fotografia de materiais, superfícies neutras e ações em âmbar. Substitui a identidade costeira e pictórica anterior por autorização do usuário em 26/10/2026. Produto e contratos em [PRODUCT.md](PRODUCT.md); arquitetura e segurança mantêm a precedência de [AGENTS.md](AGENTS.md).
 
-[Linguagem de ilustração](docs/design/illustration-language.md): referências, técnica pictórica e composição editorial, preservando a identidade e a fotografia comercial.
-
-Formato: tokens em YAML e orientação em Markdown, conforme a [especificação Google DESIGN.md](https://github.com/google-labs-code/design.md/blob/main/docs/spec.md). Não utiliza TOON. O frontmatter concentra valores para leitura estruturada; a prosa explica sua aplicação sem repetir a tabela de tokens.
-
-Precedência: [AGENTS.md](AGENTS.md), [arquitetura](docs/architecture/README.md) e segurança permanecem vigentes. A IDV determina identidade visual; estudos de páginas/componentes determinam estrutura e comportamento. [Fontes, divergências e pendências](docs/visual-identity/README.md).
+A [referência principal](https://github.com/xjli360/awesome-design-md-ecommerce/blob/main/design-md/boundary-supply/DESIGN.md) documenta captura de CSS em 29/09/2026 e distingue valores observados de papéis inferidos. O [site original](https://www.boundarysupply.com/) orienta fotografia e aplicação; não concede licença para seus assets. Black Diamond é apenas comparação, sem tokens incorporados.
 
 ## Colors
 
-`neutral` é cenário; `primary`, principal destaque de marca/interação; `secondary` e `tertiary`, apoios discretos. A estimativa 60/20/10/10 orienta o conjunto, sem cotas por página. Verde não é CTA principal; terracota não equivale a erro.
+Valores cromáticos da referência no frontmatter. CSS canônico em `src/app/globals.css`; não duplicar valores em componentes. Âmbar no fundo de CTA com texto preto; preto nos títulos, links e foco; branco no canvas; cinzas nas superfícies e separadores. O cinza muted da referência é decorativo: texto secundário usa body para contraste AA. Hairline também é decorativo; controles usam contorno body.
 
-Tokens cromáticos vêm da IDV. Semânticas propostas N01 e contrastes estão em [Fundamentos](docs/visual-identity/fundamentos.md#cores), sem transformar propostas em cores de marca aprovadas.
+Aliases existentes paper → canvas, coast → ink, sage → body, muted → body, surface → surface-soft, line → hairline preservam os consumidores. O CTA usa primary explicitamente, pois trocar coast por âmbar tornaria títulos e links ilegíveis. Erro, atenção e sucesso são extensões funcionais, com texto/ícone e rótulo; nunca inferir estado apenas da cor. [Fundamentos](docs/visual-identity/fundamentos.md#cores).
 
 ## Typography
 
-Wordmark: Fraunces 800 em caixa alta, com dimensão final pendente. Fraunces editorial, IBM Plex Sans na interface e IBM Plex Mono apenas em dados técnicos úteis. Os níveis YAML são um recorte da proposta operacional N04, não uma nova escala. [Tipografia completa e fallbacks](docs/visual-identity/fundamentos.md#tipografia).
+Famílias e métricas existentes preservadas nesta migração de cores e mídia: Fraunces editorial, IBM Plex Sans na UI e Geist/Geist Mono nos usos existentes. A referência usa Univers LT Pro; não foi incorporada por faltar fonte licenciada. Esta é uma adaptação explícita, não equivalência tipográfica à Boundary Supply.
 
 ## Layout
 
-Container fluido; `spacing.container` é limite aproximado, não largura fixa. Home: quatro colunas desktop, tablet adaptativo, duas mobile. Catálogo: quatro/três/duas, com filtros laterais/recolhíveis/Drawer. [Espaçamento, margens e faixas](docs/visual-identity/fundamentos.md#containers-e-grids).
+Preservar composição, grids, containers, breakpoints, espaçamentos e responsividade das páginas implementadas. A referência informa direção visual; suas medidas inferidas não substituem o layout existente. Não adicionar seções, produtos, recursos ou controles por imitação do site.
 
 ## Elevation & Depth
 
-Usar espaço, contorno e contraste entre superfícies; sombras mínimas. Sem textura em campos, preços ou checkout. A borda decorativa não identifica sozinha controles: aplicar N03 em [Bordas e superfícies](docs/visual-identity/fundamentos.md#bordas-e-superficies).
+Superfícies neutras, bordas discretas e sombras existentes; sem textura pictórica na UI. Dialogs, drawers e foco mantêm comportamento Radix e garantias de acessibilidade.
 
 ## Shapes
 
-Raios e alturas YAML expressam a proposta N06 existente; espaços operacionais expressam N05. Continuam referências de trabalho, sem validação em UI. Nenhum token encerra pendências de logo, mídia ou responsividade.
+Preservar raios existentes: controles 6px, cards 8px, painéis 12px. Pílulas e cartões 10px da referência não são aplicados nesta migração para conservar a geometria aprovada.
 
 ## Components
 
-Os dois exemplos YAML reutilizam tokens por referência; variações e estados permanecem na aplicação dos [26 componentes](docs/visual-identity/componentes.md). Começar pela composição da página entre as [27 páginas](docs/visual-identity/paginas.md), preservando seus condicionantes.
-
-Padrões: [formulários](docs/visual-identity/padroes/formularios.md), [navegação](docs/visual-identity/padroes/navegacao.md), [feedback e estados](docs/visual-identity/padroes/feedback-estados.md), [interações e foco](docs/visual-identity/padroes/interacoes.md). Alterar um valor exige manter frontmatter e Fundamentos coerentes; não criar uma segunda escala nos documentos de páginas.
+Botões e ações principais: âmbar/preto com inversão no hover; campos brancos ou cinza claro e contorno acessível; cards neutros; badges semânticos mantêm significado. Ícones, React/Radix, dimensões e motion existentes são preservados. [Componentes](docs/visual-identity/componentes.md) e [padrões](docs/visual-identity/README.md) documentam contratos existentes.
 
 ## Do's and Don'ts
 
-- Manter Home simples, banner estático, catálogo compartilhado e administração sem CMS.
-- Reservar arte ao contexto editorial; foto de produto fiel, isolada e neutra.
-- Mostrar informação essencial sem hover; nunca comunicar estado apenas pela cor.
-- Confirmar sucesso somente após resposta; validação visual não substitui servidor. Pagamento sempre simulado.
-- Preservar propostas e pendências explícitas; não criar funcionalidades para preencher o design.
-
-Validação mínima da futura interface:
-
-- [ ] Cores, fontes, espaços e componentes coerentes com seus papéis.
-- [ ] Desktop/tablet/mobile preservam ações, informações e grids.
-- [ ] Teclado, foco, contraste, zoom, rótulos e movimento reduzido verificados.
-- [ ] Loading, vazio, falha, indisponibilidade e resultado incerto distinguíveis.
-
-Esta entrega é documental. Não declara acessibilidade, aparência ou economia de tokens medidas em navegador ou modelo.
+- Usar fotografia de equipamentos, luz controlada, fundos neutros e materiais legíveis.
+- Usar imagens próprias ou licenciadas; registrar origem e finalidade em [mídia](docs/visual-identity/media.md).
+- Não copiar fotos, logos, textos promocionais ou fontes proprietárias da referência.
+- Não apresentar uma imagem editorial gerada como fotografia fiel de SKU.
+- Ausência de foto usa placeholder neutro identificado; catálogo não inventa produto ou características.
+- Teclado, foco, contraste, estados, desktop/mobile e movimento reduzido exigem validação proporcional.

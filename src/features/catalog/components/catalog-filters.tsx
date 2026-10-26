@@ -134,7 +134,7 @@ export function CatalogFilters({
             Filtrar e ordenar
           </Dialog.Trigger>
           <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/40" />
+            <Dialog.Overlay className="fixed inset-0 z-40 bg-overlay-strong" />
             <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-[min(92vw,400px)] overflow-y-auto bg-surface p-5 font-auth">
               <Dialog.Title className="mb-3 font-editorial text-2xl text-coast">
                 Filtros de produtos

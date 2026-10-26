@@ -24,7 +24,7 @@ export function ProductCard({
         className="group block h-full rounded-card border border-line bg-surface p-3 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coast sm:p-4"
       >
         <ProductTransition id={product.id}>
-          <div className="overflow-hidden rounded-card bg-white">
+          <div className="overflow-hidden rounded-card bg-canvas">
             <ProductImage image={product.image} />
           </div>
         </ProductTransition>

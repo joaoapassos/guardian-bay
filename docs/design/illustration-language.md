@@ -1,3 +1,5 @@
+> HISTÓRICO REVOGADO em 26/10/2026. Não aplicar estas regras a novos assets. Direção vigente: [fotografia](../visual-identity/media.md) e [DESIGN.md](../../DESIGN.md).
+
 # Linguagem de ilustração — Guardian Bay
 
 ## 1. Objetivo e identidade artística

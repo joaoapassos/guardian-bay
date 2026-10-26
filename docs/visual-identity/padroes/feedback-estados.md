@@ -1,5 +1,6 @@
 # Padrão de feedback e estados
 
+Identidade vigente em [DESIGN.md](../../../DESIGN.md); sem reconstrução de componentes ou mudanças de motion.
 [Índice](../README.md) · [Cores semânticas e acessibilidade](../fundamentos.md) · [Formulários](formularios.md)
 
 Origem: I §§3,6,8,9 e C/feedback, loading-skeleton, empty-state, dialog, button, order-summary e payment-simulation. Aplicar a mesma linguagem em loja, conta e admin; o conteúdo de recuperação depende da página. A proposta N01 define cores, sem dispensar texto ou validação futura.
@@ -42,7 +43,7 @@ Mensagens informativas/sucesso usam anúncio não interruptivo; erro que demanda
 | Pagamento expirado | Atenção com término de prazo | Consultar estado confirmado e iniciar nova compra se desejado |
 | Falha ao consultar/confirmar | Erro operacional, sem inventar estado comercial | Recuperar consulta do mesmo pedido antes de nova tentativa |
 
-Aplicação funcional, prazos e regras permanecem na origem **C/payment-simulation.md** e no [contrato de pagamentos](../../docs/architecture/payments.md), evitando criar uma segunda regra de negócio no DS. Contador é orientação temporal, não aprovação; estoque pode mudar e não há reserva. QR/código permanecem explicitamente fictícios. Histórico legado não ganha método inventado.
+Aplicação funcional, prazos e regras permanecem na origem **C/payment-simulation.md** e no [contrato de pagamentos](../../architecture/payments.md), evitando criar uma segunda regra de negócio no DS. Contador é orientação temporal, não aprovação; estoque pode mudar e não há reserva. QR/código permanecem explicitamente fictícios. Histórico legado não ganha método inventado.
 
 ## Falhas e acesso
 

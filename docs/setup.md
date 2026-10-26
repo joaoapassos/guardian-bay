@@ -124,3 +124,9 @@ Revisão independente: papel reviewer nativo, somente leitura, sem achados acion
 Para manter skills: consultar inventário, revisar revisão upstream/licenças, preservar backup, usar helper oficial com repo/path/ref e `--dest` no projeto. O helper recusa destino existente: comparar e substituir somente item intencionalmente atualizado, preservando customizações. Não executar `skills update` supondo que este inventário seja seu lockfile. Licenças raiz necessárias foram copiadas para UPSTREAM-LICENSE.txt; Vercel agent-skills declara MIT no README/frontmatter, sem licença raiz separada naquela revisão.
 
 Repetir setup lê Prompt 12 da nova cópia fixada e reconcilia arquivos existentes, sem concatenar seções, duplicar MCP, hooks ou skills. Backups locais deste setup em `.vitest/toolkit-backup/`, sem secrets. Reusar evidência somente se entradas/configuração não mudaram; registrar próxima ação e causa de cada bloqueio. Não criar agendamentos.
+
+## Impeccable — 26/10/2026
+
+Instalada a pedido do usuário com o skill-installer oficial: repositório `pbakaus/impeccable`, revisão `989c484c091d26f10fa102767eefc0da2e62ec67`, pasta `.agents/skills/impeccable`. Licença Apache-2.0 incluída e integridade registrada em `docs/skill-sources.json`. Não há dependência npm, alteração de provedor, hooks automáticos ou mudança de autenticação. Biome exclui somente o código vendorizado desta skill.
+
+Descoberta pelo catálogo deve ser conferida no próximo turno; leitura manual do SKILL.md e referências foi realizada nesta sessão. O launcher context falhou por falta do motor 0.1.17/cache externo; não se instalou o motor. Aplicada a alternativa documental prevista pela skill: PRODUCT.md, DESIGN.md e referências locais. Nenhum detector Impeccable foi executado; auditoria contextual manual e Web Design Guidelines complementaram os checks do projeto. DESIGN.md e o escopo aprovado prevalecem sobre propostas genéricas de nova identidade, layout ou motion.

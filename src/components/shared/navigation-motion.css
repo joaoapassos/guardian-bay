@@ -6,8 +6,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--color-coast, #256a94);
-  color: var(--color-paper, #eee7d9);
+  background: var(--color-ink, #121212);
+  color: var(--color-primary, #fdc656);
   font-family: var(--font-ibm-plex-sans), sans-serif;
 }
 .gb-curtain[data-phase="entering"] {

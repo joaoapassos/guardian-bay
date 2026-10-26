@@ -47,7 +47,7 @@ export function CartDrawer({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-ink/40" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-overlay-strong" />
         <Dialog.Content
           onCloseAutoFocus={(event) => {
             event.preventDefault();
@@ -194,7 +194,7 @@ export function CartDrawer({
                     <Link
                       href="/checkout"
                       onClick={() => onOpenChange(false)}
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-control bg-coast px-5 py-3 font-semibold text-paper focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coast"
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-control border border-ink bg-primary px-5 py-3 font-semibold text-on-primary hover:bg-ink hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coast"
                     >
                       Revisar checkout
                     </Link>

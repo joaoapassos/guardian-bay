@@ -60,7 +60,7 @@ export function TestCardList({
         }}
       >
         <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-ink/45" />
+          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-overlay-strong" />
           <AlertDialog.Content
             className="fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-panel border border-line bg-surface p-6 font-auth text-ink"
             onCloseAutoFocus={(event) => {
@@ -83,7 +83,7 @@ export function TestCardList({
                 <Button disabled={pending}>Manter cartão</Button>
               </AlertDialog.Cancel>
               <Button
-                className="bg-danger"
+                className="bg-danger text-paper enabled:hover:bg-danger enabled:hover:text-paper"
                 disabled={pending}
                 onClick={() => {
                   if (!selected) return;

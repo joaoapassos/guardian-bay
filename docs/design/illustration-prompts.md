@@ -1,3 +1,5 @@
+> HISTÓRICO REVOGADO em 26/10/2026. Não aplicar estas regras a novos assets. Direção vigente: [fotografia](../visual-identity/media.md) e [DESIGN.md](../../DESIGN.md).
+
 # Artes estáticas de Sistema e produto
 
 Task Admin/Sistema, 25/10/2026. Geração textual com `image_gen.imagegen`, fundo opaco. Referência anexada somente para tratamento: [oficina revisada](studies/skill-validation/round-02/workshop.png), GB-ILL-R2-WORKSHOP, SHA-256 `886ac2f39381d55f4ee45c43964285ee50cb534cab09b4d089c36621e09ec58d`. Perfil 1.0.0 complementado pela calibração aprovada da rodada 02; não copiar sua composição. Modelo e seed não expostos. Sem revisão ou aprovação artística do usuário nesta Task.

@@ -216,7 +216,7 @@ export function ProductForm({
         }}
       >
         <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 z-40 bg-black/60" />
+          <AlertDialog.Overlay className="fixed inset-0 z-40 bg-overlay-strong" />
           <AlertDialog.Content
             className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 space-y-4 rounded-panel border border-line bg-surface p-6 font-auth text-ink"
             onCloseAutoFocus={(event) => {
@@ -236,7 +236,7 @@ export function ProductForm({
                 Cancelar
               </AlertDialog.Cancel>
               <AlertDialog.Action
-                className="rounded bg-red-800 p-2 text-white"
+                className="rounded bg-danger p-2 text-paper"
                 onClick={() => {
                   const fields = confirmation;
                   setConfirmation(null);
@@ -251,7 +251,7 @@ export function ProductForm({
       </AlertDialog.Root>
       <AlertDialog.Root open={discarding} onOpenChange={setDiscarding}>
         <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 z-40 bg-ink/40" />
+          <AlertDialog.Overlay className="fixed inset-0 z-40 bg-overlay-strong" />
           <AlertDialog.Content
             className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 space-y-5 rounded-panel bg-surface p-6 font-auth"
             onCloseAutoFocus={(event) => {

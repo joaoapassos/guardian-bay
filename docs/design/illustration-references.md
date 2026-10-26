@@ -1,3 +1,5 @@
+> HISTÓRICO REVOGADO em 26/10/2026. Não aplicar estas regras a novos assets. Direção vigente: [fotografia](../visual-identity/media.md) e [DESIGN.md](../../DESIGN.md).
+
 # Referências artísticas oficiais — Guardian Bay
 
 Aplicação estruturada posterior: [contrato de ilustração 1.0.0](illustration-contract.md), com perfil fixo e pedidos variáveis; as imagens abaixo continuam sendo a evidência artística aprovada.

@@ -1,5 +1,6 @@
 # Aplicação às páginas
 
+Identidade vigente: [Boundary Supply adaptada](../../DESIGN.md). Preservar composição e comportamento existentes; descrições cromáticas cedem aos [Fundamentos](fundamentos.md).
 [Índice e fontes](README.md) · [Fundamentos](fundamentos.md) · [Componentes](componentes.md)
 
 Inventário completo: **27 páginas**, com seis agrupamentos documentais que não definem rotas ou arquitetura. Cada “Origem P” identifica o arquivo na pasta externa de páginas descrita no índice. Este documento aplica hierarquia, composição e linguagem visual; o estudo de origem mantém o comportamento funcional detalhado e suas pendências.
@@ -20,7 +21,7 @@ Cada entrada usa os [fundamentos](fundamentos.md) sem redefinir valores: I/N04 p
 
 **Origem P:** `loja/home.md`. Papel: apresentar marca e dar entrada na exploração.
 
-Composição/hierarquia: shell loja → um banner estático com título/mensagem/CTA → produtos → acesso ao catálogo completo → Footer. O banner usa H1 editorial e arte com área segura; o grid volta imediatamente à limpeza comercial, sem painel ilustrado atrás dos cards. Base creme, marca/CTA azul e apoios discretos da paleta; não repetir acento terracota em cada card.
+Composição/hierarquia: shell loja → um banner estático com título/mensagem/CTA → produtos → acesso ao catálogo completo → Footer. O banner usa H1 editorial e arte com área segura; o grid volta imediatamente à limpeza comercial, sem painel fotográfico atrás dos cards. Base branca, marca preta e CTA âmbar; neutros nos apoios.
 
 Componentes: shell loja; [Button](componentes.md#button), [Product Grid](componentes.md#product-grid), [Product Card](componentes.md#product-card), [Price Display](componentes.md#price-display) e estados de leitura. Desktop quatro colunas; tablet adaptativo; mobile duas, com mensagem e CTA do banner intactos. Sem arte, a hierarquia tipográfica mantém apresentação; quantidade/recorte dos produtos continuam pendentes. Sem novas seções ou carrossel.
 
@@ -28,7 +29,7 @@ Componentes: shell loja; [Button](componentes.md#button), [Product Grid](compone
 
 **Origem P:** `loja/catalogo.md`. Papel: explorar todos/categoria/pesquisa/novidades no mesmo padrão.
 
-Composição/hierarquia: breadcrumb → H1 utilitário e descrição contextual → refinamento/contagem/ordem → grid → paginação. Produtos recebem a maior área; filtros têm peso utilitário, sem blocos artísticos. Tinta em nomes/preços e azul em links/seleções, sem aparência de campanha diferente para Novidades.
+Composição/hierarquia: breadcrumb → H1 utilitário e descrição contextual → refinamento/contagem/ordem → grid → paginação. Produtos recebem a maior área; filtros têm peso utilitário, sem blocos artísticos. Tinta em nomes/preços e preto em links/seleções, sem aparência de campanha diferente para Novidades.
 
 Componentes: shell loja; [Breadcrumb](componentes.md#breadcrumb), [Form Field](componentes.md#form-field), [Product Filters](componentes.md#product-filters), [Product Sort](componentes.md#product-sort), [Product Grid](componentes.md#product-grid), [Product Card](componentes.md#product-card), [Price Display](componentes.md#price-display), [Pagination](componentes.md#pagination), [Drawer](componentes.md#drawer) e estados de lista.
 
@@ -38,7 +39,7 @@ Desktop quatro colunas/filtros laterais; tablet três/recolhíveis; mobile duas/
 
 **Origem P:** `loja/produto.md`. Papel: informar e apoiar intenção de compra.
 
-Hierarquia: breadcrumb → imagem → nome → preço → disponibilidade/quantidade → adicionar → descrição/especificações. Título em Sans, valores em tinta, principal em azul; galeria neutra sem interferência de arte institucional. Informações técnicas usam subtítulos/listas, Mono só quando ajuda um dado real.
+Hierarquia: breadcrumb → imagem → nome → preço → disponibilidade/quantidade → adicionar → descrição/especificações. Título em Sans, valores em tinta, principal em preto; galeria neutra sem interferência de fotografia editorial. Informações técnicas usam subtítulos/listas, Mono só quando ajuda um dado real.
 
 Componentes: shell loja; [Breadcrumb](componentes.md#breadcrumb), [Product Gallery](componentes.md#product-gallery), [Price Display](componentes.md#price-display), [Quantity Control](componentes.md#quantity-control), [Button](componentes.md#button), feedback e loading. Desktop galeria/compra adjacentes; tablet empilha quando necessário; mobile segue sequência hierárquica antes da descrição. Disponibilidade junto à ação, sem fade no produto; múltiplas mídias/zoom/variantes não são introduzidos pelo DS.
 
@@ -54,7 +55,7 @@ Componentes: shell loja; [Cart Item](componentes.md#cart-item), [Quantity Contro
 
 **Origem P:** `loja/checkout.md`. Papel: orientar confirmação consciente de compra simulada.
 
-Hierarquia: shell checkout/progresso → identificação → endereço/entrega condicionados → revisão → método/total → confirmar. Tudo em Sans, superfície limpa e sem textura/arte; azul identifica ação/etapa, acento semântico só em aviso pertinente. Progresso não tem aparência de abas comerciais e não oculta a etapa atual.
+Hierarquia: shell checkout/progresso → identificação → endereço/entrega condicionados → revisão → método/total → confirmar. Tudo em Sans, superfície limpa e sem textura/arte; preto identifica ação/etapa, acento semântico só em aviso pertinente. Progresso não tem aparência de abas comerciais e não oculta a etapa atual.
 
 Componentes: shell checkout; [Form Field](componentes.md#form-field), [Button](componentes.md#button), [Order Summary](componentes.md#order-summary), [Cart Item](componentes.md#cart-item) em leitura, [Price Display](componentes.md#price-display), [Payment Simulation](componentes.md#payment-simulation), feedback/loading. Desktop etapas/resumo adjacentes; tablet adapta; mobile coluna única com total antes da confirmação. Dados, entrega e efeito financeiro ainda não definidos continuam condicionantes, não campos fictícios publicados. Mudança comercial e resultado incerto são avisos persistentes, sem animação de sucesso antecipada.
 
@@ -68,7 +69,7 @@ Componentes: shell loja; [Feedback](componentes.md#feedback), [Button](component
 
 ## Autenticacao — 3 paginas
 
-Família visual: shell loja, H1 utilitário, formulário contido de N05, base creme, campos elevados e CTA azul. [Form Field](componentes.md#form-field), [Button](componentes.md#button) e [Feedback](componentes.md#feedback) compartilham os mesmos estados nas três páginas. Aplicar [Formulários](padroes/formularios.md); não trocar cor ou fonte entre entrar/criar/recuperar.
+Família visual: shell loja, H1 utilitário, formulário contido de N05, base branco, campos elevados e CTA âmbar com texto preto. [Form Field](componentes.md#form-field), [Button](componentes.md#button) e [Feedback](componentes.md#feedback) compartilham os mesmos estados nas três páginas. Aplicar [Formulários](padroes/formularios.md); não trocar cor ou fonte entre entrar/criar/recuperar.
 
 ### Login
 
@@ -80,7 +81,7 @@ Hierarquia: marca/título → e-mail/senha → Entrar → recuperação/cadastro
 
 **Origem P:** `autenticacao/cadastro.md`. Papel: criar conta cliente com coleta mínima.
 
-Hierarquia: título/orientação → credenciais/requisitos de senha → Criar conta → login/políticas. Mesma largura/controle do Login, sem nova ilustração obrigatória ou outra cor de CTA. Desktop/tablet contidos; mobile uma coluna, ajuda antes da submissão. Não criar tela festiva de sucesso, consentimento obrigatório ou dados adicionais; confirmação de senha e destino pós-cadastro mantêm o status de proposta da origem.
+Hierarquia: título/orientação → credenciais/requisitos de senha → Criar conta → login/políticas. Mesma largura/controle do Login, sem nova fotografia editorial obrigatória ou outra cor de CTA. Desktop/tablet contidos; mobile uma coluna, ajuda antes da submissão. Não criar tela festiva de sucesso, consentimento obrigatório ou dados adicionais; confirmação de senha e destino pós-cadastro mantêm o status de proposta da origem.
 
 ### Recuperacao de senha
 
@@ -90,7 +91,7 @@ Hierarquia: título do estado → orientação → campo(s) → ação → retor
 
 ## Conta — 4 paginas
 
-Família: shell conta, H1 utilitário, blocos claros e expressão artística mínima; tinta nos dados, azul em ação/seleção e semântica somente no estado. Desktop navegação lateral; tablet adapta; mobile navegação acima e conteúdo em coluna única. Componentes comuns mantêm os padrões de Formulários/Feedback.
+Família: shell conta, H1 utilitário, blocos claros e expressão artística mínima; tinta nos dados, preto em ação/seleção e semântica somente no estado. Desktop navegação lateral; tablet adapta; mobile navegação acima e conteúdo em coluna única. Componentes comuns mantêm os padrões de Formulários/Feedback.
 
 ### Meu perfil
 
@@ -118,25 +119,25 @@ Hierarquia: breadcrumb/referência/data/estado → itens/total → pagamento e a
 
 ## Institucional — 5 paginas
 
-Família: shell loja e coluna de leitura de Fundamentos, links claros e conteúdo estruturado. Sobre pode usar expressão editorial alta; ajuda/políticas continuam prioritariamente texto, sem herdar um banner ilustrado obrigatório. Sem textos jurídicos ou comerciais inventados.
+Família: shell loja e coluna de leitura de Fundamentos, links claros e conteúdo estruturado. Sobre pode usar expressão editorial alta; ajuda/políticas continuam prioritariamente texto, sem herdar um banner fotográfico obrigatório. Sem textos jurídicos ou comerciais inventados.
 
 ### Sobre o Guardian Bay
 
 **Origem P:** `institucional/sobre.md`. Papel: apresentar propósito e personalidade da marca.
 
-Hierarquia: H1 editorial/mensagem → propósito → catálogo/ajuda. Base creme, títulos editoriais com personalidade, azul no CTA e arte autoral estática opcional; verde/terracota em apoio discreto. Componentes: shell loja e [Button](componentes.md#button). Desktop composição editorial contida; tablet reorganiza; mobile leitura antes da arte quando necessário. Não criar história empresarial/certificações ou resolver oferta comercial pelo cenário ilustrado.
+Hierarquia: H1 editorial/mensagem → propósito → catálogo/ajuda. Base branco, títulos editoriais com personalidade, âmbar no CTA e fotografia editorial estática opcional; cinza neutro em apoio discreto. Componentes: shell loja e [Button](componentes.md#button). Desktop composição editorial contida; tablet reorganiza; mobile leitura antes da arte quando necessário. Não criar história empresarial/certificações ou resolver oferta comercial pelo cenário fotográfico.
 
 ### Central de ajuda
 
 **Origem P:** `institucional/central-de-ajuda.md`. Papel: encontrar orientação de compra, entrega, simulação e contato.
 
-Hierarquia: H1 utilitário → índice de tópicos → perguntas/respostas → contato/políticas. Sans no conteúdo, azul em âncoras e tinta nos títulos; sem grade de cards ilustrados para assuntos simples. Componentes: shell loja; [Button](componentes.md#button) quando ação justificar e [Feedback](componentes.md#feedback) contextual. Desktop pode manter índice lateral; tablet/mobile índice acima e respostas expostas. Sem busca/chat/tickets novos; pendência de canal e entrega fica editorialmente clara.
+Hierarquia: H1 utilitário → índice de tópicos → perguntas/respostas → contato/políticas. Sans no conteúdo, preto em âncoras e tinta nos títulos; sem grade de cards fotográficos para assuntos simples. Componentes: shell loja; [Button](componentes.md#button) quando ação justificar e [Feedback](componentes.md#feedback) contextual. Desktop pode manter índice lateral; tablet/mobile índice acima e respostas expostas. Sem busca/chat/tickets novos; pendência de canal e entrega fica editorialmente clara.
 
 ### Privacidade
 
 **Origem P:** `institucional/privacidade.md`. Papel: planejar leitura sobre tratamento de dados.
 
-Hierarquia: título/status editorial → índice → seções → ajuda/políticas relacionadas. Componentes: shell loja e [Feedback](componentes.md#feedback) para indicação de planejamento quando pertinente. Títulos utilitários e texto em Sans, com largura de leitura/entrelinha globais; azul nos links, sem ilustração que dispute o documento. Desktop/tablet contidos, mobile índice no início. Versão/data só após aprovação; não desenhar banner de cookies ou aceite que não foi solicitado.
+Hierarquia: título/status editorial → índice → seções → ajuda/políticas relacionadas. Componentes: shell loja e [Feedback](componentes.md#feedback) para indicação de planejamento quando pertinente. Títulos utilitários e texto em Sans, com largura de leitura/entrelinha globais; preto nos links, sem fotografia editorial que dispute o documento. Desktop/tablet contidos, mobile índice no início. Versão/data só após aprovação; não desenhar banner de cookies ou aceite que não foi solicitado.
 
 ### Termos de uso
 
@@ -148,11 +149,11 @@ Mesma composição, cores, tipografia e componentes de Privacidade: título/stat
 
 **Origem P:** `institucional/trocas-e-devolucoes.md`. Papel: orientar leitura de política futura sem criar operação.
 
-Mesma família de Privacidade/Termos: shell loja e [Feedback](componentes.md#feedback), título/status → assuntos da política → ajuda. Tinta para regras quando aprovadas, links azuis e sem CTA de iniciar devolução. Responsividade de texto igual às demais políticas. Prazos/custos/elegibilidade não definidos são lacunas editoriais; não preencher com promessa de estorno, frete grátis ou prazo legal presumido.
+Mesma família de Privacidade/Termos: shell loja e [Feedback](componentes.md#feedback), título/status → assuntos da política → ajuda. Tinta para regras quando aprovadas, links pretos e sem CTA de iniciar devolução. Responsividade de texto igual às demais políticas. Prazos/custos/elegibilidade não definidos são lacunas editoriais; não preencher com promessa de estorno, frete grátis ou prazo legal presumido.
 
 ## Admin — 6 paginas
 
-Família: shell admin, H1 utilitário em Sans, tinta nos dados e azul em seleção/ação. Arte mínima; densidade vem de alinhamento e organização, sem reduzir fonte/alvos. Listas usam [Data List](componentes.md#data-list); formulários usam o mesmo Form Field da loja. Não criar tema administrativo alheio à marca.
+Família: shell admin, H1 utilitário em Sans, tinta nos dados e preto em seleção/ação. Arte mínima; densidade vem de alinhamento e organização, sem reduzir fonte/alvos. Listas usam [Data List](componentes.md#data-list); formulários usam o mesmo Form Field da loja. Não criar tema administrativo alheio à marca.
 
 ### Dashboard
 
@@ -176,7 +177,7 @@ Hierarquia: breadcrumb/H1 contextual → dados e prévia → salvar → estoque/
 
 **Origem P:** `admin/categorias.md`. Papel: consultar/criar/renomear de forma breve.
 
-Hierarquia: H1/Nova categoria → nomes/Editar → formulário curto contextual. Componentes: shell admin; [Data List](componentes.md#data-list), [Form Field](componentes.md#form-field), [Dialog](componentes.md#dialog), [Button](componentes.md#button) e estados. Lista leve em vez de cards com imagens; mesmo azul de ação e neutros da administração. Desktop/tablet diálogo breve; mobile diálogo rolável sem cortar ações. Sem hierarquia de categorias, exclusão ou imagens adicionadas.
+Hierarquia: H1/Nova categoria → nomes/Editar → formulário curto contextual. Componentes: shell admin; [Data List](componentes.md#data-list), [Form Field](componentes.md#form-field), [Dialog](componentes.md#dialog), [Button](componentes.md#button) e estados. Lista leve em vez de cards com imagens; mesmo âmbar de ação e neutros da administração. Desktop/tablet diálogo breve; mobile diálogo rolável sem cortar ações. Sem hierarquia de categorias, exclusão ou imagens adicionadas.
 
 ### Pedidos
 
@@ -192,7 +193,7 @@ Hierarquia: breadcrumb/referência/estado → composição/total → Atualizar c
 
 ## Sistema — 3 paginas
 
-Família: título humano em Sans, explicação curta, ação segura e [Feedback](componentes.md#feedback)/[Button](componentes.md#button). Shell loja por padrão; shell admin só com autorização conhecida; se o shell falhar, marca e retorno mínimo. Código numérico é secundário ao texto, sem ilustração obrigatória. Desktop/tablet mensagem contida; mobile ações empilhadas. Fundamentos de foco/contraste e padrão de navegação permanecem os mesmos.
+Família: título humano em Sans, explicação curta, ação segura e [Feedback](componentes.md#feedback)/[Button](componentes.md#button). Shell loja por padrão; shell admin só com autorização conhecida; se o shell falhar, marca e retorno mínimo. Código numérico é secundário ao texto, sem fotografia editorial obrigatória. Desktop/tablet mensagem contida; mobile ações empilhadas. Fundamentos de foco/contraste e padrão de navegação permanecem os mesmos.
 
 ### Pagina nao encontrada — 404
 

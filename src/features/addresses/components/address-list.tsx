@@ -99,7 +99,7 @@ export function AddressList({ addresses }: { addresses: AddressDto[] }) {
         }}
       >
         <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-ink/40" />
+          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-overlay-strong" />
           <AlertDialog.Content
             onCloseAutoFocus={(event) => {
               if (removeTrigger.current?.isConnected) {

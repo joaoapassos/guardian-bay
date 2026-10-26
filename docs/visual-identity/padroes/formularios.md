@@ -1,5 +1,6 @@
 # Padrão de formulários
 
+Identidade vigente em [DESIGN.md](../../../DESIGN.md); sem reconstrução de componentes ou mudanças de motion.
 [Índice](../README.md) · [Fundamentos](../fundamentos.md) · [Form Field](../componentes.md#form-field)
 
 Aplica-se a autenticação, conta, checkout, filtros e administração. Origem: I §§6,9; C/form-field, C/button, C/dialog e requisitos de P. Medidas, cores e tipografia são as de Fundamentos; este documento centraliza o comportamento.

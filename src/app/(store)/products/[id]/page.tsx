@@ -40,7 +40,7 @@ export default async function ProductPage({
       </nav>
       <div className="grid items-start gap-8 lg:grid-cols-2 lg:gap-14">
         <ProductTransition id={product.id}>
-          <div className="flex justify-center overflow-hidden rounded-panel border border-line bg-white p-6 sm:p-10">
+          <div className="flex justify-center overflow-hidden rounded-panel border border-line bg-canvas p-6 sm:p-10">
             <ProductImage image={product.image} size="detail" />
           </div>
         </ProductTransition>

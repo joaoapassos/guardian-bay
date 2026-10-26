@@ -66,7 +66,7 @@ export function SystemState({
         </div>
       </div>
       <Image
-        src={`/images/system/${kind}.webp`}
+        src="/images/home/prepared.webp"
         alt=""
         width={1536}
         height={1024}

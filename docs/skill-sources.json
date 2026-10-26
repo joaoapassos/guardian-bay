@@ -114,6 +114,18 @@
       "licenseEvidence": "README.md#license and SKILL.md where declared",
       "treeSha256": "52968568379b0b3a2d48c21117462e219093573bed8d3b418f5a7a514e2d33be",
       "fileCount": 1
+    },
+    {
+      "name": "impeccable",
+      "directory": ".agents/skills/impeccable",
+      "repository": "https://github.com/pbakaus/impeccable",
+      "revision": "989c484c091d26f10fa102767eefc0da2e62ec67",
+      "sourcePath": ".agents/skills/impeccable",
+      "license": "Apache-2.0",
+      "licenseEvidence": "LICENSE.txt from upstream root LICENSE",
+      "treeSha256": "1516014edf006696cee4cb02e242b4144acf904fd5d0756713c392f6ab06bf62",
+      "fileCount": 64,
+      "localAdaptations": "Text line endings normalized to LF; trailing whitespace and final blank line removed in reference/extract.md, reference/harden.md and reference/optimize.md for git diff --check."
     }
   ]
 }

@@ -60,7 +60,7 @@ export function AdminNavigation() {
         <Dialog.Root open={open} onOpenChange={setOpen}>
           <Dialog.Trigger className="admin-action">Menu</Dialog.Trigger>
           <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/40" />
+            <Dialog.Overlay className="fixed inset-0 z-40 bg-overlay-strong" />
             <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-[min(90vw,320px)] overflow-auto bg-surface p-6">
               <Dialog.Title className="sr-only">
                 Menu administrativo

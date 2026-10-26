@@ -1,5 +1,6 @@
 # Aplicação aos componentes
 
+Identidade vigente: [Boundary Supply adaptada](../../DESIGN.md). Preservar composição e comportamento existentes; descrições cromáticas cedem aos [Fundamentos](fundamentos.md).
 [Índice e fontes](README.md) · [Fundamentos](fundamentos.md) · [Páginas](paginas.md)
 
 Inventário completo: **26 componentes**, analisados individualmente. Cada “Origem C” identifica um arquivo na pasta externa definida no índice; não é link relativo para fora do repositório. Função e variação vêm dos estudos; esta página acrescenta sua aplicação visual, sem repetir contratos funcionais.
@@ -12,13 +13,13 @@ Tamanhos regular/ênfase dos controles vêm de N06; não criar tamanho compacto 
 
 ## Header
 
-**Origem C:** `header.md`. Função visual: ancorar marca e acesso à exploração. Logo azul sobre base clara, links em Sans e grupo utilitário alinhado; não colorir cada item com uma cor da paleta. Variantes global e checkout simplificado mantêm proporções e estados da mesma família.
+**Origem C:** `header.md`. Função visual: ancorar marca e acesso à exploração. Logo preto sobre base clara, links em Sans e grupo utilitário alinhado; não colorir cada item com uma cor da paleta. Variantes global e checkout simplificado mantêm proporções e estados da mesma família.
 
 Dimensionar busca e acessos pelos controles regulares, respeitando tamanho final de logo ainda pendente. Desktop organiza marca/navegação/busca/utilidades; tablet reorganiza antes de comprimir; mobile agrupa em Mobile Navigation. Foco, item atual e aberto são distintos; contador carregando não mostra zero. Aplicar [Navegação](padroes/navegacao.md). O Header global inclui User Menu e Mobile Navigation mesmo quando a página só lista Header.
 
 ## Footer
 
-**Origem C:** `footer.md`. Função visual: encerrar experiência e oferecer apoio. Grupos com títulos utilitários, links menores que H2 e espaço entre assuntos. Base creme ou bloco azul reverso conforme paleta; evitar faixa verde dominante. Variante compacta do checkout conserva ajuda/políticas, sem competir com confirmar.
+**Origem C:** `footer.md`. Função visual: encerrar experiência e oferecer apoio. Grupos com títulos utilitários, links menores que H2 e espaço entre assuntos. Base branco ou bloco preto reverso conforme paleta; usar neutros da referência. Variante compacta do checkout conserva ajuda/políticas, sem competir com confirmar.
 
 Colunas em desktop e grupos empilhados em mobile/tablet estreito, sem esconder links em interação obrigatória. Mesmo foco/hover dos links globais. Não criar newsletter, contatos fictícios ou faixa promocional. Ver [Navegação](padroes/navegacao.md).
 
@@ -36,13 +37,13 @@ Desktop usa dropdown acionável; mobile integra grupo ao painel existente, sem m
 
 ## Account Navigation
 
-**Origem C:** `navegacao-de-conta.md`. Função visual: orientar a área pessoal sem competir com Header. Destinos em Sans, seleção azul acompanhada de forma/peso e rótulo de área. Não criar abas de tamanhos e semânticas diferentes a cada página.
+**Origem C:** `navegacao-de-conta.md`. Função visual: orientar a área pessoal sem competir com Header. Destinos em Sans, seleção preto acompanhada de forma/peso e rótulo de área. Não criar abas de tamanhos e semânticas diferentes a cada página.
 
 Desktop lateral; tablet/mobile lista acima do conteúdo com seleção visível. Medidas de navegação N05/N06, sem quebrar nomes de forma ambígua. Detalhe de pedido mantém Pedidos ativo. Aplicar [Navegação](padroes/navegacao.md).
 
 ## Admin Sidebar
 
-**Origem C:** `sidebar-administrativa.md`. Função visual: identificar claramente operação administrativa preservando a marca. Tinta e neutros na estrutura, azul na seleção e marca; sem tema preto/tech, textura ou cores diferentes por área. Título Administração não usa o tamanho editorial da Home.
+**Origem C:** `sidebar-administrativa.md`. Função visual: identificar claramente operação administrativa preservando a marca. Tinta e neutros na estrutura, preto na seleção e marca; sem tema paralelo, textura ou cores diferentes por área. Título Administração não usa o tamanho editorial da Home.
 
 Desktop usa largura auxiliar N05; tablet/mobile migram para Drawer. Seleção de área persiste em detalhe/edição, foco e saída seguem padrão comum. Itens usam alvos regulares; não reduzir tipografia para incluir mais áreas. Somente quatro áreas principais deste planejamento, sem CMS. Ver [Navegação](padroes/navegacao.md).
 
@@ -54,7 +55,7 @@ Uma família para loja/conta/admin. Quebrar linha em telas estreitas sem truncar
 
 ## Button
 
-**Origem C:** `button.md`. Função visual: indicar ação e prioridade. Primário: fundo azul/texto creme; secundário: contorno azul, texto azul, fundo claro; terciário: texto reconhecível como ação/link. Destrutivo usa consequência explícita e acento de erro N01 quando necessário, sem virar novo estilo de compra.
+**Origem C:** `button.md`. Função visual: indicar ação e prioridade. Primário: fundo âmbar/texto preto; secundário: contorno preto, texto preto, fundo claro; terciário: texto reconhecível como ação/link. Destrutivo usa consequência explícita e acento de erro N01 quando necessário, sem virar novo estilo de compra.
 
 Regular para formulários/navegação utilitária; ênfase N06 apenas em ação de compra quando justificada. Hover/foco/active/loading/disabled seguem [Interações](padroes/interacoes.md), sem inventar cores clareadas. Não trocar o botão de lugar/tamanho ao mostrar progresso. Em mobile pode preencher largura se reduzir ambiguidade; secundário continua acessível. Link de navegação não perde semântica para parecer botão.
 
@@ -66,7 +67,7 @@ Campos de linha usam altura regular; textarea cresce pelo conteúdo. Estados pre
 
 ## Dialog
 
-**Origem C:** `dialog.md`. Função visual: concentrar decisão breve ou formulário curto. Superfície clara, título utilitário, descrição e ações com hierarquia; sem ilustração. Limites de largura, raio e espaçamento N05/N06, nunca dimensão fixa maior que tela.
+**Origem C:** `dialog.md`. Função visual: concentrar decisão breve ou formulário curto. Superfície clara, título utilitário, descrição e ações com hierarquia; sem fotografia editorial. Limites de largura, raio e espaçamento N05/N06, nunca dimensão fixa maior que tela.
 
 Confirmação destrutiva explicita consequência; edição breve segue Form Field. Fechado/aberto/enviando/erro seguem [Interações](padroes/interacoes.md). Mobile conserva Fechar/Cancelar e conteúdo rolável; ações podem empilhar mantendo ordem de leitura. Formulário longo não migra para Dialog só para reutilizá-lo. Não aninhar confirmação sobre outro modal.
 
@@ -92,11 +93,11 @@ Usos em lista, grid, formulário e detalhe compartilham linguagem; não precisam
 
 **Origem C:** `empty-state.md`. Função visual: explicar ausência confirmada e orientar. Título utilitário, explicação curta e uma ação adequada, sem arte obrigatória. Não tomar a altura da tela se vazio pertence a um painel/lista.
 
-Busca sem resultado, carrinho vazio e primeiro registro usam o mesmo padrão com textos contextuais. Mobile quebra o texto e conserva o CTA; desktop não adiciona uma nova seção ilustrada. Não usar semântica de erro para simples ausência. Ver [Feedback e estados](padroes/feedback-estados.md).
+Busca sem resultado, carrinho vazio e primeiro registro usam o mesmo padrão com textos contextuais. Mobile quebra o texto e conserva o CTA; desktop não adiciona uma nova seção fotográfica. Não usar semântica de erro para simples ausência. Ver [Feedback e estados](padroes/feedback-estados.md).
 
 ## Pagination
 
-**Origem C:** `pagination.md`. Função visual: continuidade discreta após resultados. Página atual usa seleção azul com forma adicional; links e limites seguem controles regulares, sem reduzir alvo para caber todos os números.
+**Origem C:** `pagination.md`. Função visual: continuidade discreta após resultados. Página atual usa seleção preto com forma adicional; links e limites seguem controles regulares, sem reduzir alvo para caber todos os números.
 
 Mesmo padrão em catálogo, conta e admin. Mobile reduz números, mantendo anterior/atual/próxima; tablet conforme espaço. Estado atual não é hover; loading e erro não apagam filtros. Aplicar contexto de URL e foco em [Navegação](padroes/navegacao.md).
 
@@ -166,4 +167,4 @@ Desktop tabela quando comparação importa; mobile registros com rótulos e mesm
 
 Checkout seleciona método; confirmação/detalhe apresentam tentativa existente; perfil administra fixtures mascaradas. Não criar cartões com aparência de banco real. QR/código e alternativa textual têm mesma importância de acesso; mobile quebra referências longas e mantém Copiar/Confirmar identificáveis.
 
-Estados pendente/aprovado/recusado/expirado usam [Feedback](padroes/feedback-estados.md), sem grande ilustração celebratória ou countdown de urgência. Contador não recebe foco nem fala a cada segundo. Admin de pedido não ganha essa interação de pagamento: apenas consulta conforme sua página.
+Estados pendente/aprovado/recusado/expirado usam [Feedback](padroes/feedback-estados.md), sem grande fotografia editorial celebratória ou countdown de urgência. Contador não recebe foco nem fala a cada segundo. Admin de pedido não ganha essa interação de pagamento: apenas consulta conforme sua página.

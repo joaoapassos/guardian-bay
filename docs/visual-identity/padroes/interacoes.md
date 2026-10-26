@@ -1,5 +1,6 @@
 # Padrão de interações
 
+Identidade vigente em [DESIGN.md](../../../DESIGN.md); sem reconstrução de componentes ou mudanças de motion.
 [Índice](../README.md) · [Foco, medidas e movimento](../fundamentos.md) · [Feedback](feedback-estados.md)
 
 Origem: I §§3,6,8,9; C/button, form-field, product-card, dialog, drawer e navegação. Valores de foco e movimento pertencem a Fundamentos. Esta página define o que muda, como a pessoa percebe a mudança e como sair de cada interação.
