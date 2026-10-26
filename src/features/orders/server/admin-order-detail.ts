@@ -23,6 +23,11 @@ export async function adminOrderDetail(input: unknown) {
           createdAt: orders.createdAt,
           status: orders.status,
           total: orders.totalAmount,
+          buyerName: orders.buyerName,
+          buyerCpfLast2: orders.buyerCpfLast2,
+          shippingAddress: orders.shippingAddress,
+          cardBrand: orderPayments.cardBrand,
+          cardLast4: orderPayments.cardLast4,
           paymentMethod: orderPayments.method,
           paymentExpiresAt: orderPayments.expiresAt,
           productName: orderItems.productName,
@@ -48,6 +53,16 @@ export async function adminOrderDetail(input: unknown) {
           createdAt: order.createdAt.toISOString(),
           status: order.status,
           total: moneyDto(order.total),
+          buyer:
+            order.buyerName && order.buyerCpfLast2
+              ? {
+                  name: order.buyerName,
+                  cpfMask: `•••.•••.•••-${order.buyerCpfLast2}`,
+                }
+              : null,
+          shippingAddress: order.shippingAddress,
+          cardBrand: order.cardBrand,
+          cardLast4: order.cardLast4,
           ...(order.paymentMethod
             ? {
                 paymentMethod: order.paymentMethod,

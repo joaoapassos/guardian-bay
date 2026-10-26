@@ -64,8 +64,9 @@ export default function HelpPage() {
         <h2>Pagamento simulado</h2>
         <h3>Algum dinheiro será cobrado?</h3>
         <p>
-          Não. Cartão, Pix e boleto são fictícios. Utilize somente os dados de
-          teste indicados na aplicação; não informe cartão bancário real.
+          Não. Cartão, Pix e boleto continuam sendo simulações. A validação
+          matemática do número de cartão não comprova existência, saldo ou
+          titularidade e não realiza uma cobrança.
         </p>
         <h3>Como a simulação funciona?</h3>
         <p>
@@ -95,16 +96,18 @@ export default function HelpPage() {
           houver falha ou expiração, o carrinho não é restaurado
           automaticamente; monte uma nova compra se quiser tentar novamente.
         </p>
-        <Link className="auth-link" href="/orders">
+        <Link className="auth-link" href="/account/orders">
           Ver meus pedidos
         </Link>
       </section>
       <section id="entregas" tabIndex={-1}>
         <h2>Endereços e entregas</h2>
         <p>
-          Você pode salvar endereços brasileiros em Minha Conta e selecionar um
-          deles no checkout. O pedido mantém o endereço registrado na compra,
-          mesmo se o cadastro for editado ou excluído depois.
+          Você pode selecionar um endereço brasileiro salvo ou preenchê-lo
+          somente para a compra. Salvar os dados do comprador, endereço e
+          identificação do cartão na conta é uma escolha independente. O pedido
+          mantém o endereço registrado na compra, mesmo se o cadastro for
+          editado ou excluído depois.
         </p>
         <p>
           Não há cálculo de frete, rastreamento ou operação real de entrega.

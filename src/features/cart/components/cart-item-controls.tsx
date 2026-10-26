@@ -6,6 +6,7 @@ import {
   removeCartItemAction,
   updateCartItemAction,
 } from "../actions/cart-item.action";
+import { useCartDrawer } from "./cart-drawer-context";
 import { QuantitySelector } from "./quantity-selector";
 
 export function CartItemControls({
@@ -23,6 +24,7 @@ export function CartItemControls({
 }) {
   const id = useId();
   const router = useRouter();
+  const { refreshCart } = useCartDrawer();
   const submitting = useRef(false);
   const [edit, setEdit] = useState({
     confirmed: quantity,
@@ -57,6 +59,7 @@ export function CartItemControls({
             ? await removeCartItemAction({ productId })
             : await updateCartItemAction({ productId, quantity: amount });
         if (result.success) {
+          await refreshCart();
           setMessage(
             operation === "remove"
               ? "Item removido."
@@ -72,7 +75,7 @@ export function CartItemControls({
         } else {
           setDraft(String(quantity));
           if (result.code === "UNAUTHENTICATED")
-            router.push("/login?returnTo=%2Fcart");
+            router.push("/login?returnTo=%2Fproducts%3Fcart%3Dopen");
           setMessage(
             result.code === "UNAUTHENTICATED"
               ? "Sessão expirada. Entre novamente."

@@ -9,6 +9,8 @@
 
 ## Testes com serviços
 
+Compras com CPF exigem `BUYER_DATA_ACTIVE_KEY_ID` e `BUYER_DATA_KEYS` server-only, descritos em `.env.example`. Mantenha os valores reais somente no ambiente ou `.env.local` ignorado; testes usam chaves próprias em `.env.test.local`. Chaves são 32 bytes aleatórios em base64, indexadas por ID; rotação muda o ID ativo e preserva as antigas enquanto houver registros cifrados. Não substituir a chave por senha de usuário nem removê-la antes de recriptografar os dados dependentes. A falta da configuração falha de forma fechada, sem gravar CPF em claro. Reinicie o servidor de desenvolvimento após alterar o ambiente.
+
 `npm run test:integration` exige TEST_DATABASE_URL explícita, loopback e banco guardian_bay_test, diferente do banco normal. Preflight impede fallback. A suíte aplica migrations e cria/limpa suas fixtures; só execute com destino dedicado confirmado.
 
 Para repetir localmente, mantenha `TEST_DATABASE_URL` em `.env.test.local` (ignorado pelo Git), apontando explicitamente para `guardian_bay_test`, com credencial própria. Execute `npm run test:integration:local`: o comando carrega somente esse arquivo, valida o destino, aplica migrations nesse banco e executa a suíte sequencial. Não carrega `.env` nem deriva conexão de `DATABASE_URL`. O usuário de testes deve poder gerenciar o schema desse banco, sem ser superusuário, criar bancos ou administrar roles. Não reutilize a credencial da aplicação.

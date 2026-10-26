@@ -26,7 +26,7 @@ export function CredentialFields({
   const creating = mode === "register";
   return (
     <>
-      <p className="text-sm text-muted">Todos os campos são obrigatórios.</p>
+      <p className="text-sm text-muted">E-mail e senha são obrigatórios.</p>
       <FormField id="email" label="E-mail" error={errors.email?.message}>
         <input
           id="email"

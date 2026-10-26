@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalNameSchema } from "@/features/buyers/schemas/buyer";
 
 export const emailSchema = z
   .string()
@@ -43,6 +44,7 @@ export const authenticationCredentialSchema = z.strictObject({
 });
 
 export const credentialSchema = z.strictObject({
+  name: optionalNameSchema,
   email: emailSchema,
   password: registrationPasswordSchema,
 });

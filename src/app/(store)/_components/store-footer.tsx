@@ -52,7 +52,7 @@ export function StoreFooter() {
           <Link className="store-nav-link block" href="/account">
             Meu perfil
           </Link>
-          <Link className="store-nav-link block" href="/orders">
+          <Link className="store-nav-link block" href="/account/orders">
             Meus pedidos
           </Link>
         </nav>

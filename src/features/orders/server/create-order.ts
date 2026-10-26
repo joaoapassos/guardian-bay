@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
@@ -18,8 +19,18 @@ import {
 } from "@/features/addresses/schemas/address";
 import { tokenHash } from "@/features/auth/server/session";
 import { sessionCookiePolicy } from "@/features/auth/server/session-cookie";
+import { buyerSchema } from "@/features/buyers/schemas/buyer";
+import type { CardMetadata } from "@/features/payments/schemas/card";
+import {
+  persistPaymentMethod,
+  resolveCheckoutCard,
+} from "@/features/payments/server/payment-methods";
 import { reserveAbuseBudget } from "@/lib/abuse/server";
 import { writeAuditEvent } from "@/lib/audit/server";
+import {
+  openPersonalData,
+  sealPersonalData,
+} from "@/lib/security/personal-data";
 import { checkoutSchema } from "../schemas/checkout";
 import { simulatePayment } from "../simulated-payment";
 import { checkoutCandidate } from "./checkout-preview";
@@ -28,6 +39,7 @@ import { orderFailure } from "./order-event";
 const expired = Symbol("session-expired");
 const inventoryConflict = Symbol("inventory-conflict");
 const invalidCard = Symbol("invalid-card");
+const saveLimit = Symbol("save-limit");
 export async function createOrder(input: unknown) {
   const parsed = checkoutSchema.safeParse(input);
   if (!parsed.success)
@@ -94,7 +106,35 @@ export async function createOrder(input: unknown) {
           )
             throw expired;
           let cardLast4: string | null = null;
-          let shippingAddress: AddressSnapshot | null = null;
+          let card: CardMetadata | null = null;
+          let shippingAddress: AddressSnapshot | null =
+            parsed.data.address ?? null;
+          let buyer: { name: string; cpf: string };
+          if (parsed.data.buyer.source === "saved") {
+            const [profile] = await tx
+              .select({ name: users.name, cpf: users.cpfEncrypted })
+              .from(users)
+              .where(eq(users.id, user.id));
+            if (!profile?.name || !profile.cpf)
+              return {
+                success: false as const,
+                code: "INVALID_BUYER" as const,
+              };
+            const saved = buyerSchema.safeParse({
+              name: profile.name,
+              cpf: openPersonalData(profile.cpf, `profile:${user.id}`),
+            });
+            if (!saved.success)
+              return {
+                success: false as const,
+                code: "INVALID_BUYER" as const,
+              };
+            buyer = saved.data;
+          } else
+            buyer = {
+              name: parsed.data.buyer.name,
+              cpf: parsed.data.buyer.cpf,
+            };
           if (parsed.data.addressId) {
             const [address] = await tx
               .select({
@@ -124,7 +164,10 @@ export async function createOrder(input: unknown) {
               };
             shippingAddress = snapshot.data;
           }
-          if (parsed.data.payment?.method === "CARD") {
+          if (
+            parsed.data.payment?.method === "CARD" &&
+            "cardId" in parsed.data.payment
+          ) {
             const [card] = await tx
               .select({ last4: savedTestCards.last4 })
               .from(savedTestCards)
@@ -138,6 +181,20 @@ export async function createOrder(input: unknown) {
               .for("update");
             if (!card)
               return { success: false as const, code: "INVALID_CARD" as const };
+            cardLast4 = card.last4;
+          }
+          if (
+            parsed.data.payment?.method === "CARD" &&
+            !("cardId" in parsed.data.payment)
+          ) {
+            const resolved = await resolveCheckoutCard(
+              tx,
+              user.id,
+              parsed.data.payment,
+            );
+            if (!resolved.success)
+              return { success: false as const, code: "INVALID_CARD" as const };
+            card = resolved.card;
             cardLast4 = card.last4;
           }
           const items = await tx
@@ -209,10 +266,18 @@ export async function createOrder(input: unknown) {
             })),
           );
           if (!checked.success) return checked;
+          const orderId = randomUUID();
           const [order] = await tx
             .insert(orders)
             .values({
               userId: user.id,
+              id: orderId,
+              buyerName: buyer.name,
+              buyerCpfEncrypted: sealPersonalData(
+                buyer.cpf,
+                `order:${user.id}:${orderId}`,
+              ),
+              buyerCpfLast2: buyer.cpf.slice(-2),
               checkoutKey: parsed.data.checkoutKey,
               shippingAddress,
               totalAmount: checked.snapshot.total.amount,
@@ -253,6 +318,7 @@ export async function createOrder(input: unknown) {
                     ? "APPROVED"
                     : "DECLINED",
               cardLast4,
+              cardBrand: card?.brand ?? (cardLast4 ? "TEST" : null),
               completedAt:
                 status === "PENDING_PAYMENT" ? null : sql`clock_timestamp()`,
               approvableAt: sql`clock_timestamp() + ${parsed.data.payment.method === "CARD" ? 0 : pix ? 30 : 60} * interval '1 second'`,
@@ -289,6 +355,39 @@ export async function createOrder(input: unknown) {
             }
           }
           if (status === "PAID" || status === "PENDING_PAYMENT") {
+            if (parsed.data.buyer.source === "new" && parsed.data.buyer.save) {
+              await tx
+                .update(users)
+                .set({
+                  name: buyer.name,
+                  cpfEncrypted: sealPersonalData(
+                    buyer.cpf,
+                    `profile:${user.id}`,
+                  ),
+                  cpfLast2: buyer.cpf.slice(-2),
+                })
+                .where(eq(users.id, user.id));
+            }
+            if (parsed.data.saveAddress && shippingAddress) {
+              const count = await tx
+                .select({ id: addresses.id })
+                .from(addresses)
+                .where(eq(addresses.userId, user.id))
+                .limit(20);
+              if (count.length >= 20) throw saveLimit;
+              await tx
+                .insert(addresses)
+                .values({ ...shippingAddress, userId: user.id });
+            }
+            if (
+              card &&
+              parsed.data.payment?.method === "CARD" &&
+              "save" in parsed.data.payment &&
+              parsed.data.payment.save
+            ) {
+              const saved = await persistPaymentMethod(tx, user.id, card);
+              if (!saved.success) throw saveLimit;
+            }
             // Pending asynchronous orders convert the cart now, never on later confirmation.
             await tx.delete(cartItems).where(
               and(
@@ -330,6 +429,7 @@ export async function createOrder(input: unknown) {
             throw expired;
           if (
             parsed.data.payment?.method === "CARD" &&
+            "cardId" in parsed.data.payment &&
             !(
               await tx
                 .select({ id: savedTestCards.id })
@@ -345,6 +445,12 @@ export async function createOrder(input: unknown) {
             ).length
           )
             throw invalidCard;
+          if (card) {
+            const [clock] = await tx.execute<{ valid: boolean }>(
+              sql`select (${card.expiryYear} * 12 + ${card.expiryMonth}) >= (extract(year from clock_timestamp() at time zone 'UTC')::int * 12 + extract(month from clock_timestamp() at time zone 'UTC')::int) as valid`,
+            );
+            if (!clock.valid) throw invalidCard;
+          }
           return { success: true as const, orderId: order.orderId, status };
         })
         .catch((error) => {
@@ -355,6 +461,8 @@ export async function createOrder(input: unknown) {
     if (result === null) throw failure;
     return result;
   } catch (error) {
+    if (error === saveLimit)
+      return { success: false as const, code: "LIMIT_REACHED" as const };
     if (error === invalidCard)
       return { success: false as const, code: "INVALID_CARD" as const };
     if (error === expired)

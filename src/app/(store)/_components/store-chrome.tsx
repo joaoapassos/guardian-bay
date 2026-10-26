@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CartProvider } from "@/features/cart/components/cart-provider";
 export function StoreChrome({
   header,
   footer,
@@ -14,7 +15,7 @@ export function StoreChrome({
   const checkout = path === "/checkout";
   const auth = path === "/login" || path === "/register";
   return (
-    <>
+    <CartProvider>
       {checkout ? (
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-surface px-5 py-5 font-auth sm:px-10">
           <Link
@@ -79,6 +80,6 @@ export function StoreChrome({
       ) : path === "/login" || path === "/register" ? null : (
         footer
       )}
-    </>
+    </CartProvider>
   );
 }

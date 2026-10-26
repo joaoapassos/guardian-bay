@@ -100,12 +100,18 @@ export async function resolveSession(token: unknown) {
   if (!hash) return null;
   try {
     const [identity] = await getDb()
-      .select({ id: users.id, email: users.email })
+      .select({ id: users.id, email: users.email, name: users.name })
       .from(sessions)
       .innerJoin(users, eq(sessions.userId, users.id))
       .where(and(eq(sessions.tokenHash, hash), sessionValidity()))
       .limit(1);
-    return identity ?? null;
+    return identity
+      ? {
+          id: identity.id,
+          email: identity.email,
+          ...(identity.name ? { name: identity.name } : {}),
+        }
+      : null;
   } catch {
     securityEvent("session-read", "OPERATION_FAILED");
     throw new Error("Não foi possível consultar a sessão.");

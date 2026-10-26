@@ -1,4 +1,5 @@
 "use server";
+import { credentialSchema } from "../schemas/credential.schema";
 import { register } from "../server/register";
 import { requireSameOrigin } from "../server/require-same-origin";
 import { loginAction } from "./login.action";
@@ -12,7 +13,11 @@ export async function registerAction(
   if (!result.success) return result;
   // Reuse credential verification, abuse budgets, rotation and secure cookie
   // delivery. A duplicate INSERT result alone never establishes a session.
-  const authentication = await loginAction(input);
+  const credentials = credentialSchema.parse(input);
+  const authentication = await loginAction({
+    email: credentials.email,
+    password: credentials.password,
+  });
   if (authentication.success) return { success: true as const };
   return {
     success: false as const,

@@ -15,6 +15,17 @@ export async function startStoreFixture() {
     prefix: "store-ui-",
     port: 3212,
     customize({ write, root, directory }) {
+      // Keep the identity DTO current without enabling a real session/DB.
+      write(
+        "features/auth/server/session-cookie.ts",
+        readFileSync(
+          join(directory, "src/features/auth/server/session-cookie.ts"),
+          "utf8",
+        ).replace(
+          "id: 'fixture-user', email: 'pessoa@example.test'",
+          "id: 'fixture-user', email: 'pessoa@example.test', name: 'Pessoa de teste'",
+        ),
+      );
       // Reuse the actual built font assets offline, preserving the application's typography.
       const chunks = join(root, ".next/static/chunks");
       if (existsSync(chunks)) {
@@ -96,6 +107,7 @@ export async function startStoreFixture() {
         total: money,
         items: [item],
         shippingAddress: { ...address, id: undefined, revision: undefined },
+        buyer: { name: "Pessoa de teste", cpfMask: "•••.•••.•••-25" },
       };
       write(
         "features/catalog/server/read-public-categories.ts",
@@ -111,7 +123,7 @@ export async function startStoreFixture() {
       );
       write(
         "features/cart/server/read-cart.ts",
-        `import {productImage} from '@/features/catalog/images'; export async function readCart() { return {success:true as const,items:[{productId:'${fixtureId}',name:'Kit de preparo',quantity:1,available:true,availableQuantity:8,stockSufficient:true,price:${JSON.stringify(money)},subtotal:${JSON.stringify(money)},image:productImage(null,'Kit de preparo')}],total:${JSON.stringify(money)}}; }`,
+        `import {cookies} from 'next/headers'; import {productImage} from '@/features/catalog/images'; export async function readCart() { const mode=(await cookies()).get('ui-cart')?.value; if(mode==='unauth') return {success:false as const,code:'UNAUTHENTICATED' as const}; if(mode==='error') throw new Error('Fixture unavailable'); return {success:true as const,items:mode==='empty'?[]:[{productId:'${fixtureId}',name:'Kit de preparo',quantity:1,available:true,availableQuantity:mode==='blocked'?0:8,stockSufficient:mode!=='blocked',price:${JSON.stringify(money)},subtotal:mode==='blocked'?null:${JSON.stringify(money)},image:productImage(null,'Kit de preparo')}],total:mode==='empty'||mode==='blocked'?{amount:0,currency:'BRL' as const,formatted:'R$ 0,00'}:${JSON.stringify(money)}}; }`,
       );
       write(
         "features/orders/server/checkout-preview.ts",
@@ -130,7 +142,7 @@ export async function startStoreFixture() {
       );
       write(
         "features/orders/server/order-history.ts",
-        `export async function orderHistory(_input:unknown) { if (false) return {success:false as const,code:'UNAUTHENTICATED' as const}; return {success:true as const,page:1,hasNext:false,orders:[${JSON.stringify(order)}]}; }`,
+        `export async function orderHistory(input:unknown) { if (false) return {success:false as const,code:'UNAUTHENTICATED' as const}; const page=Number((input as {page?:string})?.page??1); return {success:true as const,page,hasNext:page<2,orders:[${JSON.stringify(order)}]}; }`,
       );
       write(
         "features/orders/server/order-detail.ts",
@@ -143,6 +155,22 @@ export async function startStoreFixture() {
       write(
         "features/auth/server/read-account.ts",
         "export async function readAccount() { return {email:'pessoa@example.test'}; }",
+      );
+      write(
+        "features/buyers/server/buyer-profile.ts",
+        "export async function readBuyerProfile() { return {name:'Pessoa de teste',email:'pessoa@example.test',cpfMask:'•••.•••.•••-25'}; }",
+      );
+      const paymentMethodsSource = readFileSync(
+        join(root, "src/features/payments/server/payment-methods.ts"),
+        "utf8",
+      );
+      write(
+        "features/payments/server/payment-methods.ts",
+        paymentMethodsSource.replace(
+          "export async function readPaymentMethods()",
+          "async function unusedReadPaymentMethods()",
+        ) +
+          `\nexport async function readPaymentMethods(): Promise<Awaited<ReturnType<typeof unusedReadPaymentMethods>>> { return {success:true,paymentMethods:[{id:'${fixtureId}',brand:'VISA',last4:'4242',expiryMonth:12,expiryYear:2030}]}; }`,
       );
       const cardsSource = readFileSync(
         join(root, "src/features/orders/server/test-cards.ts"),

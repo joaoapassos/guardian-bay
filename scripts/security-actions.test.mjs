@@ -79,15 +79,15 @@ import { readIdentityAction } from "@/features/auth/actions/read-identity.action
 import { getAuthenticatedIdentity } from "@/features/auth/server/session-cookie";
 import { manageCatalogAction } from "@/features/catalog/actions/manage-catalog.action";
 import { checkoutAction } from "@/features/orders/actions/checkout.action";
-import { saveTestCardAction, removeTestCardAction } from "@/features/orders/actions/test-cards.action";
+import { savePaymentMethodAction, removePaymentMethodAction } from "@/features/payments/actions/payment-methods.action";
 import { confirmPaymentAction } from "@/features/orders/actions/confirm-payment.action";
 import { setInventoryQuantityAction } from "@/features/inventory/actions/set-inventory.action";
 import { addToCartAction } from "@/features/cart/actions/add-to-cart.action";
 import { updateCartItemAction, removeCartItemAction } from "@/features/cart/actions/cart-item.action";
 async function stock(form:FormData) {"use server"; const input:Record<string,unknown>=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_"))); if("quantity" in input) input.quantity=Number(input.quantity);if("revision" in input) input.revision=Number(input.revision);const result=await setInventoryQuantityAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
-async function checkout(form:FormData) {"use server"; const input=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_"))); const result=await checkoutAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
-async function cardSave(form:FormData) {"use server"; const input:Record<string,unknown>=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));if("expiryMonth" in input) input.expiryMonth=Number(input.expiryMonth);if("expiryYear" in input) input.expiryYear=Number(input.expiryYear);const result=await saveTestCardAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
-async function cardRemove(form:FormData) {"use server"; const input=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));const result=await removeTestCardAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
+async function checkout(form:FormData) {"use server"; const input:Record<string,unknown>=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_"))); for(const key of ["buyer","address","payment"]) if(typeof input[key]==="string") {try{input[key]=JSON.parse(input[key] as string);}catch{input[key]=null;}} const result=await checkoutAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
+async function cardSave(form:FormData) {"use server"; const input:Record<string,unknown>=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));if("expiryMonth" in input) input.expiryMonth=Number(input.expiryMonth);if("expiryYear" in input) input.expiryYear=Number(input.expiryYear);const result=await savePaymentMethodAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
+async function cardRemove(form:FormData) {"use server"; const input=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));const result=await removePaymentMethodAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
 async function paymentConfirm(form:FormData) {"use server"; const input=Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));const result=await confirmPaymentAction(input);redirect("/?result="+encodeURIComponent(JSON.stringify(result)));}
 function cartInput(form: FormData) {
  const input: Record<string,unknown> = Object.fromEntries([...form].filter(([key])=>!key.startsWith("$ACTION_")));
@@ -197,7 +197,39 @@ export default async function Probe() {
       const post = (index, fields = {}, headers = {}, cookie) => {
         const form = new FormData();
         form.set(actions[index], "");
-        for (const [key, data] of Object.entries(fields)) form.set(key, data);
+        const required =
+          index === 9
+            ? {
+                buyer: {
+                  source: "new",
+                  name: "HTTP Test Buyer",
+                  cpf: "52998224725",
+                  save: false,
+                },
+                address: {
+                  recipient: "HTTP Test Buyer",
+                  postalCode: "12345678",
+                  street: "Rua de teste",
+                  number: "1",
+                  complement: "",
+                  neighborhood: "Centro",
+                  city: "São Paulo",
+                  state: "SP",
+                  country: "BR",
+                },
+                payment: {
+                  method: "CARD",
+                  card: {
+                    number: "4111111111111111",
+                    expiryMonth: 12,
+                    expiryYear: 2099,
+                  },
+                  save: false,
+                },
+              }
+            : {};
+        for (const [key, data] of Object.entries({ ...required, ...fields }))
+          form.set(key, typeof data === "object" ? JSON.stringify(data) : data);
         return fetch(base, {
           method: "POST",
           body: form,
@@ -224,14 +256,14 @@ export default async function Probe() {
           const cookie = `__Host-guardian-session=${raw}`;
           await client`INSERT INTO sessions(token_hash,user_id,expires_at) VALUES (${hashed},${user.id},now()+interval '1 hour')`;
           const card = {
-            fixtureId: "test-1",
+            number: "4111111111111111",
             expiryMonth: "12",
             expiryYear: "2099",
           };
           try {
             for (const [index, input] of [
               [11, card],
-              [12, { cardId: randomUUID() }],
+              [12, { id: randomUUID() }],
               [13, { orderId: randomUUID() }],
             ]) {
               assert.deepEqual(result(await post(index, input)), {
@@ -269,23 +301,23 @@ export default async function Probe() {
               success: true,
             });
             const [saved] =
-              await client`SELECT id FROM saved_test_cards WHERE user_id=${user.id}`;
+              await client`SELECT id FROM saved_payment_methods WHERE user_id=${user.id}`;
             assert.deepEqual(
               result(await post(13, { orderId: randomUUID() }, {}, cookie)),
               { success: false, code: "NOT_FOUND" },
             );
             assert.deepEqual(
-              result(await post(12, { cardId: saved.id }, {}, cookie)),
+              result(await post(12, { id: saved.id }, {}, cookie)),
               { success: true },
             );
             assert.equal(
               (
-                await client`SELECT * FROM saved_test_cards WHERE user_id=${user.id}`
+                await client`SELECT * FROM saved_payment_methods WHERE user_id=${user.id}`
               ).length,
               0,
             );
           } finally {
-            await client`DELETE FROM saved_test_cards WHERE user_id=${user.id}`;
+            await client`DELETE FROM saved_payment_methods WHERE user_id=${user.id}`;
             await client`DELETE FROM abuse_budgets WHERE user_id=${user.id} AND operation IN ('payment.cards','payment.confirm')`;
             await client`DELETE FROM sessions WHERE token_hash=${hashed}`;
           }
@@ -605,6 +637,7 @@ export default async function Probe() {
               { success: false, code: "UNAUTHENTICATED" },
             );
           } finally {
+            await client`DELETE FROM order_payments WHERE order_id IN (SELECT id FROM orders WHERE user_id=${user.id})`;
             await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id=${user.id})`;
             await client`DELETE FROM orders WHERE user_id=${user.id}`;
             await client`DELETE FROM cart_items WHERE user_id=${user.id} AND product_id=${product.id}`;
@@ -631,7 +664,11 @@ export default async function Probe() {
           try {
             assert.deepEqual(
               result(await post(6, { productId: product.id, quantity: "1" })),
-              { success: false, code: "UNAUTHENTICATED" },
+              {
+                success: false,
+                code: "UNAUTHENTICATED",
+                redirectTo: `/login?returnTo=${encodeURIComponent(`/products/${product.id}`)}`,
+              },
             );
             for (const index of [6, 7, 8]) {
               const input = {
@@ -763,7 +800,11 @@ export default async function Probe() {
                   cookie,
                 ),
               ),
-              { success: false, code: "UNAUTHENTICATED" },
+              {
+                success: false,
+                code: "UNAUTHENTICATED",
+                redirectTo: `/login?returnTo=${encodeURIComponent(`/products/${product.id}`)}`,
+              },
             );
           } finally {
             await client`DELETE FROM cart_items WHERE product_id=${product.id}`;
@@ -969,7 +1010,7 @@ export default async function Probe() {
           const tampered = await (
             await fetch(`${base}/products?amount=1&currency=USD`)
           ).text();
-          assert.match(tampered, /Filtros inválidos/);
+          assert.match(tampered, /Confira os filtros/);
           assert.deepEqual(
             result(
               await post(

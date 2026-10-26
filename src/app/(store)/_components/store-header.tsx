@@ -14,7 +14,10 @@ export async function StoreHeader() {
   return (
     <StoreNavigation categories={categories}>
       {identity ? (
-        <UserMenu label={identity.email} canAccessAdmin={canAccessAdmin} />
+        <UserMenu
+          label={identity.name ?? identity.email}
+          canAccessAdmin={canAccessAdmin}
+        />
       ) : (
         <div className="flex items-center gap-4 text-sm">
           <Link className="store-nav-link" href="/login">

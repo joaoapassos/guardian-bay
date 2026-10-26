@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChangePasswordForm } from "@/features/auth/components/change-password-form";
 import { readAccount } from "@/features/auth/server/read-account";
-import { TestCardForm } from "@/features/orders/components/test-card-form";
-import { TestCardList } from "@/features/orders/components/test-card-list";
-import { readTestCards } from "@/features/orders/server/test-cards";
+import { ProfileForm } from "@/features/buyers/components/profile-form";
+import { readBuyerProfile } from "@/features/buyers/server/buyer-profile";
 import { AccountShell } from "../_components/account-shell";
 
 export const metadata: Metadata = { title: "Sua conta | Guardian Bay" };
@@ -12,15 +12,16 @@ export const metadata: Metadata = { title: "Sua conta | Guardian Bay" };
 export default async function AccountPage() {
   const account = await readAccount();
 
-  if (!account) redirect("/login");
+  if (!account) redirect("/login?returnTo=%2Faccount");
 
-  const cards = await readTestCards();
+  const profile = await readBuyerProfile();
+  if (!profile) redirect("/login?returnTo=%2Faccount");
 
   return (
     <AccountShell
       active="profile"
       title="Meu perfil"
-      description="Seus dados de acesso e cartões de simulação, em um só lugar."
+      description="Seus dados pessoais e de acesso, com controle sobre o que você deseja salvar."
     >
       <section
         className="rounded-panel border border-line bg-surface p-5 sm:p-7"
@@ -39,6 +40,7 @@ export default async function AccountPage() {
           <dd className="mt-2 break-all">{account.email}</dd>
         </dl>
 
+        <ProfileForm name={profile.name} cpfMask={profile.cpfMask} />
         <h3 className="mt-8 text-lg font-semibold">Alterar senha</h3>
 
         <ChangePasswordForm />
@@ -52,14 +54,15 @@ export default async function AccountPage() {
           tabIndex={-1}
           className="font-editorial text-2xl text-coast"
         >
-          Cartões fictícios
+          Métodos de pagamento
         </h2>
         <p className="my-4 text-sm text-muted">
-          Até três cartões de teste. Nenhum pagamento real é realizado.
+          Gerencie a identificação dos cartões salvos para a simulação. Nenhum
+          pagamento real é realizado.
         </p>
-        <TestCardList cards={cards} />
-
-        <TestCardForm cardCount={cards.length} />
+        <Link className="auth-link" href="/account/payment-methods">
+          Gerenciar métodos de pagamento
+        </Link>
       </section>
     </AccountShell>
   );

@@ -30,6 +30,39 @@ export default async function AdminOrderDetailPage({
         </span>
       </p>
       <p>{paymentMethodLabel(order.paymentMethod)}</p>
+      {order.cardLast4 && (
+        <p>
+          {order.cardBrand ?? "Cartão"} •••• {order.cardLast4}
+        </p>
+      )}
+      {order.buyer && (
+        <section className="admin-panel" aria-label="Comprador">
+          <h2 className="font-editorial text-2xl text-coast">Comprador</h2>
+          <p className="mt-3">{order.buyer.name}</p>
+          <p>CPF {order.buyer.cpfMask}</p>
+        </section>
+      )}
+      {order.shippingAddress && (
+        <section
+          className="admin-panel break-words"
+          aria-label="Endereço do pedido"
+        >
+          <h2 className="font-editorial text-2xl text-coast">
+            Endereço registrado
+          </h2>
+          <p className="mt-3">{order.shippingAddress.recipient}</p>
+          <p>
+            {order.shippingAddress.street}, {order.shippingAddress.number}
+            {order.shippingAddress.complement &&
+              ` — ${order.shippingAddress.complement}`}
+          </p>
+          <p>
+            {order.shippingAddress.neighborhood} · {order.shippingAddress.city}/
+            {order.shippingAddress.state}
+          </p>
+          <p>CEP {order.shippingAddress.postalCode}</p>
+        </section>
+      )}
       {order.paymentExpiresAt && (
         <p>
           Prazo da simulação:{" "}

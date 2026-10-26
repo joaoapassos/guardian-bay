@@ -5,6 +5,7 @@ import {
   index,
   jsonb,
   pgTable,
+  text,
   timestamp,
   unique,
   uuid,
@@ -22,6 +23,9 @@ export const orders = pgTable(
       .references(() => users.id, { onDelete: "restrict" }),
     checkoutKey: uuid("checkout_key").notNull(),
     shippingAddress: jsonb("shipping_address").$type<ShippingAddressSnapshot>(),
+    buyerName: varchar("buyer_name", { length: 100 }),
+    buyerCpfEncrypted: text("buyer_cpf_encrypted"),
+    buyerCpfLast2: varchar("buyer_cpf_last2", { length: 2 }),
     status: varchar("status", { length: 16 })
       .default("PENDING_PAYMENT")
       .notNull(),

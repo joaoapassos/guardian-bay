@@ -2,21 +2,31 @@ import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { readCheckoutAddresses } from "@/features/addresses/server/read-addresses";
+import { loginHref } from "@/features/auth/safe-return";
+import { readBuyerProfile } from "@/features/buyers/server/buyer-profile";
 import { readCart } from "@/features/cart/server/read-cart";
 import { CheckoutConfirmation } from "@/features/orders/components/checkout-confirmation";
 import { OrderSummary } from "@/features/orders/components/order-summary";
-import { TestCardForm } from "@/features/orders/components/test-card-form";
 import { checkoutPreview } from "@/features/orders/server/checkout-preview";
-import { readTestCards } from "@/features/orders/server/test-cards";
+import { readPaymentMethods } from "@/features/payments/server/payment-methods";
 import { moneyDto } from "@/lib/money/price";
 
 export default async function CheckoutPage() {
   const preview = await checkoutPreview();
   if (!preview.success && preview.code === "UNAUTHENTICATED")
-    redirect("/login?returnTo=%2Fcheckout");
-  const cards = preview.success ? await readTestCards() : [];
-  const addressResult = preview.success ? await readCheckoutAddresses() : null;
-  if (addressResult && !addressResult.success) redirect("/login");
+    redirect(loginHref("/checkout"));
+  const [cardResult, addressResult, profile] = preview.success
+    ? await Promise.all([
+        readPaymentMethods(),
+        readCheckoutAddresses(),
+        readBuyerProfile(),
+      ])
+    : [null, null, null];
+  if (
+    preview.success &&
+    (!cardResult?.success || !addressResult?.success || !profile)
+  )
+    redirect(loginHref("/checkout"));
   const cart =
     !preview.success &&
     (preview.code === "UNAVAILABLE" || preview.code === "OUT_OF_STOCK")
@@ -52,10 +62,13 @@ export default async function CheckoutPage() {
           />
           <CheckoutConfirmation
             checkoutKey={randomUUID()}
-            cards={cards}
+            cards={cardResult?.success ? cardResult.paymentMethods : []}
             addresses={addressResult?.success ? addressResult.addresses : []}
+            profile={{
+              name: profile?.name ?? null,
+              cpfMask: profile?.cpfMask ?? null,
+            }}
           />
-          <TestCardForm cardCount={cards.length} />
         </>
       ) : (
         <>

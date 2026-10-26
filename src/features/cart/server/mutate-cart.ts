@@ -1,7 +1,8 @@
 import "server-only";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
+import { cartIntents } from "@/db/schema/cart-intents";
 import { cartItems } from "@/db/schema/cart-items";
 import { inventory } from "@/db/schema/inventory";
 import { products } from "@/db/schema/products";
@@ -17,6 +18,7 @@ const expired = Symbol("session-expired");
 async function mutateCart(
   operation: "add" | "update" | "remove",
   input: unknown,
+  intentHash?: string,
 ) {
   const parsed = (
     operation === "remove" ? removeCartItemSchema : cartItemSchema
@@ -57,6 +59,22 @@ async function mutateCart(
         .for("update");
       if (!session)
         return { success: false as const, code: "UNAUTHENTICATED" as const };
+      if (intentHash) {
+        const [claimed] = await tx
+          .update(cartIntents)
+          .set({ consumedAt: sql`clock_timestamp()` })
+          .where(
+            and(
+              eq(cartIntents.tokenHash, intentHash),
+              eq(cartIntents.productId, parsed.data.productId),
+              isNull(cartIntents.consumedAt),
+              sql`${cartIntents.expiresAt} > clock_timestamp()`,
+            ),
+          )
+          .returning({ hash: cartIntents.tokenHash });
+        if (!claimed)
+          return { success: false as const, code: "CONFLICT" as const };
+      }
       const ownItem = and(
         eq(cartItems.userId, user.id),
         eq(cartItems.productId, parsed.data.productId),
@@ -158,8 +176,8 @@ async function mutateCart(
   }
 }
 
-export async function addToCart(input: unknown) {
-  return mutateCart("add", input);
+export async function addToCart(input: unknown, intentHash?: string) {
+  return mutateCart("add", input, intentHash);
 }
 export async function updateCartItem(input: unknown) {
   return mutateCart("update", input);

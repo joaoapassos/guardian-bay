@@ -13,7 +13,16 @@ import { Button } from "@/components/ui/button";
 import { loginAction } from "../actions/login.action";
 import { CredentialFields, type CredentialInput } from "./credential-fields";
 
-export function LoginForm({ returnTo = "/account" }: { returnTo?: string }) {
+export function LoginForm({
+  returnTo = "/account",
+  resumeAfterLoginAction,
+}: {
+  returnTo?: string;
+  resumeAfterLoginAction?: () => Promise<{
+    resumed: boolean;
+    redirectTo?: string;
+  }>;
+}) {
   const router = useRouter();
   const form = useForm<CredentialInput>();
   const [message, setMessage] = useState<FormMessage>(null);
@@ -36,7 +45,22 @@ export function LoginForm({ returnTo = "/account" }: { returnTo?: string }) {
               try {
                 const result = await loginAction(input);
                 if (result.success) {
-                  router.replace(returnTo);
+                  window.dispatchEvent(new Event("guardian:identity-changed"));
+                  // Authentication is complete; resume only a known add intent.
+                  let destination = returnTo;
+                  try {
+                    const resumed = await resumeAfterLoginAction?.();
+                    if (resumed?.redirectTo) destination = resumed.redirectTo;
+                  } catch {
+                    const inspection = new URL(
+                      returnTo,
+                      window.location.origin,
+                    );
+                    inspection.searchParams.set("cart", "open");
+                    inspection.searchParams.set("cartResult", "UNKNOWN");
+                    destination = inspection.pathname + inspection.search;
+                  }
+                  router.replace(destination);
                   router.refresh();
                 } else setMessage({ kind: "error", text: result.message });
               } catch {

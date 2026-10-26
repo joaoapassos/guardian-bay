@@ -8,6 +8,7 @@ import { FormField } from "@/components/forms/form-field";
 import { PasswordField } from "@/components/forms/password-field";
 import { Button } from "@/components/ui/button";
 import { changePasswordAction } from "../actions/change-password.action";
+import { loginHref } from "../safe-return";
 import { changePasswordSchema } from "../schemas/change-password.schema";
 
 export function ChangePasswordForm() {
@@ -33,7 +34,7 @@ export function ChangePasswordForm() {
         try {
           const result = await changePasswordAction(input);
           if (result.success || result.code === "UNAUTHENTICATED") {
-            router.replace("/login");
+            router.replace(loginHref("/account"));
             router.refresh();
           } else
             setMessage(

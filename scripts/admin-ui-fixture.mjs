@@ -73,6 +73,20 @@ export async function startAdminFixture({
     inventoryRevision: 1,
   };
   const order = {
+    buyer: { name: "Pessoa de teste", cpfMask: "•••.•••.•••-25" },
+    shippingAddress: {
+      recipient: "Pessoa de teste",
+      postalCode: "12345678",
+      street: "Rua de teste",
+      number: "10",
+      complement: "",
+      neighborhood: "Centro",
+      city: "São Paulo",
+      state: "SP",
+      country: "BR",
+    },
+    cardBrand: "VISA",
+    cardLast4: "4242",
     orderId: id,
     createdAt: "2026-10-25T12:00:00.000Z",
     status: "PAID",

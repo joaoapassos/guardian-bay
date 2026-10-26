@@ -9,11 +9,22 @@ import {
   FormFeedback,
   type FormMessage,
 } from "@/components/forms/form-feedback";
+import { FormField } from "@/components/forms/form-field";
 import { Button } from "@/components/ui/button";
+import { optionalNameSchema } from "@/features/buyers/schemas/buyer";
 import { registerAction } from "../actions/register.action";
 import { CredentialFields, type CredentialInput } from "./credential-fields";
 
-export function RegisterForm({ returnTo = "/account" }: { returnTo?: string }) {
+export function RegisterForm({
+  returnTo = "/account",
+  resumeAfterLoginAction,
+}: {
+  returnTo?: string;
+  resumeAfterLoginAction?: () => Promise<{
+    resumed: boolean;
+    redirectTo?: string;
+  }>;
+}) {
   const router = useRouter();
   const form = useForm<CredentialInput>();
   const [message, setMessage] = useState<FormMessage>(null);
@@ -36,7 +47,15 @@ export function RegisterForm({ returnTo = "/account" }: { returnTo?: string }) {
               try {
                 const result = await registerAction(input);
                 if (result.success) {
-                  router.replace(returnTo);
+                  window.dispatchEvent(new Event("guardian:identity-changed"));
+                  let destination = returnTo;
+                  try {
+                    const resumed = await resumeAfterLoginAction?.();
+                    destination = resumed?.redirectTo ?? returnTo;
+                  } catch {
+                    destination = "/products?cart=open";
+                  }
+                  router.replace(destination);
                   router.refresh();
                 } else
                   setMessage({
@@ -62,6 +81,25 @@ export function RegisterForm({ returnTo = "/account" }: { returnTo?: string }) {
         }
       }}
     >
+      <FormField
+        id="register-name"
+        label="Nome (opcional)"
+        error={form.formState.errors.name?.message}
+      >
+        <input
+          id="register-name"
+          autoComplete="name"
+          maxLength={100}
+          className="auth-input"
+          aria-invalid={!!form.formState.errors.name}
+          aria-describedby="register-name-error"
+          {...form.register("name", {
+            validate: (value) =>
+              optionalNameSchema.safeParse(value).success ||
+              "Confira seu nome.",
+          })}
+        />
+      </FormField>
       <CredentialFields form={form} mode="register" />
       <Button type="submit" disabled={isSubmitting} className="w-full">
         {isSubmitting ? "Criando conta…" : "Criar conta"}

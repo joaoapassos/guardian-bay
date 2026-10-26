@@ -21,6 +21,7 @@ export const orderPayments = pgTable(
     status: varchar("status", { length: 8 }).default("PENDING").notNull(),
     ruleVersion: integer("rule_version").default(1).notNull(),
     cardLast4: varchar("card_last4", { length: 4 }),
+    cardBrand: varchar("card_brand", { length: 16 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -41,7 +42,7 @@ export const orderPayments = pgTable(
     check("order_payments_rule", sql`${t.ruleVersion} = 1`),
     check(
       "order_payments_mask",
-      sql`(${t.method} = 'CARD' AND ${t.cardLast4} IS NOT NULL AND ${t.cardLast4} IN ('0001', '0002', '0003')) OR (${t.method} <> 'CARD' AND ${t.cardLast4} IS NULL)`,
+      sql`(${t.method} = 'CARD' AND ${t.cardLast4} IS NOT NULL AND ${t.cardLast4} ~ '^[0-9]{4}$') OR (${t.method} <> 'CARD' AND ${t.cardLast4} IS NULL)`,
     ),
     check(
       "order_payments_times",

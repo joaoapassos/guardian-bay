@@ -40,6 +40,8 @@ Aplicar filtros/ordenar informa atualização e conserva critérios; não transf
 
 ## Movimento e preferências
 
+Na mudança entre Administração e Loja/Minha Conta, a Curtain usa entrada de 500 ms, permanência coberta mínima de 900 ms e saída de 500 ms, conforme ajuste solicitado para dar mais presença à marca. Esse ajuste substitui a proposta inicial sem permanência mínima da skill de motion apenas nessa transição de contexto. A navegação começa imediatamente; Escape/Continuar navegação, movimento reduzido e limite total de 5 s continuam liberando a interface sem esperar esse tempo visual.
+
 Usar a transição discreta de Fundamentos em contorno, seleção e entrada/saída de painel. Não usar parallax, zoom em foto, bounce, carregamento decorativo contínuo ou efeito que altere percepção do produto. Ação não espera animação terminar para apresentar resultado.
 
 Com preferência por movimento reduzido, remover deslocamento/pulso dispensável e manter mudança de estado direta, texto de progresso e foco. Não usar movimento como único indicador de loading ou sucesso. Contador informa prazo real; não piscar, dramatizar urgência nem interromper leitura a cada segundo.

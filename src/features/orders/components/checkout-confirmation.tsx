@@ -1,146 +1,215 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 import { FormField } from "@/components/forms/form-field";
 import { Button } from "@/components/ui/button";
 import type { AddressDto } from "@/features/addresses/schemas/address";
+import { loginHref } from "@/features/auth/safe-return";
+import {
+  cardInputSchema,
+  isCardExpired,
+  type PaymentMethodDto,
+} from "@/features/payments/schemas/card";
 import { checkoutAction } from "../actions/checkout.action";
+import { checkoutSchema } from "../schemas/checkout";
+import { CheckoutAddressFields } from "./checkout-address-fields";
+import { CheckoutBuyerFields } from "./checkout-buyer-fields";
+import { CheckoutCardFields } from "./checkout-card-fields";
+import type {
+  CheckoutBuyerProfile,
+  CheckoutFormValues,
+} from "./checkout-form-values";
+
+const failures: Record<string, string> = {
+  RATE_LIMITED: "Muitas confirmações. Aguarde e tente novamente.",
+  INVALID_CARD:
+    "Cartão indisponível ou vencido. Confira a validade ou escolha outro.",
+  INVALID_ADDRESS: "Endereço indisponível. Informe outro ou atualize a página.",
+  INVALID_BUYER: "Confira o nome e o CPF do comprador.",
+  EMPTY_CART: "O carrinho está vazio. Volte ao catálogo.",
+  OUT_OF_STOCK: "Estoque insuficiente. Revise o carrinho.",
+  UNAVAILABLE: "Um produto está indisponível. Corrija o carrinho.",
+  LIMIT_REACHED:
+    "Limite de dados salvos atingido. Desmarque a opção de salvar ou gerencie sua conta.",
+  CONFLICT: "A disponibilidade mudou. Revise o carrinho antes de confirmar.",
+};
 
 export function CheckoutConfirmation({
   checkoutKey,
   cards,
   addresses,
+  profile,
 }: {
   checkoutKey: string;
   addresses: AddressDto[];
-  cards: {
-    id: string;
-    last4: string;
-    expiryMonth: number;
-    expiryYear: number;
-  }[];
+  cards: PaymentMethodDto[];
+  profile: CheckoutBuyerProfile;
 }) {
   const [key] = useState(checkoutKey);
   const [message, setMessage] = useState("");
-  const [pending, startTransition] = useTransition();
+  const [uncertain, setUncertain] = useState(false);
   const router = useRouter();
-  const [method, setMethod] = useState(cards.length ? "CARD" : "PIX");
-  const [cardId, setCardId] = useState(cards[0]?.id ?? "");
+  const inFlight = useRef(false);
+  const [method, setMethod] = useState<"CARD" | "PIX" | "BOLETO">("CARD");
+  const [paymentMethodId, setPaymentMethodId] = useState(
+    cards.find((card) => !isCardExpired(card.expiryMonth, card.expiryYear))
+      ?.id ?? "",
+  );
   const [addressId, setAddressId] = useState(addresses[0]?.id ?? "");
+  const [buyerSource, setBuyerSource] = useState<"new" | "saved">(
+    profile.name && profile.cpfMask ? "saved" : "new",
+  );
+  const {
+    register,
+    handleSubmit,
+    resetField,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<CheckoutFormValues>({
+    shouldUnregister: true,
+    defaultValues: {
+      buyer: { name: profile.name ?? "", cpf: "", save: false },
+      address: { country: "BR", complement: "" },
+      saveAddress: false,
+      saveCard: false,
+    },
+  });
   return (
     <form
       aria-label="Confirmar checkout"
-      aria-busy={pending}
-      className="mt-8 space-y-6 rounded-panel border border-line bg-surface p-5 sm:p-7"
-      action={() => {
+      noValidate
+      aria-busy={isSubmitting}
+      className="mt-8 space-y-8 rounded-panel border border-line bg-surface p-5 sm:p-7"
+      onSubmit={handleSubmit(async (values) => {
+        if (inFlight.current) return;
         setMessage("");
-        if (!addresses.some((address) => address.id === addressId)) {
-          setMessage("Selecione um endereço de entrega.");
+        setUncertain(false);
+        if (method === "CARD" && !paymentMethodId) {
+          const card = cardInputSchema.safeParse(values.card);
+          if (!card.success) {
+            const issue = card.error.issues[0];
+            const field = issue.path[0];
+            if (
+              field === "number" ||
+              field === "expiryMonth" ||
+              field === "expiryYear"
+            )
+              setError(
+                `card.${field}`,
+                { message: issue.message },
+                { shouldFocus: true },
+              );
+            return;
+          }
+        }
+        const parsed = checkoutSchema.safeParse({
+          checkoutKey: key,
+          buyer:
+            buyerSource === "saved"
+              ? { source: "saved" }
+              : {
+                  ...values.buyer,
+                  source: "new",
+                  save: values.buyer.save ?? false,
+                },
+          ...(addressId
+            ? { addressId }
+            : {
+                address: values.address,
+                saveAddress: values.saveAddress ?? false,
+              }),
+          payment:
+            method !== "CARD"
+              ? { method }
+              : paymentMethodId
+                ? { method, paymentMethodId }
+                : { method, card: values.card, save: values.saveCard ?? false },
+        });
+        if (!parsed.success) {
+          setMessage(
+            "Confira os dados do comprador, o endereço e a validade do cartão antes de confirmar.",
+          );
+          document.getElementById("checkout-feedback")?.focus();
           return;
         }
-        startTransition(async () => {
-          try {
-            const result = await checkoutAction({
-              checkoutKey: key,
-              addressId,
-              payment: method === "CARD" ? { method, cardId } : { method },
-            });
-            if (result.success) router.push(`/orders/${result.orderId}`);
-            else
-              setMessage(
-                result.code === "RATE_LIMITED"
-                  ? "Muitas confirmações. Aguarde e tente novamente."
-                  : result.code === "UNAUTHENTICATED"
-                    ? "Sessão expirada. Entre novamente."
-                    : result.code === "INVALID_CARD"
-                      ? "Cartão indisponível ou vencido. Selecione outro."
-                      : result.code === "INVALID_ADDRESS"
-                        ? "Endereço indisponível. Confira seus endereços e recarregue o checkout."
-                        : result.code === "EMPTY_CART"
-                          ? "O carrinho está vazio. Volte ao catálogo."
-                          : result.code === "OUT_OF_STOCK"
-                            ? "Estoque insuficiente. Revise o carrinho."
-                            : result.code === "UNAVAILABLE"
-                              ? "Um produto está indisponível. Corrija o carrinho."
-                              : "Confirmação inválida. Recarregue o checkout.",
-              );
-          } catch {
+        inFlight.current = true;
+        try {
+          const result = await checkoutAction(parsed.data);
+          if (result.success) router.push(`/account/orders/${result.orderId}`);
+          else if (result.code === "UNAUTHENTICATED")
+            router.replace(loginHref("/checkout"));
+          else
             setMessage(
-              "Não foi possível confirmar. Tente novamente com esta mesma confirmação.",
+              failures[result.code] ??
+                "Confirmação inválida. Confira os dados e tente novamente.",
             );
-          }
-        });
-      }}
+        } catch {
+          setUncertain(true);
+          setMessage(
+            "Não foi possível confirmar o resultado. Consulte seus pedidos antes de tentar novamente com esta mesma confirmação.",
+          );
+        } finally {
+          resetField("card.number", { defaultValue: "" });
+          resetField("buyer.cpf", { defaultValue: "" });
+          inFlight.current = false;
+        }
+      })}
     >
-      <h2 className="font-editorial text-2xl text-coast">
-        Entrega e pagamento
-      </h2>
-      {addresses.length ? (
-        <FormField id="checkout-address" label="Endereço de entrega no Brasil">
-          <select
-            id="checkout-address"
-            className="auth-input"
-            value={addressId}
-            disabled={pending}
-            required
-            onChange={(event) => setAddressId(event.target.value)}
-          >
-            {addresses.map((address) => (
-              <option key={address.id} value={address.id}>
-                {address.recipient} — {address.street}, {address.number} ·{" "}
-                {address.city}/{address.state} · {address.postalCode}
-              </option>
-            ))}
-          </select>
-        </FormField>
-      ) : (
-        <p>Adicione um endereço brasileiro antes de confirmar o pedido.</p>
-      )}
-      <Link href="/account/addresses" className="auth-link inline-block">
-        Gerenciar endereços
-      </Link>
-      <p className="text-sm text-muted">
-        Nenhum frete é calculado neste checkout simulado.
-      </p>
-      <FormField
-        id="checkout-payment-method"
-        label="Método de pagamento simulado"
-      >
-        <select
-          id="checkout-payment-method"
-          className="auth-input"
-          value={method}
-          disabled={pending}
-          onChange={(event) => setMethod(event.target.value)}
-        >
-          <option value="CARD">Cartão fictício</option>
-          <option value="PIX">Pix fictício</option>
-          <option value="BOLETO">Boleto fictício</option>
-        </select>
-      </FormField>
-      {method === "CARD" && (
-        <FormField id="checkout-card" label="Cartão cadastrado">
-          <select
-            id="checkout-card"
-            className="auth-input"
-            value={cardId}
-            disabled={pending}
-            onChange={(event) => setCardId(event.target.value)}
-          >
-            <option value="">Selecione um cartão fictício</option>
-            {cards.map((card) => (
-              <option key={card.id} value={card.id}>
-                TEST •••• {card.last4} —{" "}
-                {String(card.expiryMonth).padStart(2, "0")}/{card.expiryYear}
-              </option>
-            ))}
-          </select>
-        </FormField>
-      )}
-      <p className="mt-3">
+      <fieldset disabled={isSubmitting} className="min-w-0 space-y-8">
+        <CheckoutBuyerFields
+          profile={profile}
+          source={buyerSource}
+          onSourceChange={setBuyerSource}
+          register={register}
+          errors={errors}
+        />
+        <CheckoutAddressFields
+          addresses={addresses}
+          addressId={addressId}
+          onAddressChange={setAddressId}
+          register={register}
+          errors={errors}
+        />
+        <fieldset className="space-y-5">
+          <legend className="mb-4 font-editorial text-2xl text-coast">
+            Pagamento simulado
+          </legend>
+          <FormField id="checkout-payment-method" label="Método de pagamento">
+            <select
+              id="checkout-payment-method"
+              className="auth-input"
+              value={method}
+              onChange={(event) =>
+                setMethod(
+                  event.target.value === "CARD"
+                    ? "CARD"
+                    : event.target.value === "PIX"
+                      ? "PIX"
+                      : "BOLETO",
+                )
+              }
+            >
+              <option value="CARD">Cartão</option>
+              <option value="PIX">Pix fictício</option>
+              <option value="BOLETO">Boleto fictício</option>
+            </select>
+          </FormField>
+          {method === "CARD" && (
+            <CheckoutCardFields
+              cards={cards}
+              paymentMethodId={paymentMethodId}
+              onCardChange={setPaymentMethodId}
+              register={register}
+              errors={errors}
+            />
+          )}
+        </fieldset>
+      </fieldset>
+      <p>
         Nenhum dinheiro será movimentado. Pix e boleto convertem o carrinho em
-        pedido pendente, sem reservar estoque; disponibilidade será verificada
+        pedido pendente, sem reservar estoque; a disponibilidade será verificada
         na confirmação. Falhas e expiração não restauram o carrinho
         automaticamente.
       </p>
@@ -151,18 +220,23 @@ export function CheckoutConfirmation({
       </p>
       <Button
         type="submit"
-        disabled={
-          pending ||
-          !addresses.some((address) => address.id === addressId) ||
-          (method === "CARD" && !cards.some((card) => card.id === cardId))
-        }
+        disabled={isSubmitting}
         aria-describedby="checkout-feedback"
       >
-        Confirmar pedido simulado
+        {isSubmitting ? "Confirmando…" : "Confirmar pedido simulado"}
       </Button>
-      <output id="checkout-feedback" aria-live="polite" className="block mt-3">
-        {pending ? "Confirmando pedido…" : message}
+      <output
+        id="checkout-feedback"
+        tabIndex={-1}
+        className="block text-danger"
+      >
+        {message}
       </output>
+      {uncertain && (
+        <Link href="/account/orders" className="auth-link inline-block">
+          Consultar meus pedidos
+        </Link>
+      )}
     </form>
   );
 }

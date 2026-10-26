@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { RouteReady } from "@/components/shared/route-ready";
 
 export function AccountShell({
   active,
@@ -7,7 +8,7 @@ export function AccountShell({
   description,
   children,
 }: {
-  active: "profile" | "orders" | "addresses";
+  active: "profile" | "orders" | "addresses" | "payment-methods";
   title: string;
   description: string;
   children: ReactNode;
@@ -18,6 +19,7 @@ export function AccountShell({
       tabIndex={-1}
       className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 font-auth text-ink sm:px-8 lg:py-16"
     >
+      <RouteReady />
       <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
         Minha conta
       </p>
@@ -29,11 +31,16 @@ export function AccountShell({
           {(
             [
               { href: "/account", label: "Meu perfil", key: "profile" },
-              { href: "/orders", label: "Meus pedidos", key: "orders" },
+              { href: "/account/orders", label: "Meus pedidos", key: "orders" },
               {
                 href: "/account/addresses",
                 label: "Endereços",
                 key: "addresses",
+              },
+              {
+                href: "/account/payment-methods",
+                label: "Formas de pagamento",
+                key: "payment-methods",
               },
             ] as const
           ).map((item) => (

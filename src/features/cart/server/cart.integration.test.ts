@@ -13,17 +13,20 @@ import {
 } from "vitest";
 import { getDb } from "@/db";
 import { hashPassword } from "@/features/auth/server/password";
-import { createSession } from "@/features/auth/server/session";
+import { createSession, tokenHash } from "@/features/auth/server/session";
 import { addToCartAction } from "../actions/add-to-cart.action";
 import {
   removeCartItemAction,
   updateCartItemAction,
 } from "../actions/cart-item.action";
+import { resumeCartIntentAction } from "../actions/resume-cart-intent.action";
+import { addToCart } from "./mutate-cart";
 import { readCart } from "./read-cart";
 
 vi.mock("server-only", () => ({}));
 const request = vi.hoisted(() => ({
   token: undefined as string | undefined,
+  intent: undefined as string | undefined,
   headers: new Headers({
     origin: "http://localhost:3000",
     host: "localhost:3000",
@@ -32,7 +35,15 @@ const request = vi.hoisted(() => ({
 vi.mock("next/headers", () => ({
   headers: async () => request.headers,
   cookies: async () => ({
-    get: () => (request.token ? { value: request.token } : undefined),
+    get: (name: string) => {
+      const value = name.includes("cart-intent")
+        ? request.intent
+        : request.token;
+      return value ? { value } : undefined;
+    },
+    set: (name: string, value: string) => {
+      if (name.includes("cart-intent")) request.intent = value || undefined;
+    },
   }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -84,6 +95,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
+  await client`DELETE FROM cart_intents WHERE product_id=${productId}`;
   await client`DELETE FROM cart_items WHERE user_id IN (${userId},${otherId})`;
   await client`DELETE FROM users WHERE id IN (${userId},${otherId})`;
   await client`DELETE FROM inventory WHERE product_id IN (SELECT id FROM products WHERE category_id=${categoryId})`;
@@ -189,7 +201,7 @@ describe("ECMSG-56: leitura autorizada", () => {
 describe("ECMSG-57: adição server-authoritative", () => {
   it("autenticação, input estrito, publicação e autoridade forjada", async () => {
     request.token = undefined;
-    expect(await addToCartAction({ productId, quantity: 1 })).toEqual({
+    expect(await addToCartAction({ productId, quantity: 1 })).toMatchObject({
       success: false,
       code: "UNAUTHENTICATED",
     });
@@ -238,6 +250,67 @@ describe("ECMSG-57: adição server-authoritative", () => {
       code: "LIMIT_REACHED",
     });
     await client`DELETE FROM cart_items WHERE user_id=${userId}`;
+  });
+});
+
+describe("protected add intent after authentication", () => {
+  it("stores an opaque short-lived nonce and consumes concurrent resumes atomically", async () => {
+    request.token = undefined;
+    request.intent = undefined;
+    const initial = await addToCartAction({ productId, quantity: 2 });
+    expect(initial).toMatchObject({
+      success: false,
+      code: "UNAUTHENTICATED",
+      redirectTo: expect.stringContaining("/login?returnTo="),
+    });
+    const nonce = request.intent;
+    expect(nonce).toMatch(/^[a-f0-9]{64}$/);
+    const hash = tokenHash(nonce);
+    const [stored] =
+      await client`SELECT token_hash, quantity, consumed_at FROM cart_intents WHERE token_hash=${hash}`;
+    expect(stored).toMatchObject({
+      token_hash: hash,
+      quantity: 2,
+      consumed_at: null,
+    });
+    expect(hash).not.toBe(nonce);
+    request.token = (await createSession(userId)).token;
+    const results = await Promise.all([
+      addToCart({ productId, quantity: 2 }, hash as string),
+      addToCart({ productId, quantity: 2 }, hash as string),
+    ]);
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    expect(await readCart()).toMatchObject({
+      items: [{ productId, quantity: 2 }],
+    });
+    expect(await resumeCartIntentAction()).toEqual({ resumed: false });
+    expect(request.intent).toBeUndefined();
+    await client`DELETE FROM cart_intents WHERE token_hash=${hash}`;
+    await client`DELETE FROM cart_items WHERE user_id=${userId}`;
+  });
+  it("expires tamper-resistant intents and rechecks current stock", async () => {
+    request.token = undefined;
+    await addToCartAction({ productId, quantity: 2 });
+    const hash = tokenHash(request.intent);
+    request.token = (await createSession(userId)).token;
+    await client`UPDATE inventory SET available_quantity=1 WHERE product_id=${productId}`;
+    expect(await resumeCartIntentAction()).toMatchObject({
+      resumed: true,
+      success: false,
+      code: "OUT_OF_STOCK",
+    });
+    expect(await readCart()).toMatchObject({ items: [] });
+    expect(await resumeCartIntentAction()).toEqual({ resumed: false });
+    await client`UPDATE inventory SET available_quantity=10000 WHERE product_id=${productId}`;
+    await client`DELETE FROM cart_intents WHERE token_hash=${hash}`;
+    request.token = undefined;
+    await addToCartAction({ productId, quantity: 1 });
+    const expiredHash = tokenHash(request.intent);
+    await client`UPDATE cart_intents SET expires_at=clock_timestamp()-interval '1 minute' WHERE token_hash=${expiredHash}`;
+    request.token = (await createSession(userId)).token;
+    expect(await resumeCartIntentAction()).toEqual({ resumed: false });
+    expect(await readCart()).toMatchObject({ items: [] });
+    await client`DELETE FROM cart_intents WHERE token_hash=${expiredHash}`;
   });
 });
 
@@ -499,7 +572,7 @@ describe("ECMSG-63: boundaries, ownership e sessão concorrente", () => {
       await revokeSession(request.token);
       unlock();
       await holding;
-      expect(await pending).toEqual({
+      expect(await pending).toMatchObject({
         success: false,
         code: "UNAUTHENTICATED",
       });
@@ -567,7 +640,7 @@ describe("ECMSG-63: boundaries, ownership e sessão concorrente", () => {
             await client`SELECT pg_sleep(1.1)`;
             unlock();
             await holding;
-            expect(await pending).toEqual({
+            expect(await pending).toMatchObject({
               success: false,
               code: "UNAUTHENTICATED",
             });

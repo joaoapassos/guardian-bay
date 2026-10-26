@@ -26,11 +26,11 @@ export const abuseBudgets = pgTable(
     primaryKey({ columns: [table.userId, table.operation] }),
     check(
       "abuse_operation",
-      sql`${table.operation} IN ('checkout','admin.catalog','admin.inventory','payment.cards','payment.confirm')`,
+      sql`${table.operation} IN ('checkout','admin.catalog','admin.inventory','payment.cards','payment.confirm','profile.write')`,
     ),
     check(
       "abuse_attempts",
-      sql`${table.attempts} BETWEEN 1 AND CASE ${table.operation} WHEN 'checkout' THEN 5 WHEN 'payment.cards' THEN 10 WHEN 'payment.confirm' THEN 20 ELSE 30 END`,
+      sql`${table.attempts} BETWEEN 1 AND CASE ${table.operation} WHEN 'checkout' THEN 5 WHEN 'payment.cards' THEN 10 WHEN 'profile.write' THEN 10 WHEN 'payment.confirm' THEN 20 ELSE 30 END`,
     ),
     check("abuse_window", sql`${table.expiresAt} > ${table.startedAt}`),
     index("abuse_expiry_idx").on(table.expiresAt),

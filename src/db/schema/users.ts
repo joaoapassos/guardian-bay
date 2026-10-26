@@ -14,6 +14,9 @@ export const users = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     email: varchar("email", { length: 254 }).notNull().unique(),
+    name: varchar("name", { length: 100 }),
+    cpfEncrypted: text("cpf_encrypted"),
+    cpfLast2: varchar("cpf_last2", { length: 2 }),
     passwordHash: text("password_hash").notNull(),
     role: varchar("role", { length: 8 }).default("customer").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })

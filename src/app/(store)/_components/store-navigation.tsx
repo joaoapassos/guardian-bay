@@ -1,9 +1,11 @@
 "use client";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Menu, Search, ShoppingBag, X } from "lucide-react";
+import { Menu, Search, X } from "lucide-react";
 import Form from "next/form";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { CartTrigger } from "@/features/cart/components/cart-trigger";
 
 export function StoreNavigation({
   categories,
@@ -13,6 +15,7 @@ export function StoreNavigation({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const account = usePathname().startsWith("/account");
   return (
     <header className="border-b border-line bg-paper px-5 py-4 font-auth text-ink sm:px-8">
       <div className="mx-auto grid max-w-7xl items-center gap-4 md:grid-cols-[auto_minmax(180px,1fr)_auto]">
@@ -46,13 +49,7 @@ export function StoreNavigation({
           </button>
         </Form>
         <div className="flex min-w-0 flex-wrap items-center gap-3 md:justify-end">
-          <Link
-            href="/cart"
-            className="inline-flex min-h-11 items-center gap-2 rounded-control text-sm text-coast"
-          >
-            <ShoppingBag size={20} aria-hidden="true" />
-            <span>Carrinho</span>
-          </Link>
+          <CartTrigger />
           {children}
           <Dialog.Root open={open} onOpenChange={setOpen}>
             <Dialog.Trigger
@@ -109,7 +106,7 @@ export function StoreNavigation({
                     Minha conta
                   </Link>
                   <Link
-                    href="/orders"
+                    href="/account/orders"
                     onClick={() => setOpen(false)}
                     className="store-nav-link block"
                   >
@@ -121,23 +118,25 @@ export function StoreNavigation({
           </Dialog.Root>
         </div>
       </div>
-      <nav
-        aria-label="Navegação principal"
-        className="mx-auto mt-4 hidden max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 border-t border-line pt-3 lg:flex"
-      >
-        <Link href="/products" className="store-nav-link">
-          Todos os produtos
-        </Link>
-        {categories?.map((category) => (
-          <Link
-            key={category.id}
-            href={`/products?category=${category.id}`}
-            className="store-nav-link"
-          >
-            {category.name}
+      {!account && (
+        <nav
+          aria-label="Navegação principal"
+          className="mx-auto mt-4 hidden max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 border-t border-line pt-3 lg:flex"
+        >
+          <Link href="/products" className="store-nav-link">
+            Todos os produtos
           </Link>
-        ))}
-      </nav>
+          {categories?.map((category) => (
+            <Link
+              key={category.id}
+              href={`/products?category=${category.id}`}
+              className="store-nav-link"
+            >
+              {category.name}
+            </Link>
+          ))}
+        </nav>
+      )}
     </header>
   );
 }

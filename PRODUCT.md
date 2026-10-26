@@ -5,12 +5,13 @@ E-commerce acadêmico com identidade, catálogo, carrinho autenticado e pedidos;
 ## Públicos e fluxos implementados
 
 - Visitante consulta catálogo/detalhe, cria conta e faz login.
-- Customer mantém conta, senha, sessão e carrinho persistido; confirma checkout e consulta somente seus pedidos.
+- Customer mantém conta, nome opcional, senha, sessão e carrinho persistido. O carrinho abre em painel lateral; `/cart` é compatibilidade de navegação. Métodos de pagamento ficam em `/account/payment-methods`; histórico e detalhes em `/account/orders`, com redirecionamentos dos caminhos antigos.
 - Admin com role persistida gerencia catálogo/estoque, consulta pedidos e auditoria selecionada; cada operação revalida acesso.
 - Checkout recalcula valores/publicação/estoque no servidor, mantém snapshot e idempotência e consome estoque somente para PAID na transação. Carrinho não reserva estoque.
-- Minha Conta permite manter até 20 endereços brasileiros, com revisão otimista e isolamento por sessão. A nova interface de checkout exige escolher um endereço próprio; o servidor registra uma cópia histórica no pedido. Não há cálculo de frete nem endereço principal. Pedidos legados podem não ter endereço.
+- Checkout exige nome e CPF matematicamente válido do comprador, além de endereço brasileiro salvo ou avulso. CPF é cifrado com AES-256-GCM e contexto por proprietário/recurso; DTOs retornam somente máscara. Salvar comprador, endereço e identificação de cartão na conta é opcional e atômico com a compra elegível; dados históricos do pedido permanecem independentes. Há até 20 endereços e três métodos salvos. Não há cálculo de frete nem endereço principal; histórico legado não recebe dados inventados.
 - Home apresenta até oito produtos; catálogo mantém pesquisa, categoria, preço, disponibilidade, ordenação e paginação na URL. Novidades permanece adiada até existir um critério de data aprovado. O perfil exibe e-mail e permite alterar senha; não oferece edição de dados sem contrato existente.
-- Cartão fictício, Pix e boleto são simulados e não movimentam dinheiro. Aprovação/recusa segue o [contrato de pagamentos](docs/architecture/payments.md).
+- Cartão é validado por Luhn, faixa de bandeira suportada (Visa/Mastercard/Amex) e validade, sem consulta bancária ou garantia de titularidade. Número completo é transitório; somente bandeira, últimos quatro dígitos e validade são salvos. Não há CVV na nova interface. Cartão, Pix e boleto continuam simulados. Os contratos antigos de fixtures permanecem somente para compatibilidade; não são oferecidos pela nova interface. Consulte o [contrato de pagamentos](docs/architecture/payments.md).
+- Login forçado preserva destino interno validado. Adição ao carrinho interrompida por ausência de sessão usa intenção opaca de dez minutos consumida uma vez no servidor; compra/pagamento não são repetidos automaticamente. Curtain comunica mudança entre Loja/Conta e Admin com prontidão limitada e recuperação; categorias não aparecem em Minha Conta.
 
 ## Páginas institucionais
 

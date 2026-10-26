@@ -137,7 +137,9 @@ export function AddressList({ addresses }: { addresses: AddressDto[] }) {
                         setRemoving(null);
                         router.refresh();
                       } else if (result.code === "UNAUTHENTICATED")
-                        router.replace("/login");
+                        router.replace(
+                          "/login?returnTo=%2Faccount%2Faddresses",
+                        );
                       else {
                         setRemoving(null);
                         setMessage(

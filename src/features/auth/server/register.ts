@@ -15,7 +15,11 @@ export async function register(input: unknown) {
     const passwordHash = await hashPassword(parsed.data.password);
     await tx
       .insert(users)
-      .values({ email: parsed.data.email, passwordHash })
+      .values({
+        email: parsed.data.email,
+        passwordHash,
+        name: parsed.data.name || null,
+      })
       .onConflictDoNothing({ target: users.email });
   }, "register");
   return slot.admitted

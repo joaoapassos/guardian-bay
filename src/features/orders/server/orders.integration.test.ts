@@ -159,7 +159,7 @@ it("ECMSG-69: preview exige sessão, carrinho próprio completo e catálogo atua
   ).toHaveLength(1);
 });
 it("ECMSG-70: double submit/retry e chave igual entre usuários são isolados", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const checkoutKey = randomUUID();
   await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2),(${otherId},${productId},1)`;
   const pair = await Promise.all([
@@ -191,7 +191,7 @@ it("ECMSG-70: double submit/retry e chave igual entre usuários são isolados", 
   ).toHaveLength(2);
 });
 it("ECMSG-71: aprovação/recusa são server-side, replay preserva resultado", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
   const key = randomUUID();
   expect(await checkoutAction({ checkoutKey: key })).toMatchObject({
@@ -213,7 +213,7 @@ it("ECMSG-71: aprovação/recusa são server-side, replay preserva resultado", a
   ).toEqual({ success: false, code: "INVALID_INPUT" });
 });
 it("ECMSG-72: sucesso remove convertidos; replay antigo preserva adição nova e recusa preserva carrinho", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2)`;
   const checkoutKey = randomUUID();
   const paid = await checkoutAction({ checkoutKey });
@@ -238,7 +238,7 @@ it("ECMSG-72: sucesso remove convertidos; replay antigo preserva adição nova e
   ).toBe(3);
 });
 it("ECMSG-72: falha ao persistir itens reverte pedido e preserva carrinho", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   // Dedicated test DB only; temporary trigger forces a real mid-transaction fault.
@@ -297,7 +297,7 @@ it("ECMSG-74: histórico privado, DTO mínimo e paginação limitada", async () 
   });
 });
 it("ECMSG-75: detalhes usam snapshot, ownership na query e DTO mínimo", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const { orderDetail } = await import("./order-detail");
   await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2)`;
   const created = await checkoutAction({ checkoutKey: randomUUID() });
@@ -317,11 +317,12 @@ it("ECMSG-75: detalhes usam snapshot, ownership na query e DTO mínimo", async (
       "orderId",
       "status",
       "createdAt",
+      "buyer",
       "total",
       "shippingAddress",
       "items",
     ]);
-    expect(before.order.shippingAddress).toBeNull();
+    expect(before.order.buyer?.cpfMask).toBe("•••.•••.•••-25");
     expect(Object.keys(before.order.items[0])).toEqual([
       "productName",
       "quantity",
@@ -384,7 +385,7 @@ async function holdOrderLock(
 }
 
 it("ECMSG-76: Origin/contrato, visitante e mass assignment antes de mutation", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const input = { checkoutKey: randomUUID() };
   request.token = undefined;
   expect(await checkoutAction(input)).toEqual({
@@ -426,7 +427,7 @@ it("ECMSG-76: Origin/contrato, visitante e mass assignment antes de mutation", a
   ).toHaveLength(0);
 });
 it("ECMSG-76: catálogo alterado durante espera é relido sob lock", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
   const lock = await holdOrderLock(
     (tx) => tx`UPDATE products SET amount=1234 WHERE id=${productId}`,
@@ -463,7 +464,7 @@ it("ECMSG-76: catálogo alterado durante espera é relido sob lock", async () =>
   }
 });
 it("ECMSG-76: expiração absoluta/idle durante lock causa rollback", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const { tokenHash } = await import("@/features/auth/server/session");
   for (const kind of ["absolute", "idle"] as const) {
     request.token = (await createSession(userId)).token;
@@ -497,7 +498,7 @@ it("ECMSG-76: expiração absoluta/idle durante lock causa rollback", async () =
   }
 });
 it("ECMSG-76: revogação antes da autorização bloqueada nega pedido", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const { tokenHash } = await import("@/features/auth/server/session");
   await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
   const lock = await holdOrderLock(
@@ -517,7 +518,7 @@ it("ECMSG-76: revogação antes da autorização bloqueada nega pedido", async (
   }
 });
 it("ECMSG-76: checkout serializa add/update/remove sem misturar snapshots", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const { addToCartAction } = await import(
     "@/features/cart/actions/add-to-cart.action"
   );
@@ -562,7 +563,7 @@ it("ECMSG-76: checkout serializa add/update/remove sem misturar snapshots", asyn
   }
 });
 it("ECMSG-77: snapshot máximo persiste bigint exato sem truncar; FK histórica não depende do produto", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const { orderDetail } = await import("./order-detail");
   const fixture =
     await client`INSERT INTO products(name,category_id,amount,is_published) SELECT 'Maximum snapshot',${categoryId},2147483647,true FROM generate_series(1,100) RETURNING id`;
@@ -597,7 +598,7 @@ it("ECMSG-77: snapshot máximo persiste bigint exato sem truncar; FK histórica 
   }
 });
 it("ECMSG-77: item indisponível bloqueia conjunto inteiro; nunca cria pedido parcial", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const [privateProduct] =
     await client`INSERT INTO products(name,category_id,amount) VALUES ('Unavailable snapshot',${categoryId},1) RETURNING id`;
   try {
@@ -635,7 +636,7 @@ it("ECMSG-77: constraints de snapshot impedem currency, preço, nome e produto d
   ).rejects.toMatchObject({ code: "23514" });
 });
 it("ECMSG-77: falha interna não expõe Error/cause/payload nem duplica logs", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   const fail = vi
     .spyOn(getDb(), "transaction")
@@ -659,7 +660,7 @@ it("ECMSG-77: falha interna não expõe Error/cause/payload nem duplica logs", a
 });
 
 it("ECMSG-84: insuficiência/ausência rejeita conjunto sem criar pedido", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const { checkoutPreview } = await import("./checkout-preview");
   await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},3)`;
   for (const quantity of [0, 2]) {
@@ -688,7 +689,7 @@ it("ECMSG-84: insuficiência/ausência rejeita conjunto sem criar pedido", async
 });
 
 it("ECMSG-85: PAID consome uma vez, failed preserva e revisão saturada rollback", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   await client`UPDATE inventory SET available_quantity=5 WHERE product_id=${productId}`;
   await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2)`;
   const checkoutKey = randomUUID();
@@ -739,7 +740,7 @@ it.each([
   [1, 1],
   [3, 2],
 ])("ECMSG-86: estoque %i, compras concorrentes de %i nunca oversell", async (stock, quantity) => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const tokens = [
     (await createSession(userId)).token,
     (await createSession(otherId)).token,
@@ -778,7 +779,7 @@ it.each([
   }
 });
 it("ECMSG-86: múltiplos produtos invertidos são lockados em ordem estável e atômicos", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const [second] =
     await client`INSERT INTO products(name,category_id,amount,is_published) VALUES ('Second stock',${categoryId},100,true) RETURNING id`;
   await client`INSERT INTO inventory(product_id,available_quantity) VALUES (${second.id},1)`;
@@ -813,7 +814,7 @@ it("ECMSG-86: múltiplos produtos invertidos são lockados em ordem estável e a
   }
 });
 it("ECMSG-86: sessão expirada esperando inventory não cria pedido nem consome", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const { tokenHash } = await import("@/features/auth/server/session");
   await client`UPDATE sessions SET expires_at=clock_timestamp()+interval '1 second' WHERE token_hash=${tokenHash(request.token)}`;
   await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
@@ -844,7 +845,7 @@ it.each([
   "checkout",
   "admin",
 ] as const)("ECMSG-88: %s ganha lock, sem lost update admin × checkout", async (first) => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const { setInventoryQuantityAction } = await import(
     "@/features/inventory/actions/set-inventory.action"
   );
@@ -891,7 +892,7 @@ it.each([
   }
 });
 it("ECMSG-90: item insuficiente bloqueia todos e preserva estoque/carrinho", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const [second] =
     await client`INSERT INTO products(name,category_id,amount,is_published) VALUES ('Insufficient stock',${categoryId},100,true) RETURNING id`;
   await client`INSERT INTO inventory(product_id) VALUES (${second.id})`;
@@ -919,7 +920,7 @@ it("ECMSG-90: item insuficiente bloqueia todos e preserva estoque/carrinho", asy
   }
 });
 it("ECMSG-90: pagamento recusado concorrente libera unidades para compra elegível", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   const tokens = [
     (await createSession(userId)).token,
     (await createSession(otherId)).token,
@@ -959,7 +960,7 @@ it("ECMSG-90: pagamento recusado concorrente libera unidades para compra elegív
   }
 });
 it("ECMSG-90: defesa condicionada do decremento retorna conflito e rollback", async () => {
-  const { checkoutAction } = await import("../actions/checkout.action");
+  const { checkoutAction } = await import("../testing/checkout-fixture");
   await client`INSERT INTO cart_items(user_id,product_id) VALUES (${userId},${productId})`;
   // A test-only trigger simulates a privileged change after validation, before consumption.
   await client.unsafe(`CREATE FUNCTION pg_temp.inventory_guard_test() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -1210,7 +1211,7 @@ it("ECMSG-102: expiração aguardando lock bloqueia leitura administrativa", asy
 });
 
 it("ECMSG-110: evento final único por intenção paga/recusada e rollback integral", async () => {
-  const { createOrder } = await import("./create-order");
+  const { createOrder } = await import("../testing/checkout-fixture");
   for (const amount of [1099, 1000000]) {
     await client`UPDATE products SET amount=${amount} WHERE id=${productId}`;
     await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},1) ON CONFLICT(user_id,product_id) DO UPDATE SET quantity=1`;
@@ -1261,7 +1262,7 @@ it("ECMSG-110: evento final único por intenção paga/recusada e rollback integ
 });
 
 it("ECMSG-113: cap rejeita intenção nova mas retry retorna pedido sem consumir budget", async () => {
-  const { createOrder } = await import("./create-order");
+  const { createOrder } = await import("../testing/checkout-fixture");
   await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},1)`;
   const key = randomUUID();
   const order = await createOrder({ checkoutKey: key });
@@ -1284,7 +1285,7 @@ it("ECMSG-113: cap rejeita intenção nova mas retry retorna pedido sem consumir
   ).toBe(1);
 });
 it("ECMSG-113: falha do audit desfaz negócio mas confirma reserva", async () => {
-  const { createOrder } = await import("./create-order");
+  const { createOrder } = await import("../testing/checkout-fixture");
   await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},1)`;
   const writer = await import("@/lib/audit/server");
   const spy = vi

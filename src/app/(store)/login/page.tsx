@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AuthShell } from "@/features/auth/components/auth-shell";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { safeReturn } from "@/features/auth/safe-return";
+import { resumeCartIntentAction } from "@/features/cart/actions/resume-cart-intent.action";
 
 export const metadata: Metadata = { title: "Entrar | Guardian Bay" };
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
@@ -10,7 +11,10 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       title="Entrar"
       description="Bom ter você por aqui. Acesse sua conta para acompanhar seus pedidos."
     >
-      <LoginForm returnTo={safeReturn((await searchParams).returnTo)} />
+      <LoginForm
+        returnTo={safeReturn((await searchParams).returnTo)}
+        resumeAfterLoginAction={resumeCartIntentAction}
+      />
       <section
         aria-labelledby="access-help"
         className="mt-6 border-t border-line pt-4"

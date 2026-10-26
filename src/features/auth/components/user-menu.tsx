@@ -4,6 +4,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   ChevronDown,
   ClipboardList,
+  CreditCard,
   LayoutDashboard,
   LogOut,
   MapPin,
@@ -15,6 +16,7 @@ import {
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
+import { ContextLink } from "@/components/shared/context-link";
 import { useLogout } from "./use-logout";
 
 const itemClass =
@@ -79,10 +81,10 @@ export function UserMenu({
             <DropdownMenu.Separator className="my-1 h-px bg-line" />
           )}
           <DropdownMenu.Item asChild disabled={pending}>
-            <Link href="/account" className={itemClass}>
+            <ContextLink href="/account" className={itemClass}>
               <UserRound size={18} aria-hidden="true" />
               Meu perfil
-            </Link>
+            </ContextLink>
           </DropdownMenu.Item>
           {context === "store" && (
             <DropdownMenu.Item asChild disabled={pending}>
@@ -94,26 +96,34 @@ export function UserMenu({
           )}
           {context === "store" && (
             <DropdownMenu.Item asChild disabled={pending}>
-              <Link href="/orders" className={itemClass}>
+              <Link href="/account/orders" className={itemClass}>
                 <Package size={18} aria-hidden="true" />
                 Meus pedidos
               </Link>
             </DropdownMenu.Item>
           )}
+          {context === "store" && (
+            <DropdownMenu.Item asChild disabled={pending}>
+              <Link href="/account/payment-methods" className={itemClass}>
+                <CreditCard size={18} aria-hidden="true" />
+                Formas de pagamento
+              </Link>
+            </DropdownMenu.Item>
+          )}
           {canAccessAdmin && context === "store" && (
             <DropdownMenu.Item asChild disabled={pending}>
-              <Link href="/admin" className={itemClass}>
+              <ContextLink href="/admin" className={itemClass}>
                 <ShieldCheck size={18} aria-hidden="true" />
                 Administração
-              </Link>
+              </ContextLink>
             </DropdownMenu.Item>
           )}
           {context === "admin" && (
             <DropdownMenu.Item asChild disabled={pending}>
-              <Link href="/" className={itemClass}>
+              <ContextLink href="/" className={itemClass}>
                 <Store size={18} aria-hidden="true" />
                 Voltar à loja
-              </Link>
+              </ContextLink>
             </DropdownMenu.Item>
           )}
           <DropdownMenu.Separator className="my-1 h-px bg-line" />

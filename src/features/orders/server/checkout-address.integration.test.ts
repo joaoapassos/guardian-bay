@@ -17,7 +17,7 @@ import {
 } from "@/features/addresses/actions/address.action";
 import { hashPassword } from "@/features/auth/server/password";
 import { createSession } from "@/features/auth/server/session";
-import { checkoutAction } from "../actions/checkout.action";
+import { checkoutAction } from "../testing/checkout-fixture";
 import { orderDetail } from "./order-detail";
 
 vi.mock("server-only", () => ({}));

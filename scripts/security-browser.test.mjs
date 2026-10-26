@@ -455,14 +455,24 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                         headers,
                       },
                       (result) => {
+                        if (response.destroyed || response.writableEnded) {
+                          result.destroy();
+                          return;
+                        }
                         response.writeHead(result.statusCode, result.headers);
                         result.pipe(response);
                       },
                     );
                     upstream.on("error", () => {
+                      if (response.destroyed || response.writableEnded) return;
+                      if (response.headersSent) {
+                        response.destroy();
+                        return;
+                      }
                       response.writeHead(502);
                       response.end();
                     });
+                    response.on("close", () => upstream.destroy());
                     request.pipe(upstream);
                   },
                 );
@@ -493,12 +503,23 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   assert.fail(`${description}: ${JSON.stringify(state)}`);
                 };
                 const navigate = async (path) => {
+                  const wantsCart = path === "/cart";
+                  if (wantsCart) path = "/products";
                   await call("Page.navigate", { url: origin + path });
                   await waitFor(
                     `location.pathname + location.search === ${JSON.stringify(path)} && document.readyState === 'complete' && !!window.next`,
                     `navigate ${path}`,
                   );
                   await new Promise((done) => setTimeout(done, 200));
+                  if (wantsCart) {
+                    await evaluate(
+                      "document.getElementById('store-cart-trigger').click()",
+                    );
+                    await waitFor(
+                      "!!document.querySelector('[role=dialog] input[name=quantity]')",
+                      "cart drawer opens from store control",
+                    );
+                  }
                 };
                 const submit = async (values) => {
                   for (const [id, value] of Object.entries(values)) {
@@ -508,12 +529,12 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                     await call("Input.insertText", { text: value });
                   }
                   await evaluate(
-                    "document.querySelector('main form').requestSubmit()",
+                    `document.getElementById(${JSON.stringify(Object.keys(values)[0])}).form.requestSubmit()`,
                   );
                 };
                 const output = (message) =>
                   waitFor(
-                    `document.querySelector('output')?.textContent?.includes(${JSON.stringify(message)}) && document.querySelector('main form').getAttribute('aria-busy') === 'false'`,
+                    `(() => {const form=document.querySelector('#currentPassword')?.form ?? document.querySelector('#email')?.form;return form?.querySelector('output')?.textContent?.includes(${JSON.stringify(message)}) && form.getAttribute('aria-busy') === 'false';})()`,
                     message,
                   );
                 const cookie = async () => {
@@ -778,7 +799,12 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "location.pathname === '/admin/categories' && !!document.querySelector('main button')",
                   "catalog through administrative navigation",
                 );
-                const adminSubmit = async (label, values, feedback = true) => {
+                const adminSubmit = async (
+                  label,
+                  values,
+                  feedback = true,
+                  submitForm = true,
+                ) => {
                   // Page completion is not hydration completion. requestSubmit
                   // before React attaches its handler can perform a native GET instead.
                   // Synchronize the harness with the installed React handler;
@@ -788,7 +814,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                     `hydrated admin form ${label}`,
                   );
                   await evaluate(
-                    `(() => { const form=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(label)}); for(const [name,value] of Object.entries(${JSON.stringify(values)})) { const input=form.elements.namedItem(name); const property=input.type==='checkbox'?'checked':'value'; const proto=Object.getPrototypeOf(input); Object.getOwnPropertyDescriptor(proto,property).set.call(input,value); input.dispatchEvent(new Event('input',{bubbles:true})); input.dispatchEvent(new Event('change',{bubbles:true})); } form.requestSubmit(); })()`,
+                    `(() => { const form=[...document.forms].find(f=>f.getAttribute('aria-label')===${JSON.stringify(label)}); for(const [name,value] of Object.entries(${JSON.stringify(values)})) { const input=form.elements.namedItem(name); if(input.type==='checkbox') { if(input.checked!==value) input.click(); } else { const proto=Object.getPrototypeOf(input); Object.getOwnPropertyDescriptor(proto,'value').set.call(input,value); input.dispatchEvent(new Event('input',{bubbles:true})); input.dispatchEvent(new Event('change',{bubbles:true})); } } if(${JSON.stringify(submitForm)}) form.requestSubmit(); })()`,
                   );
                   if (feedback)
                     await waitFor(
@@ -873,27 +899,30 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 );
                 await navigate("/cart");
                 await waitFor(
-                  "document.querySelector('main').textContent.includes('Subtotal: R$') && !!document.querySelector('input[name=quantity]')",
+                  "document.querySelector('[role=dialog]')?.textContent.includes('Subtotal: R$') && !!document.querySelector('input[name=quantity]')",
                   "persisted cart page",
                 );
                 assert.equal(
                   await evaluate(
-                    "window.cartXss === undefined && document.querySelector('main').textContent.includes('<img src=x onerror=window.cartXss=true>')",
+                    "window.cartXss === undefined && document.querySelector('[role=dialog]')?.textContent.includes('<img src=x onerror=window.cartXss=true>')",
                   ),
                   true,
                 );
                 await evaluate(
-                  "document.querySelector('button[aria-label^=Aumentar]').click(); document.querySelector('input[name=quantity]').form.requestSubmit()",
+                  "document.querySelector('[role=dialog] button[aria-label^=Aumentar]').click()",
+                );
+                await evaluate(
+                  "document.querySelector('[role=dialog] input[name=quantity]').form.requestSubmit()",
                 );
                 await waitFor(
-                  "document.querySelector('main').textContent.includes('21,98') && document.querySelector('input[name=quantity]').defaultValue==='2'",
+                  "document.querySelector('[role=dialog]')?.textContent.includes('21,98') && document.querySelector('[role=dialog] input[name=quantity]').value==='2' && document.querySelector('[role=dialog]').textContent.includes('Quantidade confirmada: 2')",
                   "quantity and total server refresh",
                 );
                 await evaluate(
                   "[...document.querySelectorAll('button')].find(b=>b.textContent==='Remover item').click()",
                 );
                 await waitFor(
-                  "document.querySelector('main').textContent.includes('Seu carrinho está vazio')",
+                  "document.querySelector('[role=dialog]')?.textContent.includes('Seu carrinho está vazio')",
                   "remove real item",
                 );
                 await navigate("/products");
@@ -932,25 +961,27 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 assert.equal(edited.revision, 2);
                 await navigate("/cart");
                 await waitFor(
-                  "document.querySelector('main').textContent.includes('24,00') && document.querySelector('input[name=quantity]').defaultValue==='2'",
+                  "document.querySelector('[role=dialog]')?.textContent.includes('24,00') && document.querySelector('[role=dialog] input[name=quantity]').value==='2' && document.querySelector('[role=dialog]').textContent.includes('Quantidade confirmada: 2')",
                   "current catalogue price, no snapshot",
                 );
                 // ECMSG-77: real checkout, current prices, frozen history and cart finalization.
-                // Epic 11: register an authorized synthetic card through the real UI.
-                await navigate("/account");
+                // Register a supported test number through the actual metadata-only UI.
+                await navigate("/account/payment-methods");
+                await evaluate(
+                  "[...document.querySelectorAll('main button')].find(button=>button.textContent==='Adicionar cartão').click()",
+                );
                 await adminSubmit(
-                  "Cadastrar cartão fictício",
+                  "Adicionar cartão de simulação",
                   {
-                    number: "0000 0000 0000 0001",
-                    holder: "PESSOA DE TESTE",
-                    expiry: "12/2099",
-                    cvv: "111",
+                    number: "4111111111111111",
+                    expiryMonth: "12",
+                    expiryYear: "2099",
                   },
                   false,
                 );
                 await waitFor(
-                  "document.querySelector('main').textContent.includes('TEST •••• 0001')",
-                  "synthetic card registered and masked",
+                  "document.querySelector('main').textContent.includes('Visa · final 1111')",
+                  "card registered with masked metadata",
                 );
                 await navigate("/account/addresses");
                 await evaluate(
@@ -979,12 +1010,22 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "!!document.querySelector('form[aria-label=\"Confirmar checkout\"]')",
                   "checkout preview ready",
                 );
+                await adminSubmit(
+                  "Confirmar checkout",
+                  {
+                    "buyer.name": "Browser Test Buyer",
+                    "buyer.cpf": "52998224725",
+                    "buyer.save": true,
+                  },
+                  false,
+                  false,
+                );
                 await client`UPDATE products SET amount=1250 WHERE id=${catalogProduct.id}`;
                 await evaluate(
                   "document.querySelector('form[aria-label=\"Confirmar checkout\"]').requestSubmit()",
                 );
                 await waitFor(
-                  "/^\\/orders\\/[0-9a-f-]+$/.test(location.pathname) && document.querySelector('main').textContent.includes('Pagamento simulado aprovado')",
+                  "/^\\/account\\/orders\\/[0-9a-f-]+$/.test(location.pathname) && document.querySelector('main').textContent.includes('Pagamento simulado aprovado')",
                   "checkout confirmation navigates to order",
                 );
                 const detailPath = await evaluate("location.pathname");
@@ -1022,7 +1063,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   ),
                   true,
                 );
-                await navigate("/orders");
+                await navigate("/account/orders");
                 await waitFor(
                   "document.querySelector('main').textContent.includes('25,00')",
                   "private order history",
@@ -1086,10 +1127,13 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 );
                 await navigate("/cart");
                 await evaluate(
-                  "document.querySelector('button[aria-label^=Aumentar]').click(); document.querySelector('input[name=quantity]').form.requestSubmit()",
+                  "document.querySelector('[role=dialog] button[aria-label^=Aumentar]').click()",
+                );
+                await evaluate(
+                  "document.querySelector('[role=dialog] input[name=quantity]').form.requestSubmit()",
                 );
                 await waitFor(
-                  "document.querySelector('input[name=quantity]').defaultValue==='2'",
+                  "document.querySelector('[role=dialog] input[name=quantity]').value==='2' && document.querySelector('[role=dialog]').textContent.includes('Quantidade confirmada: 2')",
                   "new cart quantity restored for depublication flow",
                 );
                 await navigate("/checkout");
@@ -1098,11 +1142,9 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "second checkout preview",
                 );
                 await client`UPDATE products SET amount=1000000 WHERE id=${catalogProduct.id}`;
-                await evaluate(
-                  "document.querySelector('form[aria-label=\"Confirmar checkout\"]').requestSubmit()",
-                );
+                await adminSubmit("Confirmar checkout", {}, false);
                 await waitFor(
-                  "location.pathname.startsWith('/orders/') && document.querySelector('main').textContent.includes('Pagamento simulado recusado')",
+                  "location.pathname.startsWith('/account/orders/') && document.querySelector('main').textContent.includes('Pagamento simulado recusado')",
                   "simulated decline feedback",
                 );
                 assert.equal(
@@ -1161,12 +1203,12 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 );
                 await navigate("/cart");
                 await waitFor(
-                  "document.querySelector('main').textContent.includes('Produto indisponível') && document.querySelector('input[name=quantity]').disabled",
+                  "document.querySelector('[role=dialog]')?.textContent.includes('Produto indisponível') && document.querySelector('input[name=quantity]').disabled",
                   "unpublished item remains visible",
                 );
                 assert.ok(
                   await evaluate(
-                    "document.querySelector('main').textContent.includes('0,00')",
+                    "document.querySelector('[role=dialog]')?.textContent.includes('0,00')",
                   ),
                 );
                 assert.equal(
@@ -1179,7 +1221,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "[...document.querySelectorAll('button')].find(b=>b.textContent==='Remover item').click()",
                 );
                 await waitFor(
-                  "document.querySelector('main').textContent.includes('Seu carrinho está vazio')",
+                  "document.querySelector('[role=dialog]')?.textContent.includes('Seu carrinho está vazio')",
                   "unavailable removal remains possible",
                 );
                 assert.equal(
@@ -1211,12 +1253,13 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                     "!!document.querySelector('form[aria-label=\"Confirmar checkout\"] select')",
                     "payment method selector",
                   );
+                  await adminSubmit("Confirmar checkout", {}, false, false);
                   await evaluate(
                     `(() => {const s=document.querySelector('#checkout-payment-method');s.value=${JSON.stringify(method)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`,
                   );
                   await adminSubmit("Confirmar checkout", {}, false);
                   await waitFor(
-                    "/^\\/orders\\/[0-9a-f-]+$/.test(location.pathname) && !!document.querySelector('[role=timer]')",
+                    "/^\\/account\\/orders\\/[0-9a-f-]+$/.test(location.pathname) && !!document.querySelector('[role=timer]')",
                     "pending payment page",
                   );
                   const path = await evaluate("location.pathname");
@@ -1270,6 +1313,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 );
               } finally {
                 await client`DELETE FROM order_payments WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (SELECT id FROM users WHERE email=${email}))`;
+                await client`DELETE FROM saved_payment_methods WHERE user_id IN (SELECT id FROM users WHERE email=${email})`;
                 await client`DELETE FROM saved_test_cards WHERE user_id IN (SELECT id FROM users WHERE email=${email})`;
                 await client`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (SELECT id FROM users WHERE email=${email}))`;
                 await client`DELETE FROM orders WHERE user_id IN (SELECT id FROM users WHERE email=${email})`;

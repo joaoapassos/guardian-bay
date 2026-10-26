@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { RouteReady } from "@/components/shared/route-ready";
 import { SystemState } from "@/components/shared/system-state";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
 
@@ -62,6 +63,7 @@ export default async function AdminPage() {
         As informações de cada área são consultadas no momento do acesso.
         Pagamentos são simulações acadêmicas.
       </p>
+      <RouteReady />
     </main>
   );
 }

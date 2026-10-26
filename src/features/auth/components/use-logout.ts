@@ -17,6 +17,7 @@ export function useLogout() {
     try {
       const result = await logoutAction();
       if (result.success) {
+        window.dispatchEvent(new Event("guardian:logout"));
         router.replace("/");
         router.refresh();
       } else setMessage("Não foi possível sair agora.");

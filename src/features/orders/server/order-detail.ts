@@ -27,6 +27,8 @@ export async function orderDetail(input: unknown) {
         createdAt: orders.createdAt,
         total: orders.totalAmount,
         shippingAddress: orders.shippingAddress,
+        buyerName: orders.buyerName,
+        buyerCpfLast2: orders.buyerCpfLast2,
         productName: orderItems.productName,
         quantity: orderItems.quantity,
         unitAmount: orderItems.unitAmount,
@@ -53,6 +55,13 @@ export async function orderDetail(input: unknown) {
         orderId: order.orderId,
         status: order.status,
         createdAt: order.createdAt.toISOString(),
+        buyer:
+          order.buyerName && order.buyerCpfLast2
+            ? {
+                name: order.buyerName,
+                cpfMask: `•••.•••.•••-${order.buyerCpfLast2}`,
+              }
+            : null,
         total: moneyDto(order.total),
         shippingAddress: order.shippingAddress
           ? addressSnapshotSchema.parse(order.shippingAddress)

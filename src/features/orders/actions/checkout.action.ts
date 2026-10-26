@@ -7,7 +7,7 @@ export async function checkoutAction(input: unknown, ...extra: unknown[]) {
   const result = await createOrder(extra.length ? undefined : input);
   if (result.success) {
     revalidatePath("/cart");
-    revalidatePath("/orders");
+    revalidatePath("/account/orders");
     revalidatePath("/products", "layout");
     revalidatePath("/admin/catalog");
   }

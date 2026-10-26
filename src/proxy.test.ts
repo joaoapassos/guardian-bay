@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it, vi } from "vitest";
+import { loginHref } from "./features/auth/safe-return";
 import { proxy } from "./proxy";
 
 describe("optimistic route checks", () => {
@@ -8,14 +9,27 @@ describe("optimistic route checks", () => {
     "/cart",
     "/checkout",
     "/orders/private-reference",
-  ])("redirects a visitor at %s without disclosing the destination", (path) => {
+  ])("redirects a visitor at %s with a validated return destination", (path) => {
     const response = proxy(
       new NextRequest(`https://guardian.test${path}?private=hidden`),
     );
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
-      "https://guardian.test/login",
+      `https://guardian.test${loginHref(`${path}?private=hidden`)}`,
     );
+  });
+  it("overwrites the request return hint and preserves its actual query", () => {
+    const response = proxy(
+      new NextRequest("https://guardian.test/admin/catalog?page=3", {
+        headers: {
+          cookie: `guardian-session=${"a".repeat(64)}`,
+          "x-guardian-return-to": "//evil.test",
+        },
+      }),
+    );
+    expect(
+      response.headers.get("x-middleware-request-x-guardian-return-to"),
+    ).toBe("/admin/catalog?page=3");
   });
   it("does not regard a malformed cookie as a session", () => {
     expect(

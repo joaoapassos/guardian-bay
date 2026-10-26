@@ -83,7 +83,7 @@ export function AddressForm({
             onClose();
             router.refresh();
           } else if (result.code === "UNAUTHENTICATED")
-            router.replace("/login");
+            router.replace("/login?returnTo=%2Faccount%2Faddresses");
           else
             setMessage(
               result.code === "LIMIT_REACHED"

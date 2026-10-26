@@ -25,14 +25,16 @@ export default function PrivacyPage() {
       <section id="dados" tabIndex={-1}>
         <h2>Dados utilizados</h2>
         <p>
-          A conta utiliza e-mail e senha; a senha é armazenada em forma de hash.
-          A aplicação mantém registros de sessão, carrinho, pedidos e eventos de
-          segurança vinculados a identificadores.
+          A conta utiliza e-mail e senha, com nome opcional; a senha é
+          armazenada em forma de hash. A aplicação mantém registros de sessão,
+          carrinho, pedidos e eventos de segurança vinculados a identificadores.
         </p>
         <p>
           O cadastro de endereço inclui destinatário, CEP, logradouro, número,
           complemento, bairro, cidade e estado. Não é necessário cadastrar dados
-          bancários reais.
+          bancários reais. O checkout solicita nome e CPF do comprador. O CPF é
+          armazenado de forma criptografada no servidor e apresentado mascarado
+          nas telas.
         </p>
       </section>
       <section id="finalidades" tabIndex={-1}>
@@ -44,10 +46,11 @@ export default function PrivacyPage() {
           prevenção de abuso.
         </p>
         <p>
-          Um cookie de sessão permite reconhecer o acesso autenticado. Os
-          cartões salvos são fixtures de teste com máscara e validade fictícia;
-          o fluxo não envia número completo, CVV ou titular do formulário para
-          cadastro do cartão no servidor.
+          Um cookie de sessão permite reconhecer o acesso autenticado. O número
+          de cartão informado é utilizado transitoriamente para validação
+          matemática, sem persistência do número completo. Não solicitamos CVV
+          na nova interface. O método salvo contém somente bandeira, últimos
+          quatro dígitos e validade; isso não habilita cobrança real.
         </p>
         <p>
           As bases legais e a redação final das finalidades ainda dependem de
@@ -61,6 +64,12 @@ export default function PrivacyPage() {
           Excluir um endereço salvo não apaga o endereço registrado em um pedido
           anterior. Os itens e valores do pedido também preservam o registro da
           compra simulada.
+        </p>
+        <p>
+          Salvar dados do comprador, endereço ou identificação do cartão na
+          conta é opcional. Mesmo sem salvar na conta, o pedido mantém nome, CPF
+          protegido, endereço e identificação mascarada do pagamento. Excluir
+          dados da conta não apaga esse histórico.
         </p>
         <p>
           Essa descrição não estabelece um prazo de retenção nem promete

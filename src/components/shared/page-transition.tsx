@@ -14,8 +14,14 @@ export function PageTransition({ children }: { children: ReactNode }) {
     <ViewTransition
       key={pathname}
       default="none"
-      enter={productContext ? "none" : "gb-page-enter"}
-      exit={productContext ? "none" : "gb-page-exit"}
+      enter={{
+        default: productContext ? "none" : "gb-page-enter",
+        "gb-curtain": "none",
+      }}
+      exit={{
+        default: productContext ? "none" : "gb-page-exit",
+        "gb-curtain": "none",
+      }}
     >
       <div className="flex flex-1 flex-col">{children}</div>
     </ViewTransition>

@@ -1,5 +1,15 @@
 # Epic 11 — pagamentos exclusivamente simulados
 
+## Contrato atual — comprador e métodos de pagamento
+
+A nova interface exige comprador (nome/CPF) e endereço salvo próprio ou avulso, ambos validados no servidor. O pedido mantém nome, CPF cifrado com contexto `order:userId:orderId`, máscara e endereço histórico. Salvar perfil usa contexto `profile:userId`; endereço e pagamento têm escolhas de salvamento independentes, inicialmente desmarcadas. CPF não aparece completo em DTO/URL/log. Não há emissão de NF-e ou consulta cadastral.
+
+PAN é validado transitoriamente no cliente/servidor por Luhn, faixa suportada e validade; não é persistido. CVV não é solicitado. `saved_payment_methods` guarda apenas proprietário, bandeira, últimos quatro dígitos e validade. Sem tokenização de um gateway, esse registro representa somente identificação para simulação e não permite cobrança futura. Banco/país não são inferidos. `order_payments.card_brand/card_last4` preservam o pagamento mascarado independentemente da conta.
+
+Salvar dados acontece na mesma transação da compra PAID/PENDING_PAYMENT, após elegibilidade; limite excedido desfaz também pedido e alterações parciais. Retry retorna o pedido original antes de lookup/salvamentos. Sessão e validade do cartão são revalidadas após esperas/auditoria. `auth/server/with-session-transaction` centraliza locks de identidade/sessão para mutações próprias de perfil/métodos; `orders/server/payment-session` mantém export de compatibilidade.
+
+As seções seguintes registram a base histórica da Epic 11. Fixtures e contratos legados são preservados para compatibilidade e histórico, sem exposição nos novos formulários. O novo checkout público exige identificação do comprador e endereço também nas chamadas diretas; os testes legados recebem esses dados em uma fixture de regressão, enquanto os testes do novo contrato chamam a Action original.
+
 Contrato aprovado para implementação sequencial. Substitui o contrato síncrono da Epic 6 apenas para os novos métodos explícitos. Pedidos históricos não recebem método inventado.
 
 ## Fronteiras e dados

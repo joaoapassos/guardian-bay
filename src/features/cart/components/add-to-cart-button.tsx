@@ -1,9 +1,10 @@
 "use client";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { safeReturn } from "@/features/auth/safe-return";
 import { addToCartAction } from "../actions/add-to-cart.action";
+import { useCartDrawer } from "./cart-drawer-context";
 import { QuantitySelector } from "./quantity-selector";
 
 export function AddToCartButton({
@@ -16,6 +17,7 @@ export function AddToCartButton({
   returnTo?: string;
 }) {
   const router = useRouter();
+  const { openCart, refreshCart } = useCartDrawer();
   const id = useId();
   const submitting = useRef(false);
   const [pending, startTransition] = useTransition();
@@ -47,10 +49,13 @@ export function AddToCartButton({
             if (result.success) {
               setAdded(true);
               setMessage("Produto adicionado ao carrinho.");
+              await refreshCart();
+              openCart("Produto adicionado ao carrinho.");
               router.refresh();
             } else if (result.code === "UNAUTHENTICATED")
               router.push(
-                `/login?returnTo=${encodeURIComponent(returnTo ?? `/products/${productId}`)}`,
+                result.redirectTo ??
+                  `/login?returnTo=${encodeURIComponent(safeReturn(returnTo ?? `/products/${productId}`))}`,
               );
             else
               setMessage(
@@ -98,9 +103,13 @@ export function AddToCartButton({
         {message}
       </output>
       {added && (
-        <Link href="/cart" className="auth-link inline-block">
+        <button
+          type="button"
+          onClick={() => openCart()}
+          className="auth-link inline-block"
+        >
           Ver carrinho
-        </Link>
+        </button>
       )}
     </form>
   );

@@ -9,7 +9,7 @@ export async function confirmPaymentAction(
   await requireSameOrigin();
   const result = await confirmPayment(extra.length ? undefined : input);
   if (result.success) {
-    revalidatePath("/orders", "layout");
+    revalidatePath("/account/orders", "layout");
     revalidatePath("/products", "layout");
     revalidatePath("/admin", "layout");
   }
