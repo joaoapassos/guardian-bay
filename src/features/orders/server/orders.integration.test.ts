@@ -526,6 +526,8 @@ it("ECMSG-76: checkout serializa add/update/remove sem misturar snapshots", asyn
     "@/features/cart/actions/cart-item.action"
   );
   for (const operation of ["add", "update", "remove"] as const) {
+    // Independent serialization cases must not share a request cooldown.
+    await client`DELETE FROM abuse_budgets WHERE user_id=${userId} AND operation='cart.write'`;
     await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2) ON CONFLICT (user_id,product_id) DO UPDATE SET quantity=2`;
     const lock = await holdOrderLock(
       (tx) => tx`SELECT id FROM products WHERE id=${productId} FOR UPDATE`,
@@ -1041,12 +1043,21 @@ it("ECMSG-98: detalhe administrativo exige role atual e usa snapshot mínimo", a
     });
     if (result.success) {
       expect(Object.keys(result.order).sort()).toEqual([
+        "buyer",
+        "cardBrand",
+        "cardLast4",
         "createdAt",
         "items",
         "orderId",
+        "shippingAddress",
         "status",
         "total",
       ]);
+      expect(result.order.buyer).toBeNull();
+      expect(result.order.shippingAddress).toBeNull();
+      expect(JSON.stringify(result.order)).not.toMatch(
+        /cpfEncrypted|buyerCpfLast2|checkoutKey|passwordHash|tokenHash|cardNumber|cvv/,
+      );
       expect(Object.keys(result.order.items[0]).sort()).toEqual([
         "price",
         "productName",

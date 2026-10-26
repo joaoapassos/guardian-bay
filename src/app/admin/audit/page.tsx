@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RouteReady } from "@/components/shared/route-ready";
 import { readAudit } from "@/features/audit/server/read-audit";
 import { auditEventTypes, auditOutcomes } from "@/lib/audit/events";
 import { AccessState } from "../_components/access-state";
@@ -18,6 +19,7 @@ export default async function AuditPage({
       >
         <h1>Auditoria</h1>
         <p role="alert">Filtros inválidos.</p>
+        <RouteReady />
       </main>
     );
   const pageLink = (page: number) =>
@@ -121,6 +123,7 @@ export default async function AuditPage({
           <Link href={pageLink(result.query.page + 1)}>Próxima</Link>
         )}
       </nav>
+      <RouteReady />
     </main>
   );
 }

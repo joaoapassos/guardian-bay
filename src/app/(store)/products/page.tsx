@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Pagination } from "@/components/shared/pagination";
+import { RouteReady } from "@/components/shared/route-ready";
 import {
   type CatalogCriteria,
   CatalogFilters,
@@ -44,15 +45,18 @@ export default async function ProductsPage({
     (category) => category.id === criteria.category,
   );
   return (
-    <main id="main-content" tabIndex={-1} className="store-page">
-      <nav aria-label="Breadcrumb" className="text-sm text-muted">
+    <main id="main-content" tabIndex={-1} className="store-page catalog-page">
+      <nav
+        aria-label="Breadcrumb"
+        className="catalog-heading text-sm text-muted"
+      >
         <Link href="/" className="auth-link">
           Home
         </Link>
         <span aria-hidden="true"> / </span>
         <span>Produtos</span>
       </nav>
-      <div>
+      <div className="catalog-heading">
         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted">
           Preparo para o dia a dia
         </p>
@@ -71,7 +75,7 @@ export default async function ProductsPage({
           igual ao máximo.
         </p>
       )}
-      <div className="grid items-start gap-7 lg:grid-cols-[260px_minmax(0,1fr)]">
+      <div className="catalog-results">
         <CatalogFilters
           key={JSON.stringify(criteria)}
           criteria={criteria}
@@ -87,7 +91,11 @@ export default async function ProductsPage({
               : "Filtros não aplicados"}
           </p>
           {result.success && result.products.length ? (
-            <ProductGrid products={result.products} returnTo={returnTo} />
+            <ProductGrid
+              products={result.products}
+              returnTo={returnTo}
+              layout="catalog"
+            />
           ) : (
             <EmptyState
               title={
@@ -115,6 +123,7 @@ export default async function ProductsPage({
           )}
         </section>
       </div>
+      <RouteReady />
     </main>
   );
 }

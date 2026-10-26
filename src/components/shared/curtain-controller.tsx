@@ -1,13 +1,16 @@
 "use client";
 import { usePathname } from "next/navigation";
 import {
+  type CSSProperties,
   type ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import { CurtainContext } from "./curtain-context";
+import { navigationContext } from "./navigation-context";
 
 type Intent = {
   sequence: number;
@@ -18,56 +21,83 @@ type Intent = {
   ready: boolean;
   phaseStarted: number;
 };
-
 const CURTAIN_PHASE_MS = 500;
-const CURTAIN_HOLD_MS = 900;
+const CONTEXT_KEY = "guardian:navigation-context";
 
 export function CurtainController({ children }: { children: ReactNode }) {
   const path = usePathname();
   const [intent, setIntent] = useState<Intent | null>(null);
   const current = useRef<Intent | null>(null);
+  const previousPath = useRef(path);
+  const mounted = useRef(false);
   const sequence = useRef(0);
-  const pendingNavigation = useRef<(() => void) | null>(null);
+  const savedScroll = useRef<{ overflow: string; paddingRight: string } | null>(
+    null,
+  );
   const publish = useCallback((next: Intent | null) => {
     current.current = next;
     setIntent(next);
   }, []);
+  const unlock = useCallback(() => {
+    const root = document.documentElement;
+    if (savedScroll.current) {
+      root.style.overflow = savedScroll.current.overflow;
+      root.style.paddingRight = savedScroll.current.paddingRight;
+      savedScroll.current = null;
+    }
+    delete root.dataset.curtain;
+  }, []);
   const release = useCallback(() => {
-    const navigate = pendingNavigation.current;
-    pendingNavigation.current = null;
+    const wasActive = Boolean(current.current);
     publish(null);
-    delete document.documentElement.dataset.curtain;
-    navigate?.();
-  }, [publish]);
+    unlock();
+    if (wasActive)
+      requestAnimationFrame(() =>
+        document.getElementById("main-content")?.focus({ preventScroll: true }),
+      );
+  }, [publish, unlock]);
   const cover = useCallback(() => {
     const active = current.current;
-    if (!active || active.phase !== "entering") return;
-    publish({ ...active, phase: "covered", phaseStarted: Date.now() });
-    const navigate = pendingNavigation.current;
-    pendingNavigation.current = null;
-    navigate?.();
+    if (active?.phase === "entering")
+      publish({ ...active, phase: "covered", phaseStarted: Date.now() });
   }, [publish]);
   const begin = useCallback(
-    (href: string, navigate: () => void) => {
+    (href: string, navigate: () => void, alreadyCovered = false) => {
+      const destination = new URL(href, window.location.origin);
+      if (destination.origin !== window.location.origin) return false;
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        pendingNavigation.current = null;
         release();
         return false;
       }
-      const destination = new URL(href, window.location.origin);
-      if (destination.origin !== window.location.origin) return false;
-      pendingNavigation.current = navigate;
-      document.documentElement.dataset.curtain = "active";
-      // A newer intention never extends an existing occlusion deadline.
+      const target = destination.pathname + destination.search;
+      if (current.current?.href === target) {
+        navigate();
+        return true;
+      }
+      const root = document.documentElement;
+      if (!savedScroll.current) {
+        const gap = window.innerWidth - root.clientWidth;
+        savedScroll.current = {
+          overflow: root.style.overflow,
+          paddingRight: root.style.paddingRight,
+        };
+        const padding =
+          Number.parseFloat(getComputedStyle(root).paddingRight) || 0;
+        root.style.overflow = "hidden";
+        if (gap > 0) root.style.paddingRight = `${padding + gap}px`;
+      }
+      root.dataset.curtain = "active";
       publish({
         sequence: ++sequence.current,
         from: window.location.pathname,
-        href: destination.pathname + destination.search,
+        href: target,
         started: current.current?.started ?? Date.now(),
-        phase: "entering",
-        phaseStarted: Date.now(),
+        phase: alreadyCovered ? "covered" : "entering",
         ready: false,
+        phaseStarted: Date.now(),
       });
+      // Navigation/authentication must never wait for an animation.
+      navigate();
       return true;
     },
     [publish, release],
@@ -75,114 +105,144 @@ export function CurtainController({ children }: { children: ReactNode }) {
   const ready = useCallback(
     (href: string) => {
       const active = current.current;
-      if (!active || active.href !== href) return;
-      publish({
-        ...active,
-        ready: true,
-      });
+      if (active?.href === href) publish({ ...active, ready: true });
     },
     [publish],
   );
-  const phase = intent?.phase;
-  const activeSequence = intent?.sequence;
-  const started = intent?.started;
-  const destinationReady = intent?.ready;
-  const phaseStarted = intent?.phaseStarted;
-  useEffect(() => {
+
+  useLayoutEffect(() => {
+    let from = navigationContext(previousPath.current);
+    if (!mounted.current) {
+      try {
+        const stored = sessionStorage.getItem(CONTEXT_KEY);
+        if (stored === "admin" || stored === "store") from = stored;
+      } catch {
+        /* Storage is optional. */
+      }
+    }
+    const to = navigationContext(path);
+    const active = current.current;
     if (
-      !phase ||
-      activeSequence === undefined ||
-      started === undefined ||
-      phaseStarted === undefined
-    )
-      return;
-    document.documentElement.dataset.curtain = "active";
-    // CSS events are optional: both each phase and total occlusion are bounded.
+      active &&
+      path !== active.from &&
+      active.href !== path + window.location.search
+    ) {
+      // Follow the actual redirect destination; never preserve private DOM.
+      publish({ ...active, href: path + window.location.search, ready: false });
+    } else if (!active && from !== to) {
+      begin(path + window.location.search, () => {}, true);
+    }
+    previousPath.current = path;
+    mounted.current = true;
+    try {
+      sessionStorage.setItem(CONTEXT_KEY, to);
+    } catch {
+      /* No persisted UI authority. */
+    }
+  }, [path, begin, publish]);
+
+  useEffect(() => {
+    if (!intent) return;
+    const activeSequence = intent.sequence;
     const watchdog = setTimeout(
       release,
-      Math.max(0, 5000 - (Date.now() - started)),
+      Math.max(0, 5000 - (Date.now() - intent.started)),
     );
-    const phaseTimer =
-      phase === "covered" && !destinationReady
+    const timer =
+      intent.phase === "covered" && !intent.ready
         ? undefined
         : setTimeout(
             () => {
               const active = current.current;
-              if (!active || active.sequence !== activeSequence) return;
+              if (active?.sequence !== activeSequence) return;
               if (active.phase === "exiting") release();
-              else if (active.phase === "covered")
+              else if (active.phase === "entering") cover();
+              else
                 publish({
                   ...active,
                   phase: "exiting",
                   phaseStarted: Date.now(),
                 });
-              else cover();
             },
-            Math.max(
-              0,
-              (phase === "covered"
-                ? CURTAIN_HOLD_MS
-                : phase === "entering"
-                  ? CURTAIN_PHASE_MS + 100
-                  : CURTAIN_PHASE_MS) -
-                (Date.now() - phaseStarted),
-            ),
+            intent.phase === "covered"
+              ? 0
+              : Math.max(
+                  0,
+                  CURTAIN_PHASE_MS + 50 - (Date.now() - intent.phaseStarted),
+                ),
           );
     return () => {
       clearTimeout(watchdog);
-      clearTimeout(phaseTimer);
-      delete document.documentElement.dataset.curtain;
+      clearTimeout(timer);
     };
-  }, [
-    phase,
-    activeSequence,
-    started,
-    destinationReady,
-    phaseStarted,
-    publish,
-    cover,
-    release,
-  ]);
-  useEffect(() => {
-    const active = current.current;
-    // A redirect is terminal; never wait for the originally requested private page.
-    if (
-      active &&
-      path !== active.from &&
-      path !== new URL(active.href, window.location.origin).pathname
-    )
-      release();
-  }, [path, release]);
+  }, [intent, publish, cover, release]);
+
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const abandon = () => {
-      pendingNavigation.current = null;
-      release();
+    const click = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
+      const link =
+        event.target instanceof Element
+          ? event.target.closest("a[href]")
+          : null;
+      if (
+        !(link instanceof HTMLAnchorElement) ||
+        link.hasAttribute("download") ||
+        (link.target && link.target !== "_self")
+      )
+        return;
+      const destination = new URL(link.href, window.location.origin);
+      if (
+        destination.origin === window.location.origin &&
+        navigationContext(window.location.pathname) !==
+          navigationContext(destination.pathname)
+      )
+        begin(destination.href, () => {});
+    };
+    const pop = () => {
+      if (
+        navigationContext(previousPath.current) !==
+        navigationContext(window.location.pathname)
+      )
+        begin(window.location.href, () => {});
+      else release();
     };
     const reduced = () => {
       if (media.matches) release();
     };
     const visible = () => {
-      if (!document.hidden) abandon();
+      if (!document.hidden) release();
     };
     const cancel = (event: KeyboardEvent) => {
-      if (event.key === "Escape") release();
+      if (event.key === "Escape" && current.current) release();
     };
-    media.addEventListener("change", reduced);
-    window.addEventListener("pageshow", abandon);
-    window.addEventListener("popstate", abandon);
+    const show = () => {
+      if (current.current) release();
+    };
+    document.addEventListener("click", click, true);
+    window.addEventListener("popstate", pop);
+    window.addEventListener("pageshow", show);
     document.addEventListener("visibilitychange", visible);
     document.addEventListener("keydown", cancel);
+    media.addEventListener("change", reduced);
     return () => {
-      media.removeEventListener("change", reduced);
-      window.removeEventListener("pageshow", abandon);
-      window.removeEventListener("popstate", abandon);
+      document.removeEventListener("click", click, true);
+      window.removeEventListener("popstate", pop);
+      window.removeEventListener("pageshow", show);
       document.removeEventListener("visibilitychange", visible);
       document.removeEventListener("keydown", cancel);
-      pendingNavigation.current = null;
-      delete document.documentElement.dataset.curtain;
+      media.removeEventListener("change", reduced);
+      unlock();
     };
-  }, [release]);
+  }, [begin, release, unlock]);
   return (
     <CurtainContext value={{ begin, ready }}>
       <div inert={Boolean(intent)} className="flex flex-1 flex-col">
@@ -193,7 +253,12 @@ export function CurtainController({ children }: { children: ReactNode }) {
           className="gb-curtain"
           data-phase={intent.phase}
           key={intent.sequence}
-          style={{ animationDuration: `${CURTAIN_PHASE_MS}ms` }}
+          style={
+            {
+              animationDuration: `${CURTAIN_PHASE_MS}ms`,
+              "--curtain-phase-duration": `${CURTAIN_PHASE_MS}ms`,
+            } as CSSProperties
+          }
           onAnimationEnd={(event) => {
             if (
               event.target === event.currentTarget &&

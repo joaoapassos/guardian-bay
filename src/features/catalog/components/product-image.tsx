@@ -1,4 +1,5 @@
 import { ImageOff } from "lucide-react";
+import Image from "next/image";
 import type { productImage } from "../images";
 
 export function ProductImage({
@@ -8,6 +9,28 @@ export function ProductImage({
   image: ReturnType<typeof productImage>;
   size?: "card" | "detail" | "thumbnail";
 }) {
+  if (image.kind !== "none")
+    return (
+      <figure
+        className={`w-full ${size === "thumbnail" ? "max-w-24" : size === "detail" ? "max-w-md" : ""}`}
+      >
+        <Image
+          src={image.src}
+          alt={image.alt}
+          width={image.width}
+          height={image.height}
+          unoptimized
+          sizes={
+            size === "thumbnail"
+              ? "96px"
+              : size === "detail"
+                ? "(max-width:768px) 100vw, 448px"
+                : "(max-width:768px) 50vw, 360px"
+          }
+          className="aspect-square w-full rounded-card bg-surface-card object-contain"
+        />
+      </figure>
+    );
   return (
     <div
       role="img"

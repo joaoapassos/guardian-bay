@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { RouteReady } from "@/components/shared/route-ready";
 
 export const metadata: Metadata = {
   title: "Sobre | Guardian Bay",
@@ -39,7 +40,7 @@ export default function AboutPage() {
           </p>
           <Link
             href="/products"
-            className="inline-flex min-h-11 items-center justify-center rounded-control border border-ink bg-primary px-5 py-3 font-semibold text-on-primary hover:bg-ink hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coast"
+            className="inline-flex min-h-11 items-center justify-center rounded-control border border-ink bg-primary px-5 py-3 font-semibold text-on-primary transition-colors duration-300 motion-reduce:transition-none hover:bg-ink hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coast"
           >
             Explorar produtos
           </Link>
@@ -114,6 +115,7 @@ export default function AboutPage() {
           Conhecer os fluxos na Central de Ajuda
         </Link>
       </aside>
+      <RouteReady />
     </main>
   );
 }

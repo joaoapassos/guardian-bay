@@ -1,7 +1,7 @@
 import Link from "next/link";
+import { RouteReady } from "@/components/shared/route-ready";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
 import { ProductImage } from "@/features/catalog/components/product-image";
-import { productImage } from "@/features/catalog/images";
 import { readAdminCatalog } from "@/features/catalog/server/read-admin-catalog";
 import { moneyDto } from "@/lib/money/price";
 import { AccessState } from "../_components/access-state";
@@ -21,6 +21,7 @@ export default async function AdminCatalogPage({
         <Link href="/admin/catalog" className="auth-link">
           Limpar filtros
         </Link>
+        <RouteReady />
       </main>
     );
   }
@@ -90,9 +91,7 @@ export default async function AdminCatalogPage({
               key={product.id}
               className="admin-panel grid items-center gap-5 sm:grid-cols-[96px_minmax(0,1fr)_auto]"
             >
-              <ProductImage
-                image={productImage(product.imageKey, product.name)}
-              />
+              <ProductImage image={product.image} />
               <div className="min-w-0 space-y-2">
                 <h2 className="break-words text-xl font-semibold">
                   {product.name}
@@ -155,6 +154,7 @@ export default async function AdminCatalogPage({
           </Link>
         )}
       </nav>
+      <RouteReady />
     </main>
   );
 }

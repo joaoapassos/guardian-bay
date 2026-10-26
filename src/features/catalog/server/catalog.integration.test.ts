@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
+import { resolve, sep } from "node:path";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
+import sharp from "sharp";
 import {
   afterAll,
   beforeAll,
@@ -14,11 +17,15 @@ import {
 import { getDb } from "@/db";
 import { hashPassword } from "@/features/auth/server/password";
 import { createSession, revokeSession } from "@/features/auth/server/session";
+import { cleanupProductMedia } from "../../../../scripts/media-cleanup.mjs";
 import { manageCatalogAction } from "../actions/manage-catalog.action";
 import { listProducts } from "./list-products";
 import { manageCatalog } from "./manage-catalog";
+import * as mediaPolicy from "./media-policy";
 import { readAdminCatalog } from "./read-admin-catalog";
 import { readProduct } from "./read-product";
+import { readProductImage } from "./read-product-image";
+import { uploadProductImage } from "./upload-product-image";
 
 vi.mock("server-only", () => ({}));
 const request = vi.hoisted(() => ({
@@ -51,7 +58,11 @@ const suffix = randomUUID();
 let categoryId: string;
 let productId: string;
 let userId: string;
+let mediaDirectory: string;
 beforeAll(async () => {
+  await mkdir(resolve(".vitest"), { recursive: true });
+  mediaDirectory = await mkdtemp(resolve(".vitest/media-fixture-"));
+  vi.stubEnv("PRODUCT_MEDIA_DIR", mediaDirectory);
   vi.stubEnv("DATABASE_URL", value);
   await migrate(drizzle(client), { migrationsFolder: "drizzle" });
   const [category] =
@@ -126,12 +137,15 @@ describe("listagem pública", () => {
 afterAll(async () => {
   await client`DELETE FROM abuse_budgets WHERE user_id=${userId}`;
   await client`DELETE FROM audit_events WHERE actor_user_id IN (SELECT id FROM users WHERE id=${userId})`;
-  await client`DELETE FROM users WHERE id=${userId}`;
   await client`DELETE FROM inventory WHERE product_id IN (SELECT id FROM products WHERE category_id=${categoryId})`;
   await client`DELETE FROM products WHERE category_id=${categoryId}`;
+  await client`DELETE FROM product_media WHERE uploaded_by=${userId}`;
+  await client`DELETE FROM users WHERE id=${userId}`;
   await client`DELETE FROM categories WHERE id=${categoryId}`;
   await client.end();
   await getDb().$client.end();
+  if (mediaDirectory.startsWith(resolve(".vitest") + sep))
+    await rm(mediaDirectory, { recursive: true, force: true });
   vi.unstubAllEnvs();
 });
 describe("ECMSG-43: constraints reais do catálogo", () => {
@@ -631,4 +645,280 @@ it("ECMSG-116: cap administrativo não aceita actor/event/payload forjados", asy
   ).toBe(before);
   await client`UPDATE users SET role='customer' WHERE id=${userId}`;
   expect(await manageCatalog(input)).toMatchObject({ code: "FORBIDDEN" });
+});
+
+it("unchanged category preserves revision and rejects stale revision", async () => {
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  request.token = (await createSession(userId)).token;
+  const [category] =
+    await client`SELECT name,revision FROM categories WHERE id=${categoryId}`;
+  expect(
+    await manageCatalog({
+      operation: "update-category",
+      id: categoryId,
+      name: category.name,
+      revision: category.revision,
+    }),
+  ).toEqual({ success: true, changed: false });
+  expect(
+    await manageCatalog({
+      operation: "update-category",
+      id: categoryId,
+      name: category.name,
+      revision: category.revision + 1,
+    }),
+  ).toEqual({ success: false, code: "CONFLICT" });
+});
+
+it("media constraints, foreign keys and public DTO exclude private metadata", async () => {
+  const id = randomUUID();
+  const valid = {
+    id,
+    origin: "upload",
+    storage_key: `${id}.webp`,
+    mime: "image/webp",
+    width: 800,
+    height: 600,
+    byte_size: 1200,
+    uploaded_by: userId,
+    sha256: "a".repeat(64),
+    pixel_hash: "b".repeat(64),
+    perceptual_hash: "c".repeat(16),
+  };
+  for (const invalid of [
+    { ...valid, width: 0 },
+    { ...valid, width: 20000, height: 20000 },
+    { ...valid, storage_key: null },
+    { ...valid, storage_key: "../../secret" },
+    { ...valid, origin: "remote" },
+    { ...valid, byte_size: 5242881 },
+  ]) {
+    await expect(
+      client`INSERT INTO product_media ${client(invalid)}`,
+    ).rejects.toThrow();
+  }
+  await client`INSERT INTO product_media ${client(valid)}`;
+  let fixtureId: string | undefined;
+  try {
+    const [fixture] =
+      await client`INSERT INTO products(name,category_id,amount,is_published,media_id) VALUES ('Mídia',${categoryId},100,true,${id}) RETURNING id`;
+    fixtureId = fixture.id;
+    const dto = await readProduct(fixture.id);
+    expect(dto?.image).toEqual({
+      kind: "upload",
+      id,
+      src: `/media/products/${id}`,
+      alt: "Mídia",
+      width: 800,
+      height: 600,
+    });
+    expect(JSON.stringify(dto)).not.toMatch(
+      /storageKey|sha256|uploadedBy|pixelHash|perceptualHash/,
+    );
+    await expect(
+      client`UPDATE products SET media_id=${randomUUID()} WHERE id=${fixture.id}`,
+    ).rejects.toThrow();
+    await expect(
+      client`DELETE FROM product_media WHERE id=${id}`,
+    ).rejects.toThrow();
+  } finally {
+    if (fixtureId) await client`DELETE FROM products WHERE id=${fixtureId}`;
+    await client`DELETE FROM product_media WHERE id=${id}`;
+  }
+});
+
+async function uploadFixture(mime = "image/png", invalid?: Buffer) {
+  const bytes =
+    invalid ??
+    (await sharp({
+      create: { width: 20, height: 12, channels: 3, background: "red" },
+    })
+      .png()
+      .toBuffer());
+  const form = new FormData();
+  form.append(
+    "file",
+    new Blob([Uint8Array.from(bytes)], { type: mime }),
+    "../untrusted.png",
+  );
+  return uploadProductImage(
+    new Request("http://localhost:3000/api/admin/product-images", {
+      method: "POST",
+      body: form,
+    }),
+  );
+}
+it("upload revalidates admin/origin, rejects spoofed content and enforces budget", async () => {
+  request.token = undefined;
+  expect(await uploadFixture()).toMatchObject({
+    success: false,
+    code: "FORBIDDEN",
+  });
+  request.token = (await createSession(userId)).token;
+  await client`UPDATE users SET role='customer' WHERE id=${userId}`;
+  expect(await uploadFixture()).toMatchObject({
+    success: false,
+    code: "FORBIDDEN",
+  });
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  request.headers = new Headers({
+    host: "localhost:3000",
+    origin: "https://evil.test",
+  });
+  expect(await uploadFixture()).toMatchObject({
+    success: false,
+    code: "FORBIDDEN",
+  });
+  request.headers = new Headers({
+    host: "localhost:3000",
+    origin: "http://localhost:3000",
+  });
+  expect(await uploadFixture("image/jpeg")).toMatchObject({
+    success: false,
+    code: "INVALID_IMAGE",
+  });
+  expect(await uploadFixture("image/png", Buffer.from("<svg/>"))).toMatchObject(
+    { success: false, code: "INVALID_IMAGE" },
+  );
+  for (let i = 0; i < 8; i++)
+    await uploadFixture("image/png", Buffer.from("invalid"));
+  expect(await uploadFixture()).toMatchObject({
+    success: false,
+    code: "RATE_LIMITED",
+  });
+});
+it("private upload draft becomes public only after authorized association", async () => {
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  request.token = (await createSession(userId)).token;
+  const result = await uploadFixture();
+  expect(result.success).toBe(true);
+  if (!result.success) return;
+  expect(result.image.kind).toBe("upload");
+  expect((await readProductImage(result.mediaId))?.public).toBe(false);
+  request.token = undefined;
+  expect(await readProductImage(result.mediaId)).toBeNull();
+  request.token = (await createSession(userId)).token;
+  const fields = {
+    name: `Upload ${suffix}`,
+    description: "",
+    categoryId,
+    amount: 100,
+    currency: "BRL",
+    isPublished: true,
+    mediaId: result.mediaId,
+  };
+  expect(
+    await manageCatalog({ operation: "create-product", ...fields }),
+  ).toEqual({ success: true });
+  const [product] =
+    await client`SELECT id,revision FROM products WHERE media_id=${result.mediaId}`;
+  request.token = undefined;
+  expect((await readProductImage(result.mediaId))?.public).toBe(true);
+  request.token = (await createSession(userId)).token;
+  expect(
+    await manageCatalog({
+      operation: "update-product",
+      id: product.id,
+      revision: product.revision,
+      ...fields,
+    }),
+  ).toEqual({ success: true, changed: false });
+  const files = await readdir(mediaDirectory);
+  expect(files.some((file) => file === `${result.mediaId}.webp`)).toBe(true);
+  expect(files.some((file) => file.includes("untrusted"))).toBe(false);
+});
+it("draft ownership, expiry and stale revision prevent unauthorized attachment", async () => {
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  request.token = (await createSession(userId)).token;
+  const result = await uploadFixture();
+  expect(result.success).toBe(true);
+  if (!result.success) return;
+  const fields = {
+    name: `Invalid upload ${suffix}`,
+    description: "",
+    categoryId,
+    amount: 100,
+    currency: "BRL",
+    isPublished: true,
+    mediaId: result.mediaId,
+  };
+  await client`UPDATE product_media SET expires_at=clock_timestamp()-interval '1 second' WHERE id=${result.mediaId}`;
+  expect(
+    await manageCatalog({ operation: "create-product", ...fields }),
+  ).toMatchObject({ success: false });
+  expect(await readProductImage(result.mediaId)).toBeNull();
+  await client`UPDATE product_media SET expires_at=clock_timestamp()+interval '1 hour' WHERE id=${result.mediaId}`;
+  const [other] =
+    await client`INSERT INTO users(email,password_hash,role) SELECT ${`${randomUUID()}@catalog.example.test`},password_hash,'admin' FROM users WHERE id=${userId} RETURNING id`;
+  try {
+    request.token = (await createSession(other.id)).token;
+    expect(await readProductImage(result.mediaId)).toBeNull();
+    expect(
+      await manageCatalog({ operation: "create-product", ...fields }),
+    ).toMatchObject({ success: false });
+    request.token = (await createSession(userId)).token;
+    const [fixture] =
+      await client`INSERT INTO products(name,category_id,amount) VALUES ('Revisão mídia',${categoryId},100) RETURNING id,revision`;
+    expect(
+      await manageCatalog({
+        operation: "update-product",
+        id: fixture.id,
+        revision: fixture.revision + 1,
+        ...fields,
+      }),
+    ).toEqual({ success: false, code: "CONFLICT" });
+  } finally {
+    await client`DELETE FROM abuse_budgets WHERE user_id=${other.id}`;
+    await client`DELETE FROM users WHERE id=${other.id}`;
+  }
+});
+
+it("storage/DB failure leaves no published media or untracked upload", async () => {
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  request.token = (await createSession(userId)).token;
+  const before = await readdir(mediaDirectory);
+  const png = await sharp({
+    create: { width: 10, height: 10, channels: 3, background: "red" },
+  })
+    .png()
+    .toBuffer();
+  const processed = await mediaPolicy.inspectProductImage(png, "image/png");
+  const spy = vi
+    .spyOn(mediaPolicy, "inspectProductImage")
+    .mockResolvedValueOnce({ ...processed, sha256: "invalid" });
+  try {
+    expect(await uploadFixture("image/png", png)).toMatchObject({
+      success: false,
+    });
+  } finally {
+    spy.mockRestore();
+  }
+  expect(await readdir(mediaDirectory)).toEqual(before);
+  vi.stubEnv("PRODUCT_MEDIA_DIR", resolve("src"));
+  try {
+    expect(await uploadFixture()).toMatchObject({ success: false });
+  } finally {
+    vi.stubEnv("PRODUCT_MEDIA_DIR", mediaDirectory);
+  }
+  expect(await readdir(mediaDirectory)).toEqual(before);
+});
+it("explicit cleanup expires drafts while preserving attached images", async () => {
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  request.token = (await createSession(userId)).token;
+  const result = await uploadFixture();
+  expect(result.success).toBe(true);
+  if (!result.success) return;
+  await client`UPDATE product_media SET expires_at=clock_timestamp()-interval '1 second' WHERE id=${result.mediaId}`;
+  const [attached] =
+    await client`SELECT media_id FROM products WHERE media_id IS NOT NULL AND category_id=${categoryId} LIMIT 1`;
+  await cleanupProductMedia(client, 100);
+  expect(
+    await client`SELECT id FROM product_media WHERE id=${result.mediaId}`,
+  ).toHaveLength(0);
+  expect(
+    (await readdir(mediaDirectory)).includes(`${result.mediaId}.webp`),
+  ).toBe(false);
+  expect(
+    await client`SELECT id FROM product_media WHERE id=${attached.media_id}`,
+  ).toHaveLength(1);
 });

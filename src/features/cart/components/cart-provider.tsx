@@ -8,6 +8,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { updateCartItemAction } from "../actions/cart-item.action";
+import { CartUpdateQueue } from "../cart-update-queue";
 import { CartDrawer } from "./cart-drawer";
 import { CartDrawerContext } from "./cart-drawer-context";
 import { CartUrlIntent } from "./cart-url-intent";
@@ -21,6 +23,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
           queries: { retry: false, refetchOnWindowFocus: false },
         },
       }),
+  );
+  const [queue] = useState(
+    () =>
+      new CartUpdateQueue(
+        (productId, quantity) => updateCartItemAction({ productId, quantity }),
+        async () => {
+          await client.invalidateQueries({ queryKey: ["cart"] });
+        },
+      ),
   );
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState("");
@@ -40,12 +51,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     target?.focus();
   }, []);
   const closeCart = useCallback(() => {
+    queue.clear();
     setOpen(false);
     setNotice("");
     // Abort the HTTP read before discarding all values from its previous owner.
     void client.cancelQueries({ queryKey: ["cart"] });
     client.removeQueries({ queryKey: ["cart"] });
-  }, [client]);
+  }, [client, queue]);
   const refreshCart = useCallback(async () => {
     await client.invalidateQueries({ queryKey: ["cart"] });
   }, [client]);
@@ -77,12 +89,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("pageshow", restore);
       channel?.removeEventListener("message", peerChange);
       channel?.close();
+      queue.clear();
       client.clear();
     };
-  }, [client, closeCart]);
+  }, [client, closeCart, queue]);
   return (
     <QueryClientProvider client={client}>
-      <CartDrawerContext value={{ openCart, closeCart, refreshCart }}>
+      <CartDrawerContext
+        value={{
+          openCart,
+          closeCart,
+          refreshCart,
+          requestQuantityUpdate: (id, quantity, baseline) =>
+            queue.request(id, quantity, baseline),
+          cancelQuantityUpdate: (id) => queue.cancel(id),
+          flushQuantityUpdates: () => queue.flush(),
+        }}
+      >
         {children}
         <Suspense fallback={null}>
           <CartUrlIntent />

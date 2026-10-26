@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { RouteReady } from "@/components/shared/route-ready";
 
 const states = {
   "not-found": {
@@ -72,6 +73,7 @@ export function SystemState({
         height={1024}
         className="w-full rounded-panel"
       />
+      <RouteReady />
     </main>
   );
 }

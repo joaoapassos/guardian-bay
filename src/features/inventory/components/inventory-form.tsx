@@ -21,6 +21,10 @@ export function InventoryForm({
       aria-busy={pending}
       className="admin-panel space-y-4"
       action={(form) => {
+        if (Number(form.get("quantity")) === quantity) {
+          setMessage("Já está atualizado.");
+          return;
+        }
         setMessage("");
         startTransition(async () => {
           try {
@@ -31,7 +35,9 @@ export function InventoryForm({
             });
             setMessage(
               result.success
-                ? "Estoque atualizado."
+                ? "changed" in result && result.changed === false
+                  ? "Já está atualizado."
+                  : "Estoque atualizado."
                 : result.code === "RATE_LIMITED"
                   ? "Muitas operações. Aguarde e tente novamente."
                   : result.code === "CONFLICT"

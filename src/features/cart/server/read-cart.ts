@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { getDb } from "@/db";
 import { cartItems } from "@/db/schema/cart-items";
 import { inventory } from "@/db/schema/inventory";
+import { productMedia } from "@/db/schema/product-media";
 import { products } from "@/db/schema/products";
 import { sessions } from "@/db/schema/sessions";
 import { sessionValidity, tokenHash } from "@/features/auth/server/session";
@@ -29,12 +30,19 @@ export async function readCart() {
         currency: products.currency,
         available: products.isPublished,
         imageKey: products.imageKey,
+        media: {
+          id: productMedia.id,
+          origin: productMedia.origin,
+          width: productMedia.width,
+          height: productMedia.height,
+        },
         availableQuantity: inventory.availableQuantity,
       })
       .from(sessions)
       .leftJoin(cartItems, eq(cartItems.userId, sessions.userId))
       .leftJoin(products, eq(products.id, cartItems.productId))
       .leftJoin(inventory, eq(inventory.productId, products.id))
+      .leftJoin(productMedia, eq(productMedia.id, products.mediaId))
       .where(and(eq(sessions.tokenHash, hash), sessionValidity()))
       .orderBy(cartItems.productId)
       .limit(101);
@@ -53,7 +61,7 @@ export async function readCart() {
           availableQuantity: row.availableQuantity ?? 0,
           stockSufficient: (row.availableQuantity ?? 0) >= row.quantity,
           price: priceDto({ amount: row.amount, currency: row.currency }),
-          image: productImage(row.imageKey, row.name),
+          image: productImage(row.imageKey, row.name, row.media),
         },
       ];
     });

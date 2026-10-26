@@ -4,6 +4,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { getDb } from "@/db";
+import { reserveCartWriteBudget } from "@/features/cart/server/cart-budget";
 import { reserveAbuseBudget } from "./server";
 
 vi.mock("server-only", () => ({}));
@@ -100,4 +101,35 @@ it("ECMSG-116: limpeza operacional remove só bucket expirado da fixture", async
       await client`SELECT operation FROM abuse_budgets WHERE user_id=${userId} ORDER BY operation`
     ).map((row) => row.operation),
   ).toEqual(["admin.catalog", "checkout"]);
+});
+
+it("cart budget accepts one concurrent write, enforces cooldown and resets its window", async () => {
+  const results = await Promise.all(
+    Array.from({ length: 12 }, () =>
+      getDb().transaction((tx) => reserveCartWriteBudget(tx, userId)),
+    ),
+  );
+  expect(results.filter((result) => result.allowed)).toHaveLength(1);
+  const denied = results.find((result) => !result.allowed);
+  expect(
+    denied && "retryAfterMs" in denied && denied.retryAfterMs,
+  ).toBeGreaterThan(0);
+  await client`UPDATE abuse_budgets SET last_accepted_at=clock_timestamp()-interval '1 second' WHERE user_id=${userId} AND operation='cart.write'`;
+  expect(
+    await getDb().transaction((tx) => reserveCartWriteBudget(tx, userId)),
+  ).toEqual({ allowed: true });
+  await client`UPDATE abuse_budgets SET attempts=60,last_accepted_at=clock_timestamp()-interval '2 seconds' WHERE user_id=${userId} AND operation='cart.write'`;
+  expect(
+    (await getDb().transaction((tx) => reserveCartWriteBudget(tx, userId)))
+      .allowed,
+  ).toBe(false);
+  await client`UPDATE abuse_budgets SET started_at=clock_timestamp()-interval '120 seconds',expires_at=clock_timestamp()-interval '60 seconds' WHERE user_id=${userId} AND operation='cart.write'`;
+  expect(
+    await getDb().transaction((tx) => reserveCartWriteBudget(tx, userId)),
+  ).toEqual({ allowed: true });
+  expect(
+    (
+      await client`SELECT attempts FROM abuse_budgets WHERE user_id=${userId} AND operation='cart.write'`
+    )[0].attempts,
+  ).toBe(1);
 });

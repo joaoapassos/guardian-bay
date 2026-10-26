@@ -14,6 +14,7 @@ import {
   addressSnapshotSchema,
   brazilStates,
 } from "../schemas/address";
+import { PostalCodeInput } from "./postal-code-input";
 
 const fields = [
   ["recipient", "Destinatário", 100, "name"],
@@ -71,6 +72,16 @@ export function AddressForm({
           setMessage("Confira os campos informados.");
           return;
         }
+        if (
+          address &&
+          Object.entries(parsed.data).every(
+            ([key, value]) =>
+              value === address[key as keyof typeof parsed.data],
+          )
+        ) {
+          setMessage("Já está atualizado.");
+          return;
+        }
         try {
           const result = address
             ? await updateAddressAction({
@@ -79,7 +90,13 @@ export function AddressForm({
                 revision: address.revision,
               })
             : await createAddressAction(parsed.data);
-          if (result.success) {
+          if (
+            result.success &&
+            "changed" in result &&
+            result.changed === false
+          ) {
+            setMessage("Já está atualizado.");
+          } else if (result.success) {
             onClose();
             router.refresh();
           } else if (result.code === "UNAUTHENTICATED")
@@ -107,31 +124,34 @@ export function AddressForm({
         complemento.
       </p>
       <div className="grid gap-5 sm:grid-cols-2">
-        {fields.map(([key, label, maxLength, autoComplete]) => (
-          <FormField
-            key={key}
-            id={`address-${key}`}
-            label={label}
-            error={errors[key]?.message}
-          >
-            <input
+        {fields.map(([key, label, maxLength, autoComplete]) => {
+          const Input = key === "postalCode" ? PostalCodeInput : "input";
+          return (
+            <FormField
+              key={key}
               id={`address-${key}`}
-              className="auth-input"
-              maxLength={maxLength}
-              autoComplete={autoComplete}
-              inputMode={key === "postalCode" ? "numeric" : undefined}
-              aria-invalid={!!errors[key]}
-              aria-describedby={`address-${key}-error`}
-              {...register(key, {
-                validate: (value) =>
-                  addressSnapshotSchema.shape[key].safeParse(value).success ||
-                  (key === "postalCode"
-                    ? "Informe um CEP com 8 dígitos."
-                    : `Confira o campo (até ${maxLength} caracteres).`),
-              })}
-            />
-          </FormField>
-        ))}
+              label={label}
+              error={errors[key]?.message}
+            >
+              <Input
+                id={`address-${key}`}
+                className="auth-input"
+                maxLength={maxLength}
+                autoComplete={autoComplete}
+                inputMode={key === "postalCode" ? "numeric" : undefined}
+                aria-invalid={!!errors[key]}
+                aria-describedby={`address-${key}-error`}
+                {...register(key, {
+                  validate: (value) =>
+                    addressSnapshotSchema.shape[key].safeParse(value).success ||
+                    (key === "postalCode"
+                      ? "Informe um CEP com 8 dígitos."
+                      : `Confira o campo (até ${maxLength} caracteres).`),
+                })}
+              />
+            </FormField>
+          );
+        })}
         <FormField
           id="address-state"
           label="Estado (UF)"

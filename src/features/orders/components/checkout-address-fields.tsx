@@ -2,6 +2,7 @@
 import Link from "next/link";
 import type { FieldErrors, UseFormRegister } from "react-hook-form";
 import { FormField } from "@/components/forms/form-field";
+import { PostalCodeInput } from "@/features/addresses/components/postal-code-input";
 import {
   type AddressDto,
   addressSnapshotSchema,
@@ -59,33 +60,36 @@ export function CheckoutAddressFields({
             Todos os campos são obrigatórios, exceto complemento.
           </p>
           <div className="grid gap-5 sm:grid-cols-2">
-            {fields.map(([name, label, maxLength, autoComplete]) => (
-              <FormField
-                key={name}
-                id={`checkout-address-${name}`}
-                label={label}
-                error={errors.address?.[name]?.message}
-              >
-                <input
+            {fields.map(([name, label, maxLength, autoComplete]) => {
+              const Input = name === "postalCode" ? PostalCodeInput : "input";
+              return (
+                <FormField
+                  key={name}
                   id={`checkout-address-${name}`}
-                  className="auth-input"
-                  maxLength={maxLength}
-                  autoComplete={autoComplete}
-                  inputMode={name === "postalCode" ? "numeric" : undefined}
-                  required={name !== "complement"}
-                  aria-invalid={!!errors.address?.[name]}
-                  aria-describedby={`checkout-address-${name}-error`}
-                  {...register(`address.${name}`, {
-                    validate: (value) =>
-                      addressSnapshotSchema.shape[name].safeParse(value)
-                        .success ||
-                      (name === "postalCode"
-                        ? "Informe um CEP com 8 dígitos."
-                        : `Confira este campo (até ${maxLength} caracteres).`),
-                  })}
-                />
-              </FormField>
-            ))}
+                  label={label}
+                  error={errors.address?.[name]?.message}
+                >
+                  <Input
+                    id={`checkout-address-${name}`}
+                    className="auth-input"
+                    maxLength={maxLength}
+                    autoComplete={autoComplete}
+                    inputMode={name === "postalCode" ? "numeric" : undefined}
+                    required={name !== "complement"}
+                    aria-invalid={!!errors.address?.[name]}
+                    aria-describedby={`checkout-address-${name}-error`}
+                    {...register(`address.${name}`, {
+                      validate: (value) =>
+                        addressSnapshotSchema.shape[name].safeParse(value)
+                          .success ||
+                        (name === "postalCode"
+                          ? "Informe um CEP com 8 dígitos."
+                          : `Confira este campo (até ${maxLength} caracteres).`),
+                    })}
+                  />
+                </FormField>
+              );
+            })}
             <FormField
               id="checkout-address-state"
               label="Estado (UF)"

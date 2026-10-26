@@ -3,7 +3,8 @@ import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { manageCatalogAction } from "../actions/manage-catalog.action";
-import { catalogImages } from "../images";
+import { type ProductImageDto, productImage } from "../images";
+import { ProductImageField } from "./product-image-field";
 
 type Product = {
   id: string;
@@ -15,6 +16,8 @@ type Product = {
   isPublished: boolean;
   revision: number;
   imageKey: string | null;
+  mediaId?: string | null;
+  image?: ProductImageDto;
 };
 export function ProductForm({
   product,
@@ -26,6 +29,13 @@ export function ProductForm({
   returnHref?: string;
 }) {
   const router = useRouter();
+  const [media, setMedia] = useState({
+    id: product?.mediaId ?? null,
+    image:
+      product?.image ??
+      productImage(product?.imageKey, product?.name ?? "Produto"),
+  });
+  const [imageBlocked, setImageBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [dirty, setDirty] = useState(false);
@@ -52,6 +62,10 @@ export function ProductForm({
             }
           : { operation: "create-product", ...fields },
       );
+      if (result.success && "changed" in result && result.changed === false) {
+        setMessage("Já está atualizado.");
+        return;
+      }
       setMessage(
         result.success
           ? "Produto salvo."
@@ -87,7 +101,7 @@ export function ProductForm({
         onChange={() => setDirty(true)}
         onSubmit={async (event) => {
           event.preventDefault();
-          if (busy) return;
+          if (busy || imageBlocked) return;
           const form = new FormData(event.currentTarget);
           const fields = {
             name: form.get("name"),
@@ -96,8 +110,25 @@ export function ProductForm({
             amount: Number(form.get("amount")),
             currency: "BRL",
             isPublished: form.has("isPublished"),
-            imageKey: form.get("imageKey") || null,
+            imageKey: product?.imageKey ?? null,
+            mediaId: media.id,
           };
+          if (
+            product &&
+            Object.entries(fields).every(
+              ([key, value]) =>
+                (key === "name" && typeof value === "string"
+                  ? value.trim()
+                  : value) ===
+                (key === "mediaId"
+                  ? (product.mediaId ?? null)
+                  : product[key as keyof typeof fields]),
+            )
+          ) {
+            setDirty(false);
+            setMessage("Já está atualizado.");
+            return;
+          }
           if (product?.isPublished && !fields.isPublished) {
             setConfirmation(fields);
             return;
@@ -163,21 +194,15 @@ export function ProductForm({
             className="block w-full border p-2"
           />
         </label>
-        <label className="block">
-          Imagem
-          <select
-            name="imageKey"
-            defaultValue={product?.imageKey ?? ""}
-            className="block w-full border p-2"
-          >
-            <option value="">Sem imagem</option>
-            {Object.keys(catalogImages).map((key) => (
-              <option key={key} value={key}>
-                {key === "lock" ? "Cadeado" : "Escudo"}
-              </option>
-            ))}
-          </select>
-        </label>
+        <ProductImageField
+          image={media.image}
+          disabled={busy}
+          onBlocked={setImageBlocked}
+          onChange={(id, image) => {
+            setMedia({ id, image });
+            setDirty(true);
+          }}
+        />
         <label className="block">
           <input
             name="isPublished"
@@ -189,7 +214,7 @@ export function ProductForm({
         <button
           ref={submitRef}
           type="submit"
-          disabled={busy || !categories.length}
+          disabled={busy || imageBlocked || !categories.length}
           className="admin-action"
         >
           {busy ? "Salvando…" : product ? "Salvar produto" : "Criar produto"}

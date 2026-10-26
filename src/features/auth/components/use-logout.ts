@@ -1,11 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
+import { CurtainContext } from "@/components/shared/curtain-context";
+import { navigationContext } from "@/components/shared/navigation-context";
 import { logoutAction } from "../actions/logout.action";
 
 export function useLogout() {
   const router = useRouter();
+  const curtain = useContext(CurtainContext);
   const inFlight = useRef(false);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
@@ -18,7 +21,12 @@ export function useLogout() {
       const result = await logoutAction();
       if (result.success) {
         window.dispatchEvent(new Event("guardian:logout"));
-        router.replace("/");
+        const navigate = () => router.replace("/");
+        if (
+          navigationContext(window.location.pathname) !== "admin" ||
+          !curtain.begin("/", navigate)
+        )
+          navigate();
         router.refresh();
       } else setMessage("Não foi possível sair agora.");
     } catch {

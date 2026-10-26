@@ -3,9 +3,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type ComponentProps, useContext } from "react";
 import { CurtainContext } from "./curtain-context";
+import { navigationContext } from "./navigation-context";
 
 // Next Link retains prefetch and native click semantics; context navigation
-// waits for the curtain to cover the viewport before using the App Router.
+// starts immediately; the root also handles plain links and redirect commits.
 export function ContextLink(props: ComponentProps<typeof Link>) {
   const path = usePathname();
   const router = useRouter();
@@ -14,7 +15,8 @@ export function ContextLink(props: ComponentProps<typeof Link>) {
   const crossing =
     href.startsWith("/") &&
     !href.startsWith("//") &&
-    path.startsWith("/admin") !== href.startsWith("/admin");
+    navigationContext(path) !==
+      navigationContext(new URL(href, "http://local").pathname);
   return (
     <Link
       {...props}

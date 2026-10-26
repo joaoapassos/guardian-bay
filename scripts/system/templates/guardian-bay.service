@@ -1,0 +1,32 @@
+# Guardian Bay managed {{INSTALLATION_ID}}
+[Unit]
+Description=Guardian Bay production application
+After=network.target postgresql@18-guardian-bay.service
+Requires=postgresql@18-guardian-bay.service
+
+[Service]
+Type=simple
+User=guardian-bay
+Group=guardian-bay
+WorkingDirectory={{INSTALL_DIR}}/current
+EnvironmentFile=/etc/guardian-bay/runtime.env
+Environment=NEXT_TELEMETRY_DISABLED=1
+ExecStart={{INSTALL_DIR}}/tools/bin/node {{INSTALL_DIR}}/current/node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port {{APP_PORT}}
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/guardian-bay/media {{INSTALL_DIR}}/current/.next/cache
+
+[Install]
+WantedBy=multi-user.target

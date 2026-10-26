@@ -343,3 +343,22 @@ it("ECMSG-116: estoque e revisão sofrem rollback se audit falhar; cap sem efeit
     await client`SELECT id FROM audit_events WHERE actor_user_id=${userId} AND target_id=${productId} AND event_type='admin.inventory.updated' AND occurred_at>clock_timestamp()-interval '1 second'`,
   ).toHaveLength(0);
 });
+
+it("unchanged stock preserves revision and does not audit an update", async () => {
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  const before =
+    await client`SELECT id FROM audit_events WHERE actor_user_id=${userId}`;
+  const { setInventoryQuantity } = await import("./set-inventory");
+  expect(
+    await setInventoryQuantity({ productId, quantity: 0, revision: 1 }),
+  ).toEqual({ success: true, changed: false });
+  expect(
+    (
+      await client`SELECT revision FROM inventory WHERE product_id=${productId}`
+    )[0].revision,
+  ).toBe(1);
+  expect(
+    (await client`SELECT id FROM audit_events WHERE actor_user_id=${userId}`)
+      .length,
+  ).toBe(before.length);
+});

@@ -849,7 +849,6 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                     description: "<script>window.catalogXss=true</script>",
                     categoryId: category.id,
                     amount: "1099",
-                    imageKey: "shield",
                     isPublished: true,
                   },
                   false,
@@ -861,7 +860,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 const [catalogProduct] =
                   await client`SELECT id,amount,image_key FROM products WHERE category_id=${category.id}`;
                 assert.equal(catalogProduct.amount, 1099);
-                assert.equal(catalogProduct.image_key, "shield");
+                assert.equal(catalogProduct.image_key, null);
                 await navigate(`/products/${catalogProduct.id}`);
                 assert.equal(
                   await evaluate(
@@ -886,7 +885,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                 );
                 assert.equal(
                   await evaluate(
-                    "!!document.querySelector('main img[alt]') && !document.querySelector('main svg[role=img]')",
+                    "!!document.querySelector('main [role=img][aria-label*=\"Fotografia de produto ainda não disponível\"]') && !document.querySelector('main img')",
                   ),
                   true,
                 );
@@ -933,6 +932,9 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "!!document.querySelector('main input[name=quantity]')",
                   "product details before purchase",
                 );
+                // This is a separate purchase intent after removal, not a burst test.
+                // The HTTP suite independently verifies requests inside this interval fail.
+                await new Promise((done) => setTimeout(done, 520));
                 await evaluate(
                   "[...document.querySelectorAll('button')].find(b=>b.textContent==='Adicionar ao carrinho').click()",
                 );
@@ -941,6 +943,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "add mutation finished",
                 );
                 await navigate(`/products/${catalogProduct.id}`);
+                await new Promise((done) => setTimeout(done, 520));
                 await evaluate(
                   "[...document.querySelectorAll('button')].find(b=>b.textContent==='Adicionar ao carrinho').click()",
                 );

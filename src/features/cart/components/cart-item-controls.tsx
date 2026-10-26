@@ -2,10 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  removeCartItemAction,
-  updateCartItemAction,
-} from "../actions/cart-item.action";
+import { removeCartItemAction } from "../actions/cart-item.action";
 import { useCartDrawer } from "./cart-drawer-context";
 import { QuantitySelector } from "./quantity-selector";
 
@@ -24,42 +21,66 @@ export function CartItemControls({
 }) {
   const id = useId();
   const router = useRouter();
-  const { refreshCart } = useCartDrawer();
+  const {
+    refreshCart,
+    requestQuantityUpdate,
+    cancelQuantityUpdate,
+    flushQuantityUpdates,
+  } = useCartDrawer();
+  const updateRequested = useRef(false);
+  const generation = useRef(0);
   const submitting = useRef(false);
   const [edit, setEdit] = useState({
     confirmed: quantity,
     draft: String(quantity),
   });
   if (edit.confirmed !== quantity) {
-    setEdit({ confirmed: quantity, draft: String(quantity) });
+    if (!updateRequested.current)
+      setEdit({ confirmed: quantity, draft: String(quantity) });
   }
-  const draft = edit.confirmed === quantity ? edit.draft : String(quantity);
+  const draft = edit.draft;
   function setDraft(value: string) {
     setEdit({ confirmed: quantity, draft: value });
+    if (updateRequested.current) submit("update", value);
   }
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
-  function submit(operation: "update" | "remove") {
-    if (submitting.current) return;
-    const amount = Number(draft);
+  function submit(operation: "update" | "remove", value = draft) {
+    if (submitting.current && operation === "remove") return;
+    const currentGeneration = ++generation.current;
+    const amount = Number(value);
     if (
       operation === "update" &&
       (!Number.isInteger(amount) || amount < 1 || amount > 99)
     ) {
-      setDraft(String(quantity));
+      updateRequested.current = false;
+      cancelQuantityUpdate(productId);
       setMessage("Quantidade inválida. Use um inteiro entre 1 e 99.");
       return;
     }
+    updateRequested.current = operation === "update";
     submitting.current = true;
     setMessage("");
     startTransition(async () => {
       try {
+        if (operation === "remove") {
+          cancelQuantityUpdate(productId);
+          await flushQuantityUpdates();
+        }
         const result =
           operation === "remove"
             ? await removeCartItemAction({ productId })
-            : await updateCartItemAction({ productId, quantity: amount });
-        if (result.success) {
-          await refreshCart();
+            : await requestQuantityUpdate(productId, amount, quantity);
+        if (
+          currentGeneration !== generation.current ||
+          (!result.success && ["SUPERSEDED", "CANCELLED"].includes(result.code))
+        )
+          return;
+        updateRequested.current = false;
+        if (result.success && "changed" in result && result.changed === false) {
+          setMessage("Já está atualizado.");
+        } else if (result.success) {
+          if (operation === "remove") await refreshCart();
           setMessage(
             operation === "remove"
               ? "Item removido."
@@ -85,12 +106,18 @@ export function CartItemControls({
                   ? "Produto indisponível. Você pode removê-lo."
                   : result.code === "CONFLICT"
                     ? "O item mudou. Recarregue o carrinho."
-                    : "Quantidade inválida. Use um inteiro entre 1 e 99.",
+                    : result.code === "RATE_LIMITED"
+                      ? "Muitas atualizações. Aguarde um momento e tente novamente."
+                      : "Quantidade inválida. Use um inteiro entre 1 e 99.",
           );
         }
       } catch {
-        setDraft(String(quantity));
-        setMessage("Não foi possível concluir a operação. Tente novamente.");
+        if (currentGeneration === generation.current) {
+          updateRequested.current = false;
+          setMessage(
+            "Não foi possível confirmar. Confira o carrinho antes de tentar novamente.",
+          );
+        }
       } finally {
         submitting.current = false;
       }
@@ -110,10 +137,10 @@ export function CartItemControls({
           id={id}
           value={draft}
           onChange={setDraft}
-          disabled={pending || !available}
+          disabled={!available}
           describedBy={`${id}-feedback`}
         />
-        <Button type="submit" disabled={pending || !available}>
+        <Button type="submit" disabled={!available}>
           Atualizar quantidade
         </Button>
       </form>

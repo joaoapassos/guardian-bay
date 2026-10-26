@@ -24,6 +24,11 @@ import { addToCart } from "./mutate-cart";
 import { readCart } from "./read-cart";
 
 vi.mock("server-only", () => ({}));
+// This suite isolates cart business/concurrency rules. Real timing/caps are
+// exercised separately in abuse.integration.test.ts and HTTP boundary checks.
+vi.mock("./cart-budget", () => ({
+  reserveCartWriteBudget: async () => ({ allowed: true }),
+}));
 const request = vi.hoisted(() => ({
   token: undefined as string | undefined,
   intent: undefined as string | undefined,
@@ -760,10 +765,13 @@ it("ECMSG-64: visitante não atualiza/remove; replay e concorrência no limite",
     (await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`)[0]
       .quantity,
   ).toBe(99);
-  for (let i = 0; i < 2; i++)
-    expect(await updateCartItemAction({ productId, quantity: 3 })).toEqual({
-      success: true,
-    });
+  expect(await updateCartItemAction({ productId, quantity: 3 })).toEqual({
+    success: true,
+  });
+  expect(await updateCartItemAction({ productId, quantity: 3 })).toEqual({
+    success: true,
+    changed: false,
+  });
   expect(
     (await client`SELECT quantity FROM cart_items WHERE user_id=${userId}`)[0]
       .quantity,
@@ -831,4 +839,17 @@ it("ECMSG-90: estoque/revisão forjados não autorizam add/update", async () => 
     code: "OUT_OF_STOCK",
   });
   await client`INSERT INTO inventory(product_id) VALUES (${productId})`;
+});
+
+it("does not write or revalidate unchanged cart quantity", async () => {
+  await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${userId},${productId},2)`;
+  const [before] =
+    await client`SELECT xmin::text as version FROM cart_items WHERE user_id=${userId} AND product_id=${productId}`;
+  expect(await updateCartItemAction({ productId, quantity: 2 })).toEqual({
+    success: true,
+    changed: false,
+  });
+  const [after] =
+    await client`SELECT xmin::text as version FROM cart_items WHERE user_id=${userId} AND product_id=${productId}`;
+  expect(after.version).toBe(before.version);
 });

@@ -4,6 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { categories } from "@/db/schema/categories";
 import { inventory } from "@/db/schema/inventory";
+import { productMedia } from "@/db/schema/product-media";
 import { products } from "@/db/schema/products";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
 import { reserveAbuseBudget } from "@/lib/abuse/server";
@@ -41,6 +42,18 @@ export async function manageCatalog(input: unknown) {
             targetType = "category";
             eventType = "admin.category.created";
           } else if (data.operation === "update-category") {
+            const [previous] = await tx
+              .select()
+              .from(categories)
+              .where(eq(categories.id, data.id))
+              .for("update");
+            if (!previous || previous.revision !== data.revision)
+              return { success: false as const, code: "CONFLICT" as const };
+            if (previous.name === data.name) {
+              if (!(await requireAuthenticatedAdmin(tx)).success)
+                throw new Error("AUTHORIZATION_EXPIRED");
+              return { success: true as const, changed: false as const };
+            }
             const rows = await tx
               .update(categories)
               .set({
@@ -69,8 +82,30 @@ export async function manageCatalog(input: unknown) {
               currency: data.currency,
               isPublished: data.isPublished,
               imageKey: data.imageKey,
+              mediaId: data.mediaId,
+            };
+            const attachMedia = async () => {
+              if (!data.mediaId) return;
+              const [media] = await tx
+                .select()
+                .from(productMedia)
+                .where(eq(productMedia.id, data.mediaId))
+                .for("update");
+              if (
+                !media ||
+                (media.expiresAt &&
+                  (media.uploadedBy !== auth.identity.id ||
+                    media.expiresAt.getTime() <= Date.now()))
+              )
+                throw new Error("INVALID_MEDIA");
+              if (media.expiresAt)
+                await tx
+                  .update(productMedia)
+                  .set({ expiresAt: null })
+                  .where(eq(productMedia.id, media.id));
             };
             if (data.operation === "create-product") {
+              await attachMedia();
               const [product] = await tx
                 .insert(products)
                 .values(fields)
@@ -80,13 +115,26 @@ export async function manageCatalog(input: unknown) {
               eventType = "admin.product.created";
             } else {
               const [previous] = await tx
-                .select({ published: products.isPublished })
+                .select()
                 .from(products)
                 .where(eq(products.id, data.id))
                 .for("update");
+              if (!previous || previous.revision !== data.revision)
+                return { success: false as const, code: "CONFLICT" as const };
+              if (
+                Object.entries(fields).every(
+                  ([key, value]) =>
+                    previous[key as keyof typeof fields] === value,
+                )
+              ) {
+                if (!(await requireAuthenticatedAdmin(tx)).success)
+                  throw new Error("AUTHORIZATION_EXPIRED");
+                return { success: true as const, changed: false as const };
+              }
+              await attachMedia();
               targetId = data.id;
               eventType =
-                previous && previous.published !== data.isPublished
+                previous && previous.isPublished !== data.isPublished
                   ? data.isPublished
                     ? "admin.product.published"
                     : "admin.product.unpublished"

@@ -1,17 +1,14 @@
 import { z } from "zod";
-import { priceSchema } from "@/lib/money/price";
 import { imageKeySchema } from "../images";
+import { productContentSchema } from "../product-content.mjs";
 
-const name = z.string().max(240).trim().min(1).max(120);
 const categoryName = z.string().max(160).trim().min(1).max(80);
 const productFields = {
-  name,
-  description: z.string().max(2000),
+  ...productContentSchema.shape,
   categoryId: z.uuid(),
-  amount: priceSchema.shape.amount,
-  currency: priceSchema.shape.currency,
   isPublished: z.boolean(),
   imageKey: imageKeySchema.nullable().optional().default(null),
+  mediaId: z.uuid().nullable().optional().default(null),
 };
 const revision = z.number().int().min(1).max(2_147_483_646);
 export const manageCatalogSchema = z.discriminatedUnion("operation", [

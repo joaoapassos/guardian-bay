@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { RouteReady } from "@/components/shared/route-ready";
 import { AddToCartButton } from "@/features/cart/components/add-to-cart-button";
 import { catalogReturn } from "@/features/catalog/catalog-return";
 import { ProductImage } from "@/features/catalog/components/product-image";
@@ -96,6 +97,7 @@ export default async function ProductPage({
       <Link href={returnTo} className="auth-link inline-block">
         Voltar aos produtos
       </Link>
+      <RouteReady />
     </main>
   );
 }

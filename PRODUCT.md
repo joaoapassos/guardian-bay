@@ -13,6 +13,10 @@ E-commerce acadêmico com identidade, catálogo, carrinho autenticado e pedidos;
 - Cartão é validado por Luhn, faixa de bandeira suportada (Visa/Mastercard/Amex) e validade, sem consulta bancária ou garantia de titularidade. Número completo é transitório; somente bandeira, últimos quatro dígitos e validade são salvos. CVV é validado e descartado apenas no formulário, sem envio ao servidor ou persistência. Cartão, Pix e boleto continuam simulados. Os contratos antigos de fixtures permanecem somente para compatibilidade; não são oferecidos pela nova interface. Consulte o [contrato de pagamentos](docs/architecture/payments.md).
 - Login forçado preserva destino interno validado. Adição ao carrinho interrompida por ausência de sessão usa intenção opaca de dez minutos consumida uma vez no servidor; compra/pagamento não são repetidos automaticamente. Curtain comunica mudança entre Loja/Conta e Admin com prontidão limitada e recuperação; categorias não aparecem em Minha Conta.
 
+- Admin pode enviar um JPEG/PNG/WebP estático por produto, com prévia privada e associação por revisão. O servidor limita tamanho/dimensões e reencodifica a imagem sem metadados. Produto sem imagem usa placeholder neutro.
+- Edições normalizadas sem mudança informam “Já está atualizado.”; o carrinho consolida intenções de quantidade após500ms, serializa gravações e aguarda a fila antes do checkout. O servidor também limita rajadas independentemente do cliente.
+- CEP usa máscara12345-678 e aceita os oito dígitos em conta e checkout. A cortina global cobre troca de contexto admin/loja, com scroll bloqueado durante a transição e movimento reduzido respeitado.
+
 ## Páginas institucionais
 
 Sobre (`/sobre`) e Central de Ajuda (`/ajuda`) apresentam a marca fictícia e os fluxos disponíveis. Privacidade (`/privacidade`), Termos (`/termos`) e Trocas e Devoluções (`/trocas-e-devolucoes`) são minutas explicitamente em elaboração, com `noindex`, sem vigência ou aprovação jurídica. Footer global e checkout oferecem acesso aos documentos. Conteúdo estático Server, sem CMS ou dependências adicionais; canal de contato, políticas definitivas e operação de devolução/reembolso continuam pendentes.
@@ -27,4 +31,4 @@ Não há guest checkout, pagamento real, reserva de estoque, recuperação autom
 
 Mudanças mantêm isolamento de usuário/admin, valores determinados pelo servidor, atomicidade e retries sem duplicação. Unitários verificam regras puras; PostgreSQL dedicado, integridade/concorrência; HTTP/browser, boundaries/fluxos conforme risco. Comandos em [qualidade](docs/quality.md); setup não autoriza alterar esses contratos.
 
-Fontes verificadas em 2026-10-25: README, rotas de src/app, arquitetura e pagamentos. Rever quando fluxos ou contratos comerciais mudarem.
+Fontes verificadas em 2026-10-26: README, rotas de src/app, arquitetura e pagamentos. Rever quando fluxos ou contratos comerciais mudarem.

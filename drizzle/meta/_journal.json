@@ -134,6 +134,34 @@
       "when": 1792983465258,
       "tag": "0018_thick_vapor",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793047077117,
+      "tag": "0019_cloudy_viper",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793048579660,
+      "tag": "0020_talented_vermin",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793048951340,
+      "tag": "0021_wise_black_widow",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1793052127175,
+      "tag": "0022_high_captain_universe",
+      "breakpoints": true
     }
   ]
 }

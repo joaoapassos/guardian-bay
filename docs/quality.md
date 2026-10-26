@@ -38,3 +38,9 @@ Registrar revisão/entrada, cliente e modelo/esforço observáveis, permissões,
 ## Manutenção
 
 Atualizar fonte responsável junto de mudanças. Refazer checks afetados após alteração material de código, stack, cliente ou política. Rever origens/licenças antes de atualizar cópias; sem agendamento, global update ou reinstalação geral. Findings têm severidade, local, cenário, evidência e decisão; rodadas adicionais requerem risco/evidência nova.
+
+## Upload, seed e bootstrap operacional
+
+`npm run test:scripts` valida parser, limites200/1000, seed sem imagem/retomada e componentes puros do instalador. Integração de writer: `node --env-file=.env.test.local --test scripts/seeder/persist-products.integration.mjs`, somente com guardian_bay_test dedicada. Upload exige integração de catálogo e HTTP real (Origin, sessão/admin, multipart limitado e draft privado), além do browser admin.
+
+Dry-run e testes determinísticos não comprovam provisionamento Ubuntu. Validar em host descartável Ubuntu24.04/systemd: instalação, rerun/interrupção, privilégios efetivos de DB, comandos de seed/limpeza com suas identidades, reboot, HTTPS e confiança manual da CA no cliente. O instalador não executa testes. Gate zero-upgrade de migrations exige credencial de harness com CREATEDB; não conceder esse poder à aplicação ou à role dedicada comum apenas para passar o gate.

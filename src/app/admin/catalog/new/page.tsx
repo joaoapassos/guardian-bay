@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RouteReady } from "@/components/shared/route-ready";
 import { ProductForm } from "@/features/catalog/components/product-form";
 import { readAdminCategories } from "@/features/catalog/server/read-admin-categories";
 import { AccessState } from "../../_components/access-state";
@@ -30,6 +31,7 @@ export default async function NewProductPage({
       ) : (
         <ProductForm categories={result.categories} returnHref={returnHref} />
       )}
+      <RouteReady />
     </main>
   );
 }

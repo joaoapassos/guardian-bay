@@ -29,6 +29,8 @@ Componentes: shell loja; [Button](componentes.md#button), [Product Grid](compone
 
 **Origem P:** `loja/catalogo.md`. Papel: explorar todos/categoria/pesquisa/novidades no mesmo padrão.
 
+Área de filtros/resultados pode ultrapassar o guia do cabeçalho: até1680px, margens desktop mínimas24px e filtro280px. Breadcrumb, H1 e descrição mantêm max1280px. Grade de catálogo usa cards mínimos260px a partir de tablet, três colunas a1440px e quatro quando há espaço; mobile conserva duas colunas e Drawer. A Home mantém sua grade original.
+
 Composição/hierarquia: breadcrumb → H1 utilitário e descrição contextual → refinamento/contagem/ordem → grid → paginação. Produtos recebem a maior área; filtros têm peso utilitário, sem blocos artísticos. Tinta em nomes/preços e preto em links/seleções, sem aparência de campanha diferente para Novidades.
 
 Componentes: shell loja; [Breadcrumb](componentes.md#breadcrumb), [Form Field](componentes.md#form-field), [Product Filters](componentes.md#product-filters), [Product Sort](componentes.md#product-sort), [Product Grid](componentes.md#product-grid), [Product Card](componentes.md#product-card), [Price Display](componentes.md#price-display), [Pagination](componentes.md#pagination), [Drawer](componentes.md#drawer) e estados de lista.

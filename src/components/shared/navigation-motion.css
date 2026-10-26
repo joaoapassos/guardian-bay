@@ -11,10 +11,12 @@
   font-family: var(--font-ibm-plex-sans), sans-serif;
 }
 .gb-curtain[data-phase="entering"] {
-  animation: gb-curtain-enter 220ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: gb-curtain-enter var(--curtain-phase-duration)
+    cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 .gb-curtain[data-phase="exiting"] {
-  animation: gb-curtain-exit 220ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: gb-curtain-exit var(--curtain-phase-duration)
+    cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 @keyframes gb-curtain-enter {
   from {

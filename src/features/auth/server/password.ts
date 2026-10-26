@@ -1,20 +1,11 @@
 import "server-only";
 
-import { argon2id, hash, verify } from "argon2";
+import { hash, verify } from "argon2";
+import { passwordHashOptions } from "../password-hash-policy.mjs";
 import {
   authenticationPasswordSchema,
   passwordSchema,
 } from "../schemas/credential.schema";
-
-// Versioned server policy: callers cannot supply cost, salt or algorithm.
-const passwordHashOptions = Object.freeze({
-  type: argon2id,
-  version: 0x13,
-  memoryCost: 65536,
-  timeCost: 3,
-  parallelism: 1,
-  hashLength: 32,
-});
 
 export async function hashPassword(password: unknown): Promise<string> {
   const input = passwordSchema.safeParse(password);

@@ -1,11 +1,8 @@
 import { add, dinero, multiply, toDecimal } from "dinero.js";
 import { BRL } from "dinero.js/currencies";
-import { z } from "zod";
+import { priceSchema } from "./price-schema.mjs";
 
-export const priceSchema = z.strictObject({
-  amount: z.number().int().min(1).max(2_147_483_647),
-  currency: z.literal("BRL"),
-});
+export { priceSchema } from "./price-schema.mjs";
 
 const formatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",

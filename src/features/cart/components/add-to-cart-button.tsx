@@ -20,6 +20,7 @@ export function AddToCartButton({
   const { openCart, refreshCart } = useCartDrawer();
   const id = useId();
   const submitting = useRef(false);
+  const lastSubmit = useRef(Number.NEGATIVE_INFINITY);
   const [pending, startTransition] = useTransition();
   const [quantity, setQuantity] = useState("1");
   const [message, setMessage] = useState("");
@@ -32,11 +33,16 @@ export function AddToCartButton({
       onSubmit={(event) => {
         event.preventDefault();
         if (submitting.current || !inStock) return;
+        if (Date.now() - lastSubmit.current < 500) {
+          setMessage("Aguarde um momento antes de adicionar novamente.");
+          return;
+        }
         const amount = Number(quantity);
         if (!Number.isInteger(amount) || amount < 1 || amount > 99) {
           setMessage("Use uma quantidade inteira entre 1 e 99.");
           return;
         }
+        lastSubmit.current = Date.now();
         submitting.current = true;
         setMessage("");
         setAdded(false);
@@ -51,7 +57,6 @@ export function AddToCartButton({
               setMessage("Produto adicionado ao carrinho.");
               await refreshCart();
               openCart("Produto adicionado ao carrinho.");
-              router.refresh();
             } else if (result.code === "UNAUTHENTICATED")
               router.push(
                 result.redirectTo ??
@@ -63,9 +68,11 @@ export function AddToCartButton({
                   ? "Estoque insuficiente. O carrinho não reserva unidades."
                   : result.code === "UNAVAILABLE"
                     ? "Produto indisponível."
-                    : result.code === "LIMIT_REACHED"
-                      ? "Limite do carrinho atingido."
-                      : "Não foi possível adicionar o produto.",
+                    : result.code === "RATE_LIMITED"
+                      ? "Muitas operações. Aguarde um momento antes de tentar novamente."
+                      : result.code === "LIMIT_REACHED"
+                        ? "Limite do carrinho atingido."
+                        : "Não foi possível adicionar o produto.",
               );
           } catch {
             setMessage(

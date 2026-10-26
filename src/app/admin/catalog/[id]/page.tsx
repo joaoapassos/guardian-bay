@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { RouteReady } from "@/components/shared/route-ready";
 import { ProductForm } from "@/features/catalog/components/product-form";
 import { ProductImage } from "@/features/catalog/components/product-image";
-import { productImage } from "@/features/catalog/images";
 import { readAdminCategories } from "@/features/catalog/server/read-admin-categories";
 import { readAdminProduct } from "@/features/catalog/server/read-admin-product";
 import { InventoryForm } from "@/features/inventory/components/inventory-form";
@@ -37,11 +37,10 @@ export default async function EditProductPage({
         />
         <aside className="space-y-6">
           <div className="admin-panel">
-            <ProductImage
-              image={productImage(product.imageKey, product.name)}
-            />
+            <ProductImage image={product.image} />
             <p className="text-sm text-muted">
-              Prévia da imagem disponível. Não há upload de mídia nesta versão.
+              Prévia da imagem confirmada. Selecione e salve uma nova imagem no
+              formulário.
             </p>
           </div>
           {product.inventoryRevision !== null &&
@@ -58,6 +57,7 @@ export default async function EditProductPage({
           )}
         </aside>
       </div>
+      <RouteReady />
     </main>
   );
 }

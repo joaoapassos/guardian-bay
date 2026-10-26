@@ -116,7 +116,7 @@ test(
           await pause(100);
         }
         const diagnostic = await evaluate(
-          "document.body.innerText.slice(0,500)",
+          "document.body.innerText.slice(0,500)+JSON.stringify(window.__curtainPhases??[])",
         );
         await send("Page.captureScreenshot", { format: "png" }).then((result) =>
           writeFileSync(
@@ -127,13 +127,23 @@ test(
         assert.fail(`${label}: ${diagnostic}`);
       };
       const errors = [];
+      let mutationAttempts = 0;
+      let cartReads = 0;
       let adminNavigationDelay = 0;
+      let adminRequests = 0;
       let cartReadDelay = 0;
       events.add((event) => {
         if (event.method === "Runtime.exceptionThrown")
           errors.push(event.params.exceptionDetails.text);
         if (event.method === "Fetch.requestPaused") {
           const request = event.params.request;
+          if (request.method === "POST") mutationAttempts++;
+          if (
+            request.url.startsWith(origin.origin) &&
+            new URL(request.url).pathname === "/admin"
+          )
+            adminRequests++;
+          if (request.url.startsWith(`${origin.origin}/api/cart`)) cartReads++;
           const block =
             request.method === "POST" ||
             !request.url.startsWith(`${origin.origin}/`);
@@ -198,7 +208,22 @@ test(
           "[...document.querySelectorAll('main button')].some(b=>Object.keys(b).some(k=>k.startsWith('__reactProps$')))",
           "interactive page hydrates",
         );
-      for (const width of [1440, 768, 390, 320]) {
+      await navigate("/products");
+      assert.equal(
+        await evaluate(
+          `(async()=>{const link=document.querySelector('link[rel=icon][type="image/svg+xml"]');if(!link)return false;const response=await fetch(link.href);const svg=await response.text();return response.ok && response.headers.get('content-type').includes('image/svg+xml') && svg.includes('<path') && !svg.includes('<text')})()`,
+        ),
+        true,
+        "SVG favicon is discovered and served as vector paths",
+      );
+      assert.equal(
+        await evaluate(
+          "getComputedStyle(document.querySelector('main button')).transitionDuration",
+        ),
+        "0.3s",
+        "primary action hover transitions over 300ms",
+      );
+      for (const width of [1440, 1920, 1024, 768, 390, 320]) {
         await send("Emulation.setDeviceMetricsOverride", {
           width,
           height: 900,
@@ -223,6 +248,28 @@ test(
           "/trocas-e-devolucoes",
         ]) {
           await navigate(path);
+          if (path === "/products" && width >= 1024) {
+            const metrics = await evaluate(
+              `(()=>{const results=document.querySelector('.catalog-results');const grid=document.querySelector('.catalog-product-grid');return {left:results.getBoundingClientRect().left,width:results.getBoundingClientRect().width,titleLeft:document.querySelector('h1').getBoundingClientRect().left,columns:getComputedStyle(grid).gridTemplateColumns.split(' ').length,cardWidth:grid.firstElementChild.getBoundingClientRect().width}})()`,
+            );
+            assert.ok(
+              metrics.left >= 23 &&
+                metrics.width <= 1681 &&
+                metrics.cardWidth >= 260,
+              `catalog expands within safe margins with wider cards: ${width} ${JSON.stringify(metrics)}`,
+            );
+            if (width === 1440) {
+              assert.equal(metrics.columns, 3);
+              assert.equal(
+                metrics.titleLeft,
+                await evaluate(
+                  "(document.documentElement.clientWidth-1280)/2+32",
+                ),
+              );
+              assert.equal(metrics.left, 24);
+            }
+            if (width === 1920) assert.equal(metrics.columns, 4);
+          }
           const draft = [
             "/privacidade",
             "/termos",
@@ -281,6 +328,37 @@ test(
                 "section anchor moves focus and updates URL",
               );
             }
+          }
+          if (path === "/checkout" || path === "/account/addresses") {
+            await hydrated();
+            if (path === "/account/addresses") {
+              await clickText("Adicionar endereço");
+            } else {
+              await evaluate(
+                "(()=>{const select=document.querySelector('#checkout-address');select.value='';select.dispatchEvent(new Event('change',{bubbles:true}));})()",
+              );
+            }
+            const postalId =
+              path === "/checkout"
+                ? "checkout-address-postalCode"
+                : "address-postalCode";
+            await wait(
+              `!!document.getElementById(${JSON.stringify(postalId)})`,
+              "postal code field visible",
+            );
+            await evaluate(
+              `document.getElementById(${JSON.stringify(postalId)}).focus()`,
+            );
+            for (const digit of "12345678")
+              await send("Input.insertText", { text: digit });
+            assert.equal(
+              await evaluate(
+                `document.getElementById(${JSON.stringify(postalId)}).value`,
+              ),
+              "12345-678",
+              "CEP preserves eighth digit while typing",
+            );
+            if (path === "/account/addresses") await clickText("Cancelar");
           }
           if (path === "/checkout") {
             assert.equal(
@@ -449,6 +527,17 @@ test(
       await wait(
         "document.querySelector('[role=dialog]')?.textContent.includes('Quantidade confirmada: 1')",
         "drawer loads the browser HTTP cart read",
+      );
+      const beforeUnchanged = { mutationAttempts, cartReads };
+      await clickText("Atualizar quantidade");
+      await wait(
+        "document.querySelector('[role=dialog]')?.textContent.includes('Já está atualizado.')",
+        "unchanged quantity is acknowledged locally",
+      );
+      assert.deepEqual(
+        { mutationAttempts, cartReads },
+        beforeUnchanged,
+        "unchanged quantity sends no mutation or read",
       );
       await pause(220);
       const drawerShot = await send("Page.captureScreenshot", {
@@ -831,6 +920,10 @@ test(
       await hydrated();
       const openUserMenu = async () => {
         await wait(
+          "!document.querySelector('.gb-curtain') && !document.querySelector('[inert]')",
+          "context transition releases account menu",
+        );
+        await wait(
           "!!document.querySelector('header button[aria-haspopup=menu]') && Object.keys(document.querySelector('header button[aria-haspopup=menu]')).some(k=>k.startsWith('__reactProps$'))",
           "account menu hydrates",
         );
@@ -857,7 +950,14 @@ test(
       adminNavigationDelay = 900;
       await openUserMenu();
       const curtainStarted = Date.now();
+      const requestsBeforeCurtain = adminRequests;
+      const overflowBeforeCurtain = await evaluate(
+        "document.documentElement.style.overflow",
+      );
       const curtainOrigin = await evaluate("location.pathname");
+      await evaluate(
+        `window.__curtainPhases=[]; new MutationObserver(()=>{const p=document.querySelector('.gb-curtain')?.dataset.phase??'none'; if(window.__curtainPhases.at(-1)?.phase!==p)window.__curtainPhases.push({phase:p,time:performance.now()})}).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['data-phase']})`,
+      );
       await evaluate(
         "document.querySelector('[role=menu] a[href=\"/admin\"]').click()",
       );
@@ -865,12 +965,34 @@ test(
       assert.equal(
         await evaluate("location.pathname"),
         curtainOrigin,
-        "destination navigation waits for the curtain to close",
+        "pending network has not committed the destination",
       );
       assert.equal(
         await evaluate("document.querySelector('.gb-curtain')?.dataset.phase"),
         "entering",
         "source stays mounted during curtain entry",
+      );
+      assert.ok(
+        adminRequests > requestsBeforeCurtain,
+        "navigation starts during curtain entry without waiting for animation",
+      );
+      assert.equal(
+        await evaluate("document.documentElement.style.overflow"),
+        "hidden",
+        "scrollbar hidden before curtain entry",
+      );
+      assert.equal(
+        await evaluate(
+          `(()=>{const curtain=document.querySelector('.gb-curtain');const box=curtain.getBoundingClientRect();const surface=getComputedStyle(curtain);const matrix=new DOMMatrix(surface.transform);return box.left===0 && box.width===innerWidth && matrix.a===1 && matrix.d===1 && surface.borderBottomLeftRadius==='0px' && surface.borderBottomRightRadius==='0px' && getComputedStyle(curtain.firstElementChild).transform==='none' && document.documentElement.scrollWidth<=innerWidth})()`,
+        ),
+        true,
+        "curtain translates without deformation, preserving viewport width and text",
+      );
+      await send("Page.captureScreenshot", { format: "png" }).then((result) =>
+        writeFileSync(
+          resolve(directory, "curtain-translation.png"),
+          Buffer.from(result.data, "base64"),
+        ),
       );
       await wait(
         "document.querySelector('.gb-curtain')?.dataset.phase==='covered'",
@@ -881,19 +1003,18 @@ test(
         true,
         "covered route is not interactive",
       );
-      await pause(600);
-      assert.equal(
-        await evaluate("document.querySelector('.gb-curtain')?.dataset.phase"),
-        "covered",
-        "brand remains fully visible before revealing a ready destination",
-      );
       await wait(
         "location.pathname==='/admin' && document.querySelector('h1')?.textContent==='Dashboard' && !document.querySelector('.gb-curtain') && !document.querySelector('[inert]')",
         "resolved dashboard readiness releases the curtain",
       );
       assert.ok(
-        Date.now() - curtainStarted >= 1700,
-        "context transition uses the slower brand timing",
+        Date.now() - curtainStarted >= 900,
+        "curtain covers the pending navigation",
+      );
+      assert.equal(
+        await evaluate("document.documentElement.style.overflow"),
+        overflowBeforeCurtain,
+        "scrollbar restored after destination reveal",
       );
       adminNavigationDelay = 0;
       await openUserMenu();

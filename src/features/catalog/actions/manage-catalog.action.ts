@@ -6,7 +6,7 @@ import { manageCatalog } from "../server/manage-catalog";
 export async function manageCatalogAction(input: unknown, ...extra: unknown[]) {
   await requireSameOrigin();
   const result = await manageCatalog(extra.length ? undefined : input);
-  if (result.success) {
+  if (result.success && !("changed" in result && result.changed === false)) {
     revalidatePath("/admin/catalog");
     revalidatePath("/admin/categories");
     revalidatePath("/products", "layout");

@@ -10,6 +10,7 @@ import { argon2id, hash } from "argon2";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
+import sharp from "sharp";
 
 test(
   "real Next.js Action transport against dedicated PostgreSQL",
@@ -151,6 +152,7 @@ export default async function Probe() {
       const env = {
         ...process.env,
         DATABASE_URL: value,
+        PRODUCT_MEDIA_DIR: join(directory, "media"),
         NODE_ENV: "production",
       };
       const build = spawn(
@@ -248,6 +250,86 @@ export default async function Probe() {
           ),
         );
       const credentials = { email, password };
+      await t.test(
+        "product image HTTP: Origin, admin, bounded multipart and private draft",
+        async () => {
+          const raw = randomBytes(32).toString("hex");
+          const cookie = `__Host-guardian-session=${raw}`;
+          await client`INSERT INTO sessions(token_hash,user_id,expires_at) VALUES (${createHash("sha256").update(raw).digest("hex")},${user.id},now()+interval '1 hour')`;
+          const png = await sharp(randomBytes(200 * 200 * 3), {
+            raw: { width: 200, height: 200, channels: 3 },
+          })
+            .png()
+            .toBuffer();
+          const form = () => {
+            const data = new FormData();
+            data.append(
+              "file",
+              new Blob([png], { type: "image/png" }),
+              "../../untrusted.png",
+            );
+            return data;
+          };
+          const upload = (headers = {}) =>
+            fetch(`${base}/api/admin/product-images`, {
+              method: "POST",
+              body: form(),
+              headers: { origin: "https://127.0.0.1:3108", cookie, ...headers },
+            });
+          let id;
+          try {
+            for (const origin of [
+              "",
+              "null",
+              "https://evil.test",
+              "http://127.0.0.1:3108",
+            ])
+              assert.equal((await upload({ origin })).status, 403);
+            assert.equal((await upload()).status, 403);
+            await client`UPDATE users SET role='admin' WHERE id=${user.id}`;
+            const response = await upload();
+            assert.equal(response.status, 201);
+            const body = await response.json();
+            id = body.mediaId;
+            assert.equal(body.image.kind, "upload");
+            assert.ok(
+              !JSON.stringify(body).match(/storageKey|uploadedBy|sha256/),
+            );
+            assert.equal((await fetch(`${base}${body.image.src}`)).status, 404);
+            const preview = await fetch(`${base}${body.image.src}`, {
+              headers: { cookie },
+            });
+            assert.equal(preview.status, 200);
+            assert.match(preview.headers.get("content-type"), /image\/webp/);
+            assert.match(
+              preview.headers.get("cache-control"),
+              /private, no-store/,
+            );
+            const stream = new ReadableStream({
+              start(controller) {
+                controller.enqueue(new Uint8Array(5242880 + 65537));
+                controller.close();
+              },
+            });
+            const oversized = await fetch(`${base}/api/admin/product-images`, {
+              method: "POST",
+              body: stream,
+              duplex: "half",
+              headers: {
+                origin: "https://127.0.0.1:3108",
+                cookie,
+                "content-type": "multipart/form-data; boundary=test",
+              },
+            });
+            assert.equal(oversized.status, 413);
+          } finally {
+            if (id) await client`DELETE FROM product_media WHERE id=${id}`;
+            await client`DELETE FROM abuse_budgets WHERE user_id=${user.id} AND operation='admin.media'`;
+            await client`DELETE FROM sessions WHERE token_hash=${createHash("sha256").update(raw).digest("hex")}`;
+            await client`UPDATE users SET role='customer' WHERE id=${user.id}`;
+          }
+        },
+      );
       await t.test(
         "payment Actions: real HTTP origin, strict inputs, ownership and no financial payload",
         async () => {
@@ -722,10 +804,14 @@ export default async function Probe() {
                   { success: false, code: "INVALID_INPUT" },
                 );
             }
+            const spacedPost = async (...args) => {
+              await new Promise((done) => setTimeout(done, 520));
+              return post(...args);
+            };
             await client`INSERT INTO cart_items(user_id,product_id,quantity) VALUES (${other.id},${product.id},9)`;
             assert.deepEqual(
               result(
-                await post(
+                await spacedPost(
                   7,
                   { productId: product.id, quantity: "2" },
                   {},
@@ -735,7 +821,9 @@ export default async function Probe() {
               { success: false, code: "CONFLICT" },
             );
             assert.deepEqual(
-              result(await post(8, { productId: product.id }, {}, cookie)),
+              result(
+                await spacedPost(8, { productId: product.id }, {}, cookie),
+              ),
               { success: true },
             );
             assert.equal(
@@ -747,7 +835,7 @@ export default async function Probe() {
             for (let i = 0; i < 2; i++)
               assert.deepEqual(
                 result(
-                  await post(
+                  await spacedPost(
                     6,
                     { productId: product.id, quantity: "1" },
                     {},
@@ -764,7 +852,7 @@ export default async function Probe() {
             );
             assert.deepEqual(
               result(
-                await post(
+                await spacedPost(
                   7,
                   { productId: product.id, quantity: "3" },
                   {},
@@ -773,10 +861,31 @@ export default async function Probe() {
               ),
               { success: true },
             );
+            assert.deepEqual(
+              result(
+                await spacedPost(
+                  7,
+                  { productId: product.id, quantity: "3" },
+                  {},
+                  cookie,
+                ),
+              ),
+              { success: true, changed: false },
+            );
+            const burst = result(
+              await post(
+                6,
+                { productId: product.id, quantity: "1" },
+                {},
+                cookie,
+              ),
+            );
+            assert.equal(burst.code, "RATE_LIMITED");
+            assert.ok(burst.retryAfterMs > 0);
             await client`UPDATE products SET is_published=false WHERE id=${product.id}`;
             assert.deepEqual(
               result(
-                await post(
+                await spacedPost(
                   6,
                   { productId: product.id, quantity: "1" },
                   {},
@@ -787,13 +896,15 @@ export default async function Probe() {
             );
             for (let i = 0; i < 2; i++)
               assert.deepEqual(
-                result(await post(8, { productId: product.id }, {}, cookie)),
+                result(
+                  await spacedPost(8, { productId: product.id }, {}, cookie),
+                ),
                 { success: true },
               );
             await client`DELETE FROM sessions WHERE token_hash=${createHash("sha256").update(raw).digest("hex")}`;
             assert.deepEqual(
               result(
-                await post(
+                await spacedPost(
                   6,
                   { productId: product.id, quantity: "1" },
                   {},

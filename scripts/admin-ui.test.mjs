@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { resolve } from "node:path";
 import { test } from "node:test";
+import sharp from "sharp";
 import { startAdminFixture } from "./admin-ui-fixture.mjs";
 
 // UI fixture only: database access throws, all browser POST requests are blocked.
@@ -25,6 +26,14 @@ test(
     const origin = new URL(fixture.origin);
     const directory = resolve(".vitest/admin-browser");
     mkdirSync(directory, { recursive: true });
+    const uploadBytes = await sharp({
+      create: { width: 40, height: 24, channels: 3, background: "#fdc656" },
+    })
+      .webp()
+      .toBuffer();
+    const uploadFile = resolve(directory, "product-upload.webp");
+    writeFileSync(uploadFile, uploadBytes);
+    let uploadMode = "success";
     const profile = mkdtempSync(resolve(directory, "chrome-"));
     const child = spawn(
       binary,
@@ -132,6 +141,43 @@ test(
           errors.push(event.params.exceptionDetails.text);
         if (event.method === "Fetch.requestPaused") {
           const request = event.params.request;
+          if (new URL(request.url).pathname === "/api/admin/product-images") {
+            const body =
+              uploadMode === "success"
+                ? {
+                    success: true,
+                    mediaId: "00000000-0000-4000-8000-000000000001",
+                    image: {
+                      kind: "upload",
+                      id: "00000000-0000-4000-8000-000000000001",
+                      src: "/media/products/00000000-0000-4000-8000-000000000001",
+                      alt: "Prévia",
+                      width: 40,
+                      height: 24,
+                    },
+                  }
+                : { success: false, code: "INVALID_IMAGE" };
+            setTimeout(() => {
+              void send("Fetch.fulfillRequest", {
+                requestId: event.params.requestId,
+                responseCode: uploadMode === "success" ? 201 : 400,
+                responseHeaders: [
+                  { name: "Content-Type", value: "application/json" },
+                ],
+                body: Buffer.from(JSON.stringify(body)).toString("base64"),
+              }).catch(() => {});
+            }, 400);
+            return;
+          }
+          if (new URL(request.url).pathname.startsWith("/media/products/")) {
+            void send("Fetch.fulfillRequest", {
+              requestId: event.params.requestId,
+              responseCode: 200,
+              responseHeaders: [{ name: "Content-Type", value: "image/webp" }],
+              body: uploadBytes.toString("base64"),
+            }).catch(() => {});
+            return;
+          }
           const block =
             request.method === "POST" ||
             !request.url.startsWith(`${origin.origin}/`);
@@ -144,10 +190,23 @@ test(
       await send("Page.enable");
       await send("Runtime.enable");
       await send("Network.enable");
+      await send("Network.setCookie", {
+        name: "__Host-guardian-session",
+        value: "a".repeat(64),
+        url: origin.origin,
+        path: "/",
+        secure: true,
+        httpOnly: true,
+      });
       await send("Fetch.enable", {
         patterns: [{ urlPattern: "*", requestStage: "Request" }],
       });
       const navigate = async (path) => {
+        await send("Page.navigate", { url: "about:blank" });
+        await wait(
+          "location.href==='about:blank' && document.readyState==='complete'",
+          "previous document cleared",
+        );
         await send("Page.navigate", { url: origin.origin + path });
         await wait(
           "document.readyState==='complete' && !!document.querySelector('h1')",
@@ -248,6 +307,48 @@ test(
           }
         }
       }
+      await navigate("/admin/catalog/new");
+      await wait(
+        "!!document.querySelector('input[type=file]') && Object.keys(document.querySelector('input[type=file]')).some(k=>k.startsWith('__reactProps$')) && !document.querySelector('[inert]')",
+        "upload field hydrates",
+      );
+      const selectFile = async () => {
+        const { root } = await send("DOM.getDocument");
+        const { nodeId } = await send("DOM.querySelector", {
+          nodeId: root.nodeId,
+          selector: "input[type=file]",
+        });
+        await send("DOM.setFileInputFiles", { nodeId, files: [uploadFile] });
+      };
+      await selectFile();
+      await wait(
+        "!!document.querySelector('progress') && document.querySelector('button[type=submit]').disabled",
+        "upload blocks product save while pending",
+      );
+      await wait(
+        "document.body.innerText.includes('Imagem pronta') && !!document.querySelector('fieldset img')",
+        "successful upload shows preview",
+      );
+      await evaluate(
+        "[...document.querySelectorAll('button')].find(b=>b.textContent==='Remover imagem').click()",
+      );
+      await wait(
+        "!document.querySelector('fieldset img')",
+        "remove restores placeholder",
+      );
+      uploadMode = "failure";
+      await selectFile();
+      await wait(
+        "document.body.innerText.includes('Não foi possível enviar') && document.querySelector('button[type=submit]').disabled",
+        "failed upload cannot save silently",
+      );
+      await evaluate(
+        "[...document.querySelectorAll('button')].find(b=>b.textContent==='Cancelar seleção').click()",
+      );
+      await wait(
+        "!document.querySelector('button[type=submit]').disabled",
+        "cancel restores ability to save previous selection",
+      );
       await send("Emulation.setDeviceMetricsOverride", {
         width: 390,
         height: 900,
@@ -454,6 +555,10 @@ test(
           mobile: false,
         });
         await navigate("/admin");
+        await wait(
+          "!document.querySelector('[inert]') && !document.querySelector('.gb-curtain')",
+          "context releases administrative menu",
+        );
         await wait(
           "!!document.querySelector('header button[aria-label^=\"Menu de usuário\"]') && Object.keys(document.querySelector('header button[aria-label^=\"Menu de usuário\"]')).some(k=>k.startsWith('__reactProps$'))",
           "administrative user menu hydrates",

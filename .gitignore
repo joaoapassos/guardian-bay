@@ -46,3 +46,6 @@ repomix-*.xml
 
 # Vitest generated reports/artifacts
 .vitest/
+
+# Persistent local uploads/checkpoints (back up outside Git)
+/var/

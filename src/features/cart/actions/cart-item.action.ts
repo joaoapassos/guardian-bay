@@ -9,7 +9,8 @@ export async function updateCartItemAction(
 ) {
   await requireSameOrigin();
   const result = await updateCartItem(extra.length ? undefined : input);
-  if (result.success) revalidatePath("/cart");
+  if (result.success && !("changed" in result && result.changed === false))
+    revalidatePath("/cart");
   return result;
 }
 export async function removeCartItemAction(
@@ -18,6 +19,7 @@ export async function removeCartItemAction(
 ) {
   await requireSameOrigin();
   const result = await removeCartItem(extra.length ? undefined : input);
-  if (result.success) revalidatePath("/cart");
+  if (result.success && !("changed" in result && result.changed === false))
+    revalidatePath("/cart");
   return result;
 }

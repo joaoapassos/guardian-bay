@@ -6,10 +6,12 @@ import {
   integer,
   pgTable,
   text,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
 import { categories } from "./categories";
+import { productMedia } from "./product-media";
 
 export const products = pgTable(
   "products",
@@ -25,6 +27,11 @@ export const products = pgTable(
     isPublished: boolean("is_published").default(false).notNull(),
     revision: integer("revision").default(1).notNull(),
     imageKey: varchar("image_key", { length: 16 }),
+    mediaId: uuid("media_id").references(() => productMedia.id, {
+      onDelete: "restrict",
+    }),
+    seedRunId: uuid("seed_run_id"),
+    seedNameKey: varchar("seed_name_key", { length: 120 }),
   },
   (table) => [
     check(
@@ -40,5 +47,12 @@ export const products = pgTable(
       .on(table.id)
       .where(sql`${table.isPublished} = true`),
     index("products_category_id_idx").on(table.categoryId),
+    index("products_media_id_idx").on(table.mediaId),
+    index("products_seed_run_idx")
+      .on(table.seedRunId)
+      .where(sql`${table.seedRunId} IS NOT NULL`),
+    uniqueIndex("products_seed_name_unique")
+      .on(table.seedNameKey)
+      .where(sql`${table.seedNameKey} IS NOT NULL`),
   ],
 );

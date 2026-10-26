@@ -31,7 +31,11 @@
     "security:sast": "node scripts/check-sast.mjs",
     "ci:validate": ".vitest/tools/actionlint -color",
     "ci:integrity": "node scripts/check-integrity.mjs",
-    "test:integration:local": "node --env-file=.env.test.local scripts/test-integration-local.mjs"
+    "test:integration:local": "node --env-file=.env.test.local scripts/test-integration-local.mjs",
+    "media:cleanup": "node scripts/media-cleanup.mjs",
+    "seeder:products": "node scripts/seeder-products.mjs",
+    "test:scripts": "node --test scripts/seeder/*.test.mjs scripts/system/*.test.mjs",
+    "system:init": "node scripts/system-init.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.1.24",
@@ -49,6 +53,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "7.89.0",
+    "sharp": "0.35.5",
     "tailwind-merge": "3.7.0",
     "zod": "4.6.7",
     "zustand": "5.0.16"

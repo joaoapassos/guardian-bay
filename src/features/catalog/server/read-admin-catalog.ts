@@ -4,8 +4,11 @@ import { z } from "zod";
 import { getDb } from "@/db";
 import { categories } from "@/db/schema/categories";
 import { inventory } from "@/db/schema/inventory";
+import { productMedia } from "@/db/schema/product-media";
 import { products } from "@/db/schema/products";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
+import { mediaSelection } from "@/features/catalog/server/media-selection";
+import { productImage } from "../images";
 import { listQuerySchema } from "../schemas/list-query";
 
 export async function readAdminCatalog(input: unknown) {
@@ -42,11 +45,14 @@ export async function readAdminCatalog(input: unknown) {
         isPublished: products.isPublished,
         revision: products.revision,
         imageKey: products.imageKey,
+        media: mediaSelection,
+        mediaId: products.mediaId,
         availableQuantity: inventory.availableQuantity,
         inventoryRevision: inventory.revision,
       })
       .from(products)
       .leftJoin(inventory, eq(inventory.productId, products.id))
+      .leftJoin(productMedia, eq(productMedia.id, products.mediaId))
       .where(
         and(
           query.data.category
@@ -70,7 +76,10 @@ export async function readAdminCatalog(input: unknown) {
     return {
       query: query.data,
       categories: categoryRows,
-      products: productRows.slice(0, 50),
+      products: productRows.slice(0, 50).map(({ media, ...fields }) => ({
+        ...fields,
+        image: productImage(fields.imageKey, fields.name, media),
+      })),
       hasNext: productRows.length > 50,
       page: query.data.page,
     };

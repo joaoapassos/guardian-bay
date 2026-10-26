@@ -3,7 +3,9 @@ import { and, asc, count, desc, eq, gt, gte, ilike, lte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { categories } from "@/db/schema/categories";
 import { inventory } from "@/db/schema/inventory";
+import { productMedia } from "@/db/schema/product-media";
 import { products } from "@/db/schema/products";
+import { mediaSelection } from "@/features/catalog/server/media-selection";
 import { priceDto } from "@/lib/money/price";
 import { productImage } from "../images";
 import { publicListQuerySchema } from "../schemas/list-query";
@@ -47,6 +49,7 @@ export async function listProducts(input: unknown) {
     .from(products)
     .innerJoin(categories, eq(products.categoryId, categories.id))
     .leftJoin(inventory, eq(inventory.productId, products.id))
+    .leftJoin(productMedia, eq(productMedia.id, products.mediaId))
     .where(conditions);
   const rows = await getDb()
     .select({
@@ -56,11 +59,13 @@ export async function listProducts(input: unknown) {
       currency: products.currency,
       category: categories.name,
       imageKey: products.imageKey,
+      media: mediaSelection,
       stockQuantity: inventory.availableQuantity,
     })
     .from(products)
     .innerJoin(categories, eq(products.categoryId, categories.id))
     .leftJoin(inventory, eq(inventory.productId, products.id))
+    .leftJoin(productMedia, eq(productMedia.id, products.mediaId))
     .where(conditions)
     .orderBy(ordering, asc(products.id))
     .limit(limit + 1)
@@ -80,11 +85,13 @@ export async function listProducts(input: unknown) {
     hasNext: rows.length > limit,
     products: rows
       .slice(0, limit)
-      .map(({ amount, currency, imageKey, stockQuantity, ...product }) => ({
-        ...product,
-        inStock: (stockQuantity ?? 0) > 0,
-        price: priceDto({ amount, currency }),
-        image: productImage(imageKey, product.name),
-      })),
+      .map(
+        ({ amount, currency, imageKey, media, stockQuantity, ...product }) => ({
+          ...product,
+          inStock: (stockQuantity ?? 0) > 0,
+          price: priceDto({ amount, currency }),
+          image: productImage(imageKey, product.name, media),
+        }),
+      ),
   };
 }

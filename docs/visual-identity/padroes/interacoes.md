@@ -15,6 +15,8 @@ Origem: I §§3,6,8,9; C/button, form-field, product-card, dialog, drawer e nave
 | Seleção | Nome/indicador persistente e forma além da cor; foco pode estar em outro item sem apagar seleção |
 | Disabled | Motivo textual alcançável e aparência coerente; não usar hover que sugira operação permitida |
 
+Ações com aparência de botão usam transição de cores de 300 ms; movimento reduzido a remove. A Curtain deforma somente a superfície em escala vertical entre0.96 e1.08, com largura integral e base curva durante deslocamento; o estado coberto usa overscan opaco.
+
 Botão principal mantém contraste da dupla de cores; hover pode sublinhar o rótulo, sem inventar tom clareado. Links textuais mantêm affordance reconhecível mesmo fora do hover. Cards podem reforçar o link/contorno, mas nunca esconder nome, preço, disponibilidade ou ação até apontar o mouse.
 
 Uma ativação intencional inicia ação; foco, seleção, abertura de página ou passar mouse não executam operação sensível. Touch possui os mesmos acessos sem exigir hover ou gesto não documentado. Não acrescentar swipe para remover item ou abrir compra rápida.
@@ -41,7 +43,7 @@ Aplicar filtros/ordenar informa atualização e conserva critérios; não transf
 
 ## Movimento e preferências
 
-Na mudança entre Administração e Loja/Minha Conta, a Curtain usa entrada de 500 ms, permanência coberta mínima de 900 ms e saída de 500 ms, conforme ajuste solicitado para dar mais presença à marca. Esse ajuste substitui a proposta inicial sem permanência mínima da skill de motion apenas nessa transição de contexto. Conforme ajuste solicitado, a navegação da rota aguarda a cortina cobrir a viewport: a página de origem permanece durante a entrada e o destino começa a navegar no estado coberto. O prefetch do Link permanece habilitado. Essa sequência substitui a proposta inicial da skill de iniciar o roteamento imediatamente. Escape/Continuar navegação e movimento reduzido prosseguem sem espera visual; o limite total de 5 s libera a interface. Voltar/avançar, restauração de página e desmontagem descartam intenções antigas.
+Na mudança entre Administração e Loja/Minha Conta, a Curtain usa fases de entrada e saída de 500 ms, com deslocamento vertical simples, sem squash/stretch ou deformação da superfície. Navegação e revogação começam imediatamente; a superfície permanece coberta enquanto o conteúdo crítico do destino não sinaliza prontidão. O controlador raiz observa links internos e mudanças efetivas de contexto, incluindo redirects e histórico; ContextLink não é requisito. A scrollbar é ocultada antes da entrada e restaurada após a saída. Escape/Continuar navegação, movimento reduzido e watchdog de 5 s liberam a interface. Documentos completos recuperam somente um marcador de contexto em sessionStorage, sem guardar conteúdo privado.
 
 Usar a transição discreta de Fundamentos em contorno, seleção e entrada/saída de painel. Não usar parallax, zoom em foto, bounce, carregamento decorativo contínuo ou efeito que altere percepção do produto. Ação não espera animação terminar para apresentar resultado.
 

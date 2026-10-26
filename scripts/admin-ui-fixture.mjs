@@ -72,6 +72,7 @@ export async function startAdminFixture({
     availableQuantity: 8,
     inventoryRevision: 1,
   };
+  const productSource = `{...${JSON.stringify(product)},mediaId:null,image:{kind:'none' as const,key:null,alt:'Sem imagem de Kit de preparo'}}`;
   const order = {
     buyer: { name: "Pessoa de teste", cpfMask: "•••.•••.•••-25" },
     shippingAddress: {
@@ -104,7 +105,7 @@ export async function startAdminFixture({
   };
   write(
     "features/catalog/server/read-admin-catalog.ts",
-    `let failed=false; export async function readAdminCatalog(raw:unknown = {}) { const input=(raw??{}) as Record<string,string>; if(input.query==='fail' && !failed) { failed=true; throw new Error('Fixture unavailable'); } return { query:{query:input.query??'',category:undefined,publication:'all'},products:input.query==='empty'?[]:[${JSON.stringify(product)}],categories:[${JSON.stringify(category)}],page:1,hasNext:false}; }`,
+    `let failed=false; export async function readAdminCatalog(raw:unknown = {}) { const input=(raw??{}) as Record<string,string>; if(input.query==='fail' && !failed) { failed=true; throw new Error('Fixture unavailable'); } return { query:{query:input.query??'',category:undefined,publication:'all'},products:input.query==='empty'?[]:[${productSource}],categories:[${JSON.stringify(category)}],page:1,hasNext:false}; }`,
   );
   write(
     "features/catalog/server/read-admin-categories.ts",
@@ -112,7 +113,7 @@ export async function startAdminFixture({
   );
   write(
     "features/catalog/server/read-admin-product.ts",
-    `import {requireAuthenticatedAdmin} from '@/features/auth/server/require-admin'; export async function readAdminProduct(input: string) { const auth=await requireAuthenticatedAdmin(); if(!auth.success) return auth; return input==='${id}' ? {success:true as const,product:${JSON.stringify(product)}} : {success:false as const,code:'NOT_FOUND' as const}; }`,
+    `import {requireAuthenticatedAdmin} from '@/features/auth/server/require-admin'; export async function readAdminProduct(input: string) { const auth=await requireAuthenticatedAdmin(); if(!auth.success) return auth; return input==='${id}' ? {success:true as const,product:${productSource}} : {success:false as const,code:'NOT_FOUND' as const}; }`,
   );
   write(
     "features/orders/server/admin-order-list.ts",

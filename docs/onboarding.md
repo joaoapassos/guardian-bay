@@ -24,3 +24,26 @@ Falha em check: guarde comando/exit code e trecho sanitizado; reproduza antes de
 Pare somente processos iniciados pela Task, identificados por PID/sessão. Não apague .next enquanto dev estiver ativo nem rode build concorrente na mesma saída. Preserve mudanças locais antes de reset/reinstalação.
 
 Retomada confere git status, revisão, diff e preflights reais. Backups deste setup estão em `.vitest/toolkit-backup/` ignorado; recupere somente o arquivo necessário, comparando para não sobrescrever customizações posteriores. Não versionar caches ou secrets.
+
+## Bootstrap Ubuntu local
+
+`npm run system:init -- --dry-run` lista etapas sem alterar o host. O alvo de provisionamento é Ubuntu Server24.04 x64/systemd, Node24.19+ e npm10+, com sudo. O comando normal prepara pacotes, copia Node/npm existentes para ferramentas privadas da instalação, cria release isolada e executa npm ci com conta de build sem login. Não executa testes, seeds, drizzle push ou Drizzle Studio. PostgreSQL18 vem do PGDG com fingerprint fixado e Caddy do repositório Ubuntu assinado.
+
+Cluster18/guardian-bay em127.0.0.1:5433, banco guardian_bay, credenciais distintas de runtime/migração. Runtime não recebe DDL nem acesso a outros bancos pelo HBA; audit_events e order_items têm somente leitura/inserção. Grants de tabelas novas precisam de revisão explícita no mapa operacional, sem DML automático irrestrito. A conta Linux de migração difere da conta web e de build. Código de migração é selado para leitura antes de receber a credencial operacional.
+
+Estado público em /etc/guardian-bay/state.json; secrets.json e migrator.env privados de root; runtime.env0600 para a conta web. Senhas48 caracteres e chave CPF independente32 bytes são preservadas em rerun. Se segredos estiverem incompletos, restaure backup: o comando não inventa outra chave CPF. Se não existir, a .env.local do checkout recebe configuração local com dono original; arquivo existente é preservado. Credencial migrator só entra no processo operacional de migrations; drizzle.config.ts aceita MIGRATION_DATABASE_URL apenas nesse caminho.
+
+Reexecutar com os mesmos argumentos pode reiniciar o cluster próprio e reaplicar grants; não adota clusters ou diretórios sem estado correspondente. A política create_main_cluster é desativada apenas durante apt PostgreSQL, com backup/restauração finally e recuperação na próxima execução. Caddy recém-instalado fica temporariamente mascarado para evitar iniciar sua página padrão antes da configuração. Clusters/serviços preexistentes não são sobrescritos.
+
+Limite de evidência atual: preflight/dry-run e testes determinísticos executados no Windows; instalação real, interrupções de apt e isolamento de roles no Ubuntu ainda precisam de smoke em máquina descartável suportada. Não interpretar testes de geração SQL como execução das permissões em Ubuntu.
+
+
+O bootstrap cria admin por CLI com Argon2id compartilhado com a aplicação, sem atravessar o cadastro público. Uma intenção com UUID é salva antes de cadastrar; se houver interrupção após commit, rerun reconhece somente esse mesmo admin e mantém a senha. Cancelar restaura o terminal. Sem identidade correspondente, e-mail existente causa recusa, sem promoção/reset. Arquivos de credencial não são argumentos de processo nem saída de terminal.
+
+Após build, release fica root-owned e sem escrita para o processo web, com exceção de .next/cache; mídia/checkpoints ficam fora do build. A unidade guardian-bay usa EnvironmentFile runtime, conta sem login, ProtectSystem/ProtectHome e bind loopback. O Caddy mantém Host/Origin, limita body a6MB (o endpoint mantém limite menor próprio) e usa tls internal. Rerun pode reiniciar o cluster próprio; falha de build mantém o symlink anterior e falha de health após ativação tenta restaurá-lo. Isso não desfaz migrations: versões futuras incompatíveis exigem restauração operacional de backup.
+
+Diagnóstico: `sudo systemctl status guardian-bay caddy postgresql@18-guardian-bay` e `sudo journalctl -u guardian-bay -u caddy`. Não publique logs/env com credenciais. A chave privada da CA permanece no storage do Caddy. Certificado público em /etc/guardian-bay/local-ca.crt, com confiança manual em cada cliente. HTTP não é usado como downgrade; instalação nova não cria redirect em80. Caddy existente usa fragmento e conserva os demais sites.
+
+A distribuição WSL existente foi consultada somente para versão/PID1: Ubuntu24.04.4 com systemd. Ela não foi tratada como máquina descartável e seus serviços não foram provisionados pelo smoke. Testes de TTY/Argon2, cadastro em DB dedicado e templates não comprovam apt, reboot, firewall, CA ou deploy completo no servidor Ubuntu alvo.
+
+Os checkpoints do seeder do operador ficam em var/seeds no checkout, preservando a privacidade de /var/lib/guardian-bay. Produtos seed não têm imagem. Para limpeza da mídia instalada, use o comando com `sudo -u guardian-bay` documentado no README; o comando comum de desenvolvimento não adquire permissões de produção automaticamente.

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RouteReady } from "@/components/shared/route-ready";
 import {
   orderStatusLabel,
   paymentMethodLabel,
@@ -19,6 +20,7 @@ export default async function AdminOrdersPage({
         <Link href="/admin/orders" className="auth-link">
           Limpar filtros
         </Link>
+        <RouteReady />
       </main>
     );
   const pageLink = (page: number) =>
@@ -137,6 +139,7 @@ export default async function AdminOrdersPage({
           </Link>
         )}
       </nav>
+      <RouteReady />
     </main>
   );
 }

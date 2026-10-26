@@ -6,7 +6,10 @@ import { users } from "@/db/schema/users";
 
 import { withAuthenticatedTransaction } from "@/features/auth/server/with-session-transaction";
 import { reserveAbuseBudget } from "@/lib/abuse/server";
-import { sealPersonalData } from "@/lib/security/personal-data";
+import {
+  openPersonalData,
+  sealPersonalData,
+} from "@/lib/security/personal-data";
 import { cpfSchema, optionalNameSchema } from "../schemas/buyer";
 
 const schema = z
@@ -24,6 +27,20 @@ export async function saveProfile(input: unknown) {
     if (!(await reserveAbuseBudget(tx, userId, "profile.write")))
       return { success: false as const, code: "RATE_LIMITED" as const };
     const cpf = parsed.data.cpf;
+    const [previous] = await tx
+      .select({ name: users.name, cpfEncrypted: users.cpfEncrypted })
+      .from(users)
+      .where(eq(users.id, userId))
+      .for("update");
+    if (
+      previous &&
+      previous.name === (parsed.data.name || null) &&
+      (cpf
+        ? previous.cpfEncrypted !== null &&
+          openPersonalData(previous.cpfEncrypted, `profile:${userId}`) === cpf
+        : !parsed.data.removeCpf || previous.cpfEncrypted === null)
+    )
+      return { success: true as const, changed: false as const };
     await tx
       .update(users)
       .set({

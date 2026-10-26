@@ -8,7 +8,7 @@ export async function setInventoryQuantityAction(
 ) {
   await requireSameOrigin();
   const result = await setInventoryQuantity(extra.length ? undefined : input);
-  if (result.success) {
+  if (result.success && !("changed" in result && result.changed === false)) {
     revalidatePath("/admin/catalog");
     revalidatePath("/products", "layout");
     revalidatePath("/cart");

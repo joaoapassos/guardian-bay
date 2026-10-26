@@ -1,3 +1,4 @@
+import { RouteReady } from "@/components/shared/route-ready";
 import { CategoryDialog } from "@/features/catalog/components/category-dialog";
 import { readAdminCategories } from "@/features/catalog/server/read-admin-categories";
 import { AccessState } from "../_components/access-state";
@@ -45,6 +46,7 @@ export default async function CategoriesPage() {
           </output>
         )}
       </section>
+      <RouteReady />
     </main>
   );
 }

@@ -9,7 +9,8 @@ export async function createAddressAction(input: unknown, ...extra: unknown[]) {
     "create",
     extra.length ? undefined : input,
   );
-  if (result.success) revalidatePath("/account/addresses");
+  if (result.success && !("changed" in result && result.changed === false))
+    revalidatePath("/account/addresses");
   return result;
 }
 export async function updateAddressAction(input: unknown, ...extra: unknown[]) {
@@ -18,7 +19,8 @@ export async function updateAddressAction(input: unknown, ...extra: unknown[]) {
     "update",
     extra.length ? undefined : input,
   );
-  if (result.success) revalidatePath("/account/addresses");
+  if (result.success && !("changed" in result && result.changed === false))
+    revalidatePath("/account/addresses");
   return result;
 }
 export async function removeAddressAction(input: unknown, ...extra: unknown[]) {
@@ -27,6 +29,7 @@ export async function removeAddressAction(input: unknown, ...extra: unknown[]) {
     "remove",
     extra.length ? undefined : input,
   );
-  if (result.success) revalidatePath("/account/addresses");
+  if (result.success && !("changed" in result && result.changed === false))
+    revalidatePath("/account/addresses");
   return result;
 }

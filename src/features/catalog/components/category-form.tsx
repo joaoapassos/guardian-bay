@@ -24,6 +24,14 @@ export function CategoryForm({
         event.preventDefault();
         if (busy) return;
         const name = new FormData(event.currentTarget).get("name");
+        if (
+          category &&
+          typeof name === "string" &&
+          name.trim() === category.name
+        ) {
+          setMessage("Já está atualizado.");
+          return;
+        }
         setBusy(true);
         setMessage("");
         try {
@@ -37,6 +45,14 @@ export function CategoryForm({
                 }
               : { operation: "create-category", name },
           );
+          if (
+            result.success &&
+            "changed" in result &&
+            result.changed === false
+          ) {
+            setMessage("Já está atualizado.");
+            return;
+          }
           setMessage(
             result.success
               ? "Categoria salva."

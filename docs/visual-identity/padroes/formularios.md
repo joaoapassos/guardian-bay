@@ -50,3 +50,9 @@ Ver [Feedback e estados](feedback-estados.md) para retenção de mensagens e [In
 - [ ] Campos podem ser preenchidos, colados e corrigidos por teclado; foco continua visível no erro.
 - [ ] Envio não duplica operação e falha não perde conteúdo seguro.
 - [ ] Erros e sucesso correspondem ao resultado confirmado, sem promessa de funcionalidade pendente.
+
+## Aplicações implementadas
+
+CEP compartilha máscara12345-678 em conta e checkout: aceitar digitação/colagem dos oito dígitos e preservar posição do cursor na edição. No-op normalizado informa “Já está atualizado.” sem reenviar intenção inalterada. Carrinho mantém confirmação explícita, consolida a última quantidade após500ms e não apaga edição mais recente ao receber resposta anterior.
+
+Imagem de produto usa arquivo local, progresso e prévia autenticada. Seleção pendente ou falha impede salvar; cancelar conserva a imagem anterior. Remover restaura o placeholder neutro. Validação final de arquivo, acesso e associação pertence ao servidor.

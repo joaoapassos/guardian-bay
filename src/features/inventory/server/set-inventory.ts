@@ -34,6 +34,17 @@ export async function setInventoryQuantity(input: unknown) {
             .for("share");
           if (!product)
             return { success: false as const, code: "CONFLICT" as const };
+          const [previous] = await tx
+            .select()
+            .from(inventory)
+            .where(eq(inventory.productId, productId))
+            .for("update");
+          if (!previous || previous.revision !== revision)
+            return { success: false as const, code: "CONFLICT" as const };
+          if (previous.availableQuantity === quantity) {
+            if (!(await requireAuthenticatedAdmin(tx)).success) throw expired;
+            return { success: true as const, changed: false as const };
+          }
           const changed = await tx
             .update(inventory)
             .set({

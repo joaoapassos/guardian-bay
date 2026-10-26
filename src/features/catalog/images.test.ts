@@ -4,10 +4,14 @@ import { manageCatalogSchema } from "./schemas/manage-catalog";
 
 it("resolve somente assets de allowlist com fallback local", () => {
   expect(productImage("lock", "Produto")).toEqual({
+    kind: "none",
     key: "lock",
-    alt: "Ilustração de Produto",
+    alt: "Sem imagem de Produto",
   });
-  expect(productImage("shield", "Produto").key).toBe("shield");
+  expect(productImage("shield", "Produto")).toMatchObject({
+    kind: "none",
+    key: "shield",
+  });
   for (const key of [
     null,
     "../../secret",
@@ -18,7 +22,10 @@ it("resolve somente assets de allowlist com fallback local", () => {
     "/catalog/lock.svg",
   ]) {
     expect(imageKeySchema.safeParse(key).success).toBe(false);
-    expect(productImage(key, "<script>").key).toBeNull();
+    expect(productImage(key, "<script>")).toMatchObject({
+      kind: "none",
+      key: null,
+    });
     expect(
       manageCatalogSchema.safeParse({
         operation: "create-product",

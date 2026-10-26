@@ -3,9 +3,12 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ProductImage } from "@/features/catalog/components/product-image";
 import type { CartDto } from "../cart-dto";
+import { useCartDrawer } from "./cart-drawer-context";
 import { CartItemControls } from "./cart-item-controls";
 
 async function fetchCart({
@@ -35,6 +38,9 @@ export function CartDrawer({
   notice: string;
   restoreFocus: () => void;
 }) {
+  const router = useRouter();
+  const { flushQuantityUpdates } = useCartDrawer();
+  const [checkoutMessage, setCheckoutMessage] = useState("");
   const query = useQuery({
     queryKey: ["cart"],
     queryFn: fetchCart,
@@ -181,6 +187,7 @@ export function CartDrawer({
                   >
                     {cart.total.formatted}
                   </p>
+                  {checkoutMessage && <p role="alert">{checkoutMessage}</p>}
                   {blocked ? (
                     <>
                       <p className="text-sm text-danger">
@@ -193,8 +200,19 @@ export function CartDrawer({
                   ) : (
                     <Link
                       href="/checkout"
-                      onClick={() => onOpenChange(false)}
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-control border border-ink bg-primary px-5 py-3 font-semibold text-on-primary hover:bg-ink hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coast"
+                      onNavigate={(event) => {
+                        event.preventDefault();
+                        void flushQuantityUpdates().then((ok) => {
+                          if (ok) {
+                            onOpenChange(false);
+                            router.push("/checkout");
+                          } else
+                            setCheckoutMessage(
+                              "Confira as atualizações do carrinho antes de continuar.",
+                            );
+                        });
+                      }}
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-control border border-ink bg-primary px-5 py-3 font-semibold text-on-primary transition-colors duration-300 motion-reduce:transition-none hover:bg-ink hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coast"
                     >
                       Revisar checkout
                     </Link>

@@ -1,0 +1,11 @@
+# Guardian Bay managed {{INSTALLATION_ID}}
+https://{{HOST}} {
+    {{BIND}}
+    tls internal
+    request_body {
+        max_size 6MB
+    }
+    reverse_proxy 127.0.0.1:{{APP_PORT}} {
+        header_up Host {http.request.hostport}
+    }
+}

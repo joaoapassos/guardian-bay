@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { RouteReady } from "@/components/shared/route-ready";
 import {
   orderStatusLabel,
   paymentMethodLabel,
@@ -109,6 +110,7 @@ export default async function AdminOrderDetailPage({
       <Link href="/admin/orders" className="mt-6 block underline">
         Pedidos administrativos
       </Link>
+      <RouteReady />
     </main>
   );
 }

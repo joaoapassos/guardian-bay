@@ -82,7 +82,7 @@ export async function mutateAddress(
           eq(addresses.revision, reference.revision),
         );
         const [previous] = await tx
-          .select({ id: addresses.id })
+          .select()
           .from(addresses)
           .where(own)
           .for("update");
@@ -94,6 +94,23 @@ export async function mutateAddress(
             revision: _revision,
             ...fields
           } = updateAddressSchema.parse(parsed.data);
+          if (
+            Object.entries(fields).every(
+              ([key, value]) => previous[key as keyof typeof fields] === value,
+            )
+          ) {
+            if (
+              !(
+                await tx
+                  .select({ id: sessions.userId })
+                  .from(sessions)
+                  .where(valid())
+                  .limit(1)
+              ).length
+            )
+              throw expired;
+            return { success: true as const, changed: false as const };
+          }
           await tx
             .update(addresses)
             .set({ ...fields, revision: reference.revision + 1 })

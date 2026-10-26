@@ -53,7 +53,7 @@ Famílias e métricas existentes preservadas nesta migração de cores e mídia:
 
 ## Layout
 
-Preservar composição, grids, containers, breakpoints, espaçamentos e responsividade das páginas implementadas. A referência informa direção visual; suas medidas inferidas não substituem o layout existente. Não adicionar seções, produtos, recursos ou controles por imitação do site.
+Preservar composição, grids, containers, breakpoints, espaçamentos e responsividade das páginas implementadas. Exceção aprovada: catálogo distribui cards de pelo menos260px em área comercial de até1680px, com filtro280px no desktop; título, breadcrumb e descrição mantêm a guia original. A referência informa direção visual; suas medidas inferidas não substituem o layout existente. Não adicionar seções, produtos, recursos ou controles por imitação do site.
 
 ## Elevation & Depth
 

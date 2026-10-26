@@ -29,6 +29,14 @@ export function ProfileForm({
       noValidate
       className="mt-6 space-y-5"
       onSubmit={handleSubmit(async (values) => {
+        if (
+          (optionalNameSchema.parse(values.name) || null) === name &&
+          !values.cpf &&
+          (!values.removeCpf || !cpfMask)
+        ) {
+          setMessage("Já está atualizado.");
+          return;
+        }
         setMessage("");
         try {
           const result = await saveProfileAction({
@@ -37,8 +45,12 @@ export function ProfileForm({
             removeCpf: values.removeCpf,
           });
           if (result.success) {
-            setMessage("Perfil atualizado.");
-            router.refresh();
+            if ("changed" in result && result.changed === false)
+              setMessage("Já está atualizado.");
+            else {
+              setMessage("Perfil atualizado.");
+              router.refresh();
+            }
           } else
             setMessage(
               "Não foi possível atualizar. Confira seus dados e sua sessão.",

@@ -11,6 +11,7 @@ import { users } from "@/db/schema/users";
 import { tokenHash } from "@/features/auth/server/session";
 import { sessionCookiePolicy } from "@/features/auth/server/session-cookie";
 import { cartItemSchema, removeCartItemSchema } from "../schemas/cart-item";
+import { reserveCartWriteBudget } from "./cart-budget";
 import { cartFailure } from "./cart-event";
 
 const expired = Symbol("session-expired");
@@ -59,6 +60,13 @@ async function mutateCart(
         .for("update");
       if (!session)
         return { success: false as const, code: "UNAUTHENTICATED" as const };
+      const budget = await reserveCartWriteBudget(tx, user.id);
+      if (!budget.allowed)
+        return {
+          success: false as const,
+          code: "RATE_LIMITED" as const,
+          retryAfterMs: budget.retryAfterMs,
+        };
       if (intentHash) {
         const [claimed] = await tx
           .update(cartIntents)
@@ -91,6 +99,19 @@ async function mutateCart(
           .from(cartItems)
           .where(ownItem)
           .for("update");
+        if (operation === "update" && previous?.quantity === quantity) {
+          if (
+            !(
+              await tx
+                .select({ id: sessions.userId })
+                .from(sessions)
+                .where(valid())
+                .limit(1)
+            ).length
+          )
+            throw expired;
+          return { success: true as const, changed: false as const };
+        }
         const [product] = await tx
           .select({ published: products.isPublished })
           .from(products)

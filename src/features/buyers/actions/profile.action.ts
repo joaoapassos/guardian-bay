@@ -5,6 +5,7 @@ import { saveProfile } from "../server/save-profile";
 export async function saveProfileAction(input: unknown, ...extra: unknown[]) {
   await requireSameOrigin();
   const result = await saveProfile(extra.length ? undefined : input);
-  if (result.success) revalidatePath("/account", "layout");
+  if (result.success && !("changed" in result && result.changed === false))
+    revalidatePath("/account", "layout");
   return result;
 }
