@@ -48,9 +48,10 @@ export default function PrivacyPage() {
         <p>
           Um cookie de sessão permite reconhecer o acesso autenticado. O número
           de cartão informado é utilizado transitoriamente para validação
-          matemática, sem persistência do número completo. Não solicitamos CVV
-          na nova interface. O método salvo contém somente bandeira, últimos
-          quatro dígitos e validade; isso não habilita cobrança real.
+          matemática, sem persistência do número completo. O CVV é validado
+          apenas no formulário e descartado, sem envio ao servidor na nova
+          interface. O método salvo contém somente bandeira, últimos quatro
+          dígitos e validade; isso não habilita cobrança real.
         </p>
         <p>
           As bases legais e a redação final das finalidades ainda dependem de

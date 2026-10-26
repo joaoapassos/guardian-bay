@@ -58,6 +58,39 @@ export const cardInputSchema = z
   });
 
 export type CardInput = z.input<typeof cardInputSchema>;
+
+export const cardExpirySchema = z
+  .string()
+  .length(7, "Informe o mês e o ano de validade.")
+  .regex(/^20\d{2}-(0[1-9]|1[0-2])$/, "Informe o mês e o ano de validade.")
+  .refine(
+    (value) =>
+      !isCardExpired(Number(value.slice(5)), Number(value.slice(0, 4))),
+    {
+      message: "Informe uma validade atual ou futura.",
+    },
+  );
+
+export const cardFormSchema = z
+  .strictObject({
+    number: cardNumberSchema,
+    expiry: cardExpirySchema,
+    cvv: z.string().regex(/^\d{3,4}$/, "Informe os 3 ou 4 dígitos do CVV."),
+  })
+  .refine(
+    ({ number, cvv }) => cvv.length === (issuer(number) === "AMEX" ? 4 : 3),
+    {
+      path: ["cvv"],
+      message: "Use 4 dígitos para American Express ou 3 para Visa/Mastercard.",
+    },
+  )
+  .transform(({ number, expiry }) => ({
+    number,
+    expiryMonth: Number(expiry.slice(5)),
+    expiryYear: Number(expiry.slice(0, 4)),
+  }));
+
+export type CardFormInput = z.input<typeof cardFormSchema>;
 export type CardMetadata = {
   brand: CardBrand;
   last4: string;

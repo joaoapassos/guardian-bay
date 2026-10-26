@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import type { AddressDto } from "@/features/addresses/schemas/address";
 import { loginHref } from "@/features/auth/safe-return";
 import {
-  cardInputSchema,
+  type CardInput,
+  cardFormSchema,
   isCardExpired,
   type PaymentMethodDto,
 } from "@/features/payments/schemas/card";
@@ -86,16 +87,13 @@ export function CheckoutConfirmation({
         if (inFlight.current) return;
         setMessage("");
         setUncertain(false);
+        let cardInput: CardInput | undefined;
         if (method === "CARD" && !paymentMethodId) {
-          const card = cardInputSchema.safeParse(values.card);
+          const card = cardFormSchema.safeParse(values.card);
           if (!card.success) {
             const issue = card.error.issues[0];
             const field = issue.path[0];
-            if (
-              field === "number" ||
-              field === "expiryMonth" ||
-              field === "expiryYear"
-            )
+            if (field === "number" || field === "expiry" || field === "cvv")
               setError(
                 `card.${field}`,
                 { message: issue.message },
@@ -103,6 +101,7 @@ export function CheckoutConfirmation({
               );
             return;
           }
+          cardInput = card.data;
         }
         const parsed = checkoutSchema.safeParse({
           checkoutKey: key,
@@ -125,7 +124,7 @@ export function CheckoutConfirmation({
               ? { method }
               : paymentMethodId
                 ? { method, paymentMethodId }
-                : { method, card: values.card, save: values.saveCard ?? false },
+                : { method, card: cardInput, save: values.saveCard ?? false },
         });
         if (!parsed.success) {
           setMessage(
@@ -152,6 +151,7 @@ export function CheckoutConfirmation({
           );
         } finally {
           resetField("card.number", { defaultValue: "" });
+          resetField("card.cvv", { defaultValue: "" });
           resetField("buyer.cpf", { defaultValue: "" });
           inFlight.current = false;
         }

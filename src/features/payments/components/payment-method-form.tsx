@@ -6,10 +6,13 @@ import { FormField } from "@/components/forms/form-field";
 import { Button } from "@/components/ui/button";
 import { savePaymentMethodAction } from "../actions/payment-methods.action";
 import {
-  type CardInput,
-  cardInputSchema,
+  type CardFormInput,
+  cardExpirySchema,
+  cardFormSchema,
   cardNumberSchema,
 } from "../schemas/card";
+import { CardNumberInput } from "./card-number-input";
+import { CardValidityFields } from "./card-validity-fields";
 
 export function PaymentMethodForm({ onClose }: { onClose: () => void }) {
   const router = useRouter();
@@ -22,7 +25,7 @@ export function PaymentMethodForm({ onClose }: { onClose: () => void }) {
     setError,
     resetField,
     formState: { errors, isSubmitting },
-  } = useForm<CardInput>();
+  } = useForm<CardFormInput>();
   useEffect(() => {
     heading.current?.focus();
   }, []);
@@ -34,16 +37,12 @@ export function PaymentMethodForm({ onClose }: { onClose: () => void }) {
       className="space-y-5 rounded-panel border border-line bg-surface p-5 sm:p-7"
       onSubmit={handleSubmit(async (values) => {
         setMessage("");
-        const parsed = cardInputSchema.safeParse(values);
+        const parsed = cardFormSchema.safeParse(values);
         if (!parsed.success) {
           let focus = true;
           for (const issue of parsed.error.issues) {
             const name = issue.path[0];
-            if (
-              name === "number" ||
-              name === "expiryMonth" ||
-              name === "expiryYear"
-            ) {
+            if (name === "number" || name === "expiry" || name === "cvv") {
               setError(
                 name,
                 { message: issue.message },
@@ -75,6 +74,8 @@ export function PaymentMethodForm({ onClose }: { onClose: () => void }) {
           setMessage(
             "Não foi possível confirmar o cadastro. Atualize a página antes de tentar novamente.",
           );
+        } finally {
+          resetField("cvv", { defaultValue: "" });
         }
       })}
     >
@@ -95,13 +96,10 @@ export function PaymentMethodForm({ onClose }: { onClose: () => void }) {
         help="Visa, Mastercard ou American Express. Espaços e hífens são aceitos."
         error={errors.number?.message}
       >
-        <input
+        <CardNumberInput
           id={`${prefix}-number`}
           className="auth-input"
-          type="text"
-          inputMode="numeric"
           autoComplete="off"
-          maxLength={32}
           required
           aria-invalid={!!errors.number}
           aria-describedby={`${prefix}-number-help ${prefix}-number-error`}
@@ -112,59 +110,18 @@ export function PaymentMethodForm({ onClose }: { onClose: () => void }) {
           })}
         />
       </FormField>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <FormField
-          id={`${prefix}-month`}
-          label="Mês de validade"
-          error={errors.expiryMonth?.message}
-        >
-          <select
-            id={`${prefix}-month`}
-            className="auth-input"
-            required
-            aria-invalid={!!errors.expiryMonth}
-            aria-describedby={`${prefix}-month-error`}
-            {...register("expiryMonth", {
-              valueAsNumber: true,
-              validate: (value) =>
-                (Number.isInteger(value) && value >= 1 && value <= 12) ||
-                "Selecione o mês de validade.",
-            })}
-          >
-            <option value="">Selecione</option>
-            {Array.from({ length: 12 }, (_, index) => index + 1).map(
-              (month) => (
-                <option key={month} value={month}>
-                  {String(month).padStart(2, "0")}
-                </option>
-              ),
-            )}
-          </select>
-        </FormField>
-        <FormField
-          id={`${prefix}-year`}
-          label="Ano de validade"
-          error={errors.expiryYear?.message}
-        >
-          <input
-            id={`${prefix}-year`}
-            className="auth-input"
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            maxLength={4}
-            required
-            aria-invalid={!!errors.expiryYear}
-            aria-describedby={`${prefix}-year-error`}
-            {...register("expiryYear", {
-              valueAsNumber: true,
-              validate: (value) =>
-                (Number.isInteger(value) && value >= 2000 && value <= 2099) ||
-                "Informe o ano com quatro dígitos.",
-            })}
-          />
-        </FormField>
-      </div>
+      <CardValidityFields
+        id={prefix}
+        expiry={register("expiry", {
+          validate: (value) => {
+            const result = cardExpirySchema.safeParse(value);
+            return result.success || result.error.issues[0].message;
+          },
+        })}
+        cvv={register("cvv")}
+        expiryError={errors.expiry?.message}
+        cvvError={errors.cvv?.message}
+      />
       <div className="flex flex-wrap gap-3">
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Salvando…" : "Salvar cartão"}

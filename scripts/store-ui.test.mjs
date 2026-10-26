@@ -762,6 +762,55 @@ test(
         true,
         "payment entry uses numeric input affordance",
       );
+      assert.equal(
+        await evaluate(
+          "document.querySelectorAll('form[aria-label=\"Adicionar cartão de simulação\"] input[type=month]').length",
+        ),
+        1,
+        "card expiry uses one native month and year picker",
+      );
+      assert.equal(
+        await evaluate(
+          "(() => {const expiry=document.querySelector('input[type=month]');const cvv=document.querySelector('input[name=cvv]');return cvv?.type==='password' && cvv.inputMode==='numeric' && cvv.getBoundingClientRect().left >= expiry.getBoundingClientRect().right;})()",
+        ),
+        true,
+        "CVV is concealed and sits to the right of the month-year input",
+      );
+      assert.equal(
+        await evaluate(
+          "(() => {const input=document.querySelector('input[type=month]');input.value='2099-12';input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));return input.checkValidity();})()",
+        ),
+        true,
+        "native expiry accepts a future month",
+      );
+      await evaluate(
+        "document.querySelector('form[aria-label=\"Adicionar cartão de simulação\"] input[inputmode=numeric]').focus()",
+      );
+      await send("Input.insertText", { text: "4111111111111111" });
+      assert.equal(
+        await evaluate("document.activeElement.value"),
+        "4111 1111 1111 1111",
+        "card number is grouped when pasted",
+      );
+      await evaluate("document.activeElement.select()");
+      await send("Input.insertText", { text: "378282246310005" });
+      assert.equal(
+        await evaluate("document.activeElement.value"),
+        "3782 822463 10005",
+        "American Express uses its own grouping",
+      );
+      await evaluate("document.activeElement.setSelectionRange(5, 11)");
+      await send("Input.insertText", { text: "123456" });
+      assert.equal(
+        await evaluate("document.activeElement.value"),
+        "3782 123456 10005",
+        "editing a selection preserves the other digits",
+      );
+      assert.equal(
+        await evaluate("document.activeElement.selectionStart"),
+        11,
+        "mask preserves the caret during editing",
+      );
       await clickText("Cancelar");
       await wait(
         "!document.querySelector('form[aria-label=\"Adicionar cartão de simulação\"]')",
@@ -808,8 +857,20 @@ test(
       adminNavigationDelay = 900;
       await openUserMenu();
       const curtainStarted = Date.now();
+      const curtainOrigin = await evaluate("location.pathname");
       await evaluate(
         "document.querySelector('[role=menu] a[href=\"/admin\"]').click()",
+      );
+      await pause(200);
+      assert.equal(
+        await evaluate("location.pathname"),
+        curtainOrigin,
+        "destination navigation waits for the curtain to close",
+      );
+      assert.equal(
+        await evaluate("document.querySelector('.gb-curtain')?.dataset.phase"),
+        "entering",
+        "source stays mounted during curtain entry",
       );
       await wait(
         "document.querySelector('.gb-curtain')?.dataset.phase==='covered'",

@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  cardExpirySchema,
+  cardFormSchema,
   cardInputSchema,
   cardMetadata,
   checkoutCardPaymentSchema,
@@ -8,6 +10,57 @@ import {
 
 const card = { number: "4111111111111111", expiryMonth: 12, expiryYear: 2099 };
 afterEach(() => vi.useRealTimers());
+
+describe("card expiry month input", () => {
+  it("accepts four CVV digits for Amex and discards them from the payload", () => {
+    const result = cardFormSchema.parse({
+      number: "378282246310005",
+      expiry: "2099-12",
+      cvv: "1234",
+    });
+    expect(result).not.toHaveProperty("cvv");
+  });
+
+  it.each([
+    ["4111111111111111", ""],
+    ["4111111111111111", "12"],
+    ["4111111111111111", "1234"],
+    ["378282246310005", "123"],
+    ["4111111111111111", "abc"],
+  ])("rejects an invalid CVV for %s", (number, cvv) => {
+    expect(
+      cardFormSchema.safeParse({ number, cvv, expiry: "2099-12" }).success,
+    ).toBe(false);
+  });
+
+  it("converts the selected year-month to the existing payment contract", () => {
+    expect(
+      cardFormSchema.parse({
+        number: "4111 1111 1111 1111",
+        expiry: "2099-12",
+        cvv: "123",
+      }),
+    ).toEqual(card);
+  });
+
+  it("accepts the current month until its end and rejects the previous month", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-31T23:59:59Z"));
+    expect(cardExpirySchema.safeParse("2026-10").success).toBe(true);
+    expect(cardExpirySchema.safeParse("2026-09").success).toBe(false);
+  });
+
+  it.each([
+    "",
+    "2099-00",
+    "2099-13",
+    "2100-01",
+    "2099-12-01",
+    "2099-12\n",
+  ])("rejects malformed month selection %j", (expiry) => {
+    expect(cardExpirySchema.safeParse(expiry).success).toBe(false);
+  });
+});
 
 describe("card input", () => {
   it.each([

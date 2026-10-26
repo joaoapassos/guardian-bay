@@ -27,22 +27,36 @@ export function CurtainController({ children }: { children: ReactNode }) {
   const [intent, setIntent] = useState<Intent | null>(null);
   const current = useRef<Intent | null>(null);
   const sequence = useRef(0);
+  const pendingNavigation = useRef<(() => void) | null>(null);
   const publish = useCallback((next: Intent | null) => {
     current.current = next;
     setIntent(next);
   }, []);
   const release = useCallback(() => {
+    const navigate = pendingNavigation.current;
+    pendingNavigation.current = null;
     publish(null);
     delete document.documentElement.dataset.curtain;
+    navigate?.();
+  }, [publish]);
+  const cover = useCallback(() => {
+    const active = current.current;
+    if (!active || active.phase !== "entering") return;
+    publish({ ...active, phase: "covered", phaseStarted: Date.now() });
+    const navigate = pendingNavigation.current;
+    pendingNavigation.current = null;
+    navigate?.();
   }, [publish]);
   const begin = useCallback(
-    (href: string) => {
+    (href: string, navigate: () => void) => {
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        pendingNavigation.current = null;
         release();
-        return;
+        return false;
       }
       const destination = new URL(href, window.location.origin);
-      if (destination.origin !== window.location.origin) return;
+      if (destination.origin !== window.location.origin) return false;
+      pendingNavigation.current = navigate;
       document.documentElement.dataset.curtain = "active";
       // A newer intention never extends an existing occlusion deadline.
       publish({
@@ -54,6 +68,7 @@ export function CurtainController({ children }: { children: ReactNode }) {
         phaseStarted: Date.now(),
         ready: false,
       });
+      return true;
     },
     [publish, release],
   );
@@ -101,16 +116,15 @@ export function CurtainController({ children }: { children: ReactNode }) {
                   phase: "exiting",
                   phaseStarted: Date.now(),
                 });
-              else
-                publish({
-                  ...active,
-                  phase: "covered",
-                  phaseStarted: Date.now(),
-                });
+              else cover();
             },
             Math.max(
               0,
-              (phase === "covered" ? CURTAIN_HOLD_MS : CURTAIN_PHASE_MS) -
+              (phase === "covered"
+                ? CURTAIN_HOLD_MS
+                : phase === "entering"
+                  ? CURTAIN_PHASE_MS + 100
+                  : CURTAIN_PHASE_MS) -
                 (Date.now() - phaseStarted),
             ),
           );
@@ -126,6 +140,7 @@ export function CurtainController({ children }: { children: ReactNode }) {
     destinationReady,
     phaseStarted,
     publish,
+    cover,
     release,
   ]);
   useEffect(() => {
@@ -140,26 +155,31 @@ export function CurtainController({ children }: { children: ReactNode }) {
   }, [path, release]);
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const abandon = () => {
+      pendingNavigation.current = null;
+      release();
+    };
     const reduced = () => {
       if (media.matches) release();
     };
     const visible = () => {
-      if (!document.hidden) release();
+      if (!document.hidden) abandon();
     };
     const cancel = (event: KeyboardEvent) => {
       if (event.key === "Escape") release();
     };
     media.addEventListener("change", reduced);
-    window.addEventListener("pageshow", release);
-    window.addEventListener("popstate", release);
+    window.addEventListener("pageshow", abandon);
+    window.addEventListener("popstate", abandon);
     document.addEventListener("visibilitychange", visible);
     document.addEventListener("keydown", cancel);
     return () => {
       media.removeEventListener("change", reduced);
-      window.removeEventListener("pageshow", release);
-      window.removeEventListener("popstate", release);
+      window.removeEventListener("pageshow", abandon);
+      window.removeEventListener("popstate", abandon);
       document.removeEventListener("visibilitychange", visible);
       document.removeEventListener("keydown", cancel);
+      pendingNavigation.current = null;
       delete document.documentElement.dataset.curtain;
     };
   }, [release]);
@@ -174,6 +194,13 @@ export function CurtainController({ children }: { children: ReactNode }) {
           data-phase={intent.phase}
           key={intent.sequence}
           style={{ animationDuration: `${CURTAIN_PHASE_MS}ms` }}
+          onAnimationEnd={(event) => {
+            if (
+              event.target === event.currentTarget &&
+              event.animationName === "gb-curtain-enter"
+            )
+              cover();
+          }}
         >
           <span
             className="font-editorial text-3xl font-extrabold tracking-tight sm:text-5xl"

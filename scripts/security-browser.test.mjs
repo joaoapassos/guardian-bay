@@ -974,8 +974,8 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "Adicionar cartão de simulação",
                   {
                     number: "4111111111111111",
-                    expiryMonth: "12",
-                    expiryYear: "2099",
+                    expiry: "2099-12",
+                    cvv: "123",
                   },
                   false,
                 );
