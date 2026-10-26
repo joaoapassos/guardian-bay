@@ -56,6 +56,23 @@ export function StoreChrome({
       {children}
       {checkout ? (
         <footer className="border-t border-line px-5 py-6 text-center font-auth text-sm text-muted">
+          <nav
+            aria-label="Ajuda e políticas do checkout"
+            className="mb-4 flex flex-wrap justify-center gap-x-6 gap-y-2"
+          >
+            <Link className="store-nav-link" href="/ajuda">
+              Ajuda
+            </Link>
+            <Link className="store-nav-link" href="/privacidade">
+              Privacidade
+            </Link>
+            <Link className="store-nav-link" href="/termos">
+              Termos de Uso
+            </Link>
+            <Link className="store-nav-link" href="/trocas-e-devolucoes">
+              Trocas e Devoluções
+            </Link>
+          </nav>
           Compra acadêmica · Pagamento exclusivamente simulado, sem movimentação
           financeira.
         </footer>

@@ -199,8 +199,81 @@ test(
           "/account/addresses",
           "/orders",
           `/orders/${fixtureId}`,
+          "/sobre",
+          "/ajuda",
+          "/privacidade",
+          "/termos",
+          "/trocas-e-devolucoes",
         ]) {
           await navigate(path);
+          const draft = [
+            "/privacidade",
+            "/termos",
+            "/trocas-e-devolucoes",
+          ].includes(path);
+          if (
+            [
+              "/sobre",
+              "/ajuda",
+              "/privacidade",
+              "/termos",
+              "/trocas-e-devolucoes",
+            ].includes(path)
+          ) {
+            assert.equal(
+              await evaluate("document.querySelectorAll('main h1').length"),
+              1,
+              "one institutional page title",
+            );
+            assert.ok(
+              await evaluate(
+                "document.querySelector('meta[name=description]')?.content.length > 20",
+              ),
+              "page description exists",
+            );
+            assert.equal(
+              await evaluate(
+                "document.querySelector('meta[name=robots]')?.content.includes('noindex') ?? false",
+              ),
+              draft,
+              "draft indexation is explicit",
+            );
+            assert.equal(
+              await evaluate(
+                "document.querySelector('main').textContent.includes('Em elaboração')",
+              ),
+              draft,
+              "draft status is visible",
+            );
+            assert.equal(
+              await evaluate(
+                "[...document.querySelectorAll('footer a')].map(a=>a.getAttribute('href')).includes('/sobre')",
+              ),
+              true,
+              "institutional footer is available",
+            );
+            if (path !== "/sobre") {
+              const destination = await evaluate(
+                "document.querySelector('nav[aria-label=\"Nesta página\"] a').getAttribute('href').slice(1)",
+              );
+              await evaluate(
+                "document.querySelector('nav[aria-label=\"Nesta página\"] a').click()",
+              );
+              await wait(
+                `location.hash===${JSON.stringify(`#${destination}`)} && document.activeElement.id===${JSON.stringify(destination)}`,
+                "section anchor moves focus and updates URL",
+              );
+            }
+          }
+          if (path === "/checkout") {
+            assert.equal(
+              await evaluate(
+                "document.querySelectorAll('footer nav[aria-label=\"Ajuda e políticas do checkout\"] a').length",
+              ),
+              4,
+              "checkout keeps help and policies",
+            );
+          }
           if (path === "/") {
             await wait(
               "document.querySelectorAll('#home-products-title').length===1 && document.querySelectorAll('[aria-labelledby=home-products-title] li').length===8",
@@ -403,6 +476,31 @@ test(
         await evaluate("document.documentElement.scrollWidth <= innerWidth"),
         true,
         "address form fits mobile",
+      );
+      await send("Emulation.setEmulatedMedia", {
+        features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+      });
+      await navigate("/sobre");
+      await evaluate(
+        "document.querySelector('footer a[href=\"/ajuda\"]').click()",
+      );
+      await wait(
+        "location.pathname==='/ajuda' && document.querySelector('h1')?.textContent==='Como podemos ajudar?'",
+        "footer link navigates with reduced motion",
+      );
+      await evaluate(
+        "document.querySelector('footer a[href=\"/privacidade\"]').click()",
+      );
+      await wait(
+        "location.pathname==='/privacidade' && document.querySelector('main')?.textContent.includes('Em elaboração')",
+        "policy is reachable from the footer",
+      );
+      assert.equal(
+        await evaluate(
+          "getComputedStyle(document.documentElement,'::view-transition-new(root)').animationName==='none' || !document.getAnimations().some(animation=>animation.playState==='running')",
+        ),
+        true,
+        "reduced motion does not leave a running page animation",
       );
       assert.deepEqual(errors, [], "no uncaught browser runtime errors");
     } finally {

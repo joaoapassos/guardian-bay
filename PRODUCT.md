@@ -12,6 +12,10 @@ E-commerce acadêmico com identidade, catálogo, carrinho autenticado e pedidos;
 - Home apresenta até oito produtos; catálogo mantém pesquisa, categoria, preço, disponibilidade, ordenação e paginação na URL. Novidades permanece adiada até existir um critério de data aprovado. O perfil exibe e-mail e permite alterar senha; não oferece edição de dados sem contrato existente.
 - Cartão fictício, Pix e boleto são simulados e não movimentam dinheiro. Aprovação/recusa segue o [contrato de pagamentos](docs/architecture/payments.md).
 
+## Páginas institucionais
+
+Sobre (`/sobre`) e Central de Ajuda (`/ajuda`) apresentam a marca fictícia e os fluxos disponíveis. Privacidade (`/privacidade`), Termos (`/termos`) e Trocas e Devoluções (`/trocas-e-devolucoes`) são minutas explicitamente em elaboração, com `noindex`, sem vigência ou aprovação jurídica. Footer global e checkout oferecem acesso aos documentos. Conteúdo estático Server, sem CMS ou dependências adicionais; canal de contato, políticas definitivas e operação de devolução/reembolso continuam pendentes.
+
 ## Garantias e limites
 
 Ownership, autorização, preços, estoque, total e status nunca são autoridade do cliente. DTOs/erros evitam detalhes internos; validação frontend serve para UX e é repetida no servidor. [Invariantes](docs/agent-invariants.md) e [arquitetura](docs/architecture/README.md) são normativos.

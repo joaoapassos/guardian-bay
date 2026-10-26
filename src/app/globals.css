@@ -100,6 +100,18 @@ body {
 }
 
 @layer components {
+  .institutional-content section {
+    @apply scroll-mt-8 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coast;
+  }
+  .institutional-content h2 {
+    @apply mb-4 font-editorial text-2xl leading-tight text-coast sm:text-3xl;
+  }
+  .institutional-content h3 {
+    @apply mb-2 mt-6 text-lg font-semibold text-ink;
+  }
+  .institutional-content p {
+    @apply mb-4 break-words leading-relaxed text-ink;
+  }
   .store-page {
     @apply mx-auto w-full max-w-7xl flex-1 space-y-8 px-5 py-8 font-auth sm:px-8 lg:py-12;
   }
