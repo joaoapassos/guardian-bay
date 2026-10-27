@@ -11,6 +11,46 @@ import {
 } from "./postgres.mjs";
 import { parseInitOptions, supportedPlatform } from "./preflight.mjs";
 
+test("only the verified Ubuntu LTS versions are eligible", () => {
+  for (const version of ["24.04", "26.04"]) {
+    const platform = {
+      platform: "linux",
+      arch: "x64",
+      release: `ID=ubuntu\nVERSION_ID="${version}"\n`,
+      node: "24.19.0",
+      systemd: true,
+    };
+    assert.equal(supportedPlatform(platform), true, version);
+    for (const patch of [
+      { platform: "win32" },
+      { arch: "arm64" },
+      { node: "24.18.9" },
+      { node: "22.99.0" },
+      { systemd: false },
+    ])
+      assert.equal(supportedPlatform({ ...platform, ...patch }), false);
+  }
+  for (const release of [
+    "ID=ubuntu\nVERSION_ID=22.04",
+    "ID=ubuntu\nVERSION_ID=26.10",
+    "ID=ubuntu\nVERSION_ID=26.04.1",
+    "ID=debian\nVERSION_ID=26.04",
+    "ID=linuxmint\nID_LIKE=ubuntu\nVERSION_ID=26.04",
+    "ID=ubuntu\nVERSION_ID=26.04\nVERSION_ID=24.04",
+  ])
+    assert.equal(
+      supportedPlatform({
+        platform: "linux",
+        arch: "x64",
+        release,
+        node: "24.19.0",
+        systemd: true,
+      }),
+      false,
+      release,
+    );
+});
+
 test("bootstrap defaults and platform/argument checks are deterministic", () => {
   const options = parseInitOptions([]);
   assert.equal(options.dbPort, 5433);

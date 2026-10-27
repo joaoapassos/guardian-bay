@@ -79,13 +79,32 @@ export function parseInitOptions(args) {
     throw new Error("Caminho de origem inválido.");
   return options;
 }
+export function ubuntuCodename(release) {
+  const field = (name) => {
+    const matches = [
+      ...release.matchAll(
+        new RegExp(
+          `^${name}=(?:"([^"\\r\\n]*)"|'([^'\\r\\n]*)'|([^'"\\r\\n]*))\\r?$`,
+          "gm",
+        ),
+      ),
+    ];
+    return matches.length === 1
+      ? (matches[0][1] ?? matches[0][2] ?? matches[0][3])
+      : undefined;
+  };
+  if (field("ID") !== "ubuntu") return undefined;
+  const version = field("VERSION_ID");
+  if (version === "24.04") return "noble";
+  if (version === "26.04") return "resolute";
+  return undefined;
+}
 export function supportedPlatform({ platform, arch, release, node, systemd }) {
   const [major, minor] = node.split(".").map(Number);
   return (
     platform === "linux" &&
     arch === "x64" &&
-    /(?:^|\n)ID=["']?ubuntu["']?(?:\n|$)/.test(release) &&
-    /(?:^|\n)VERSION_ID=["']?24[.]04["']?(?:\n|$)/.test(release) &&
+    Boolean(ubuntuCodename(release)) &&
     (major > 24 || (major === 24 && minor >= 19)) &&
     systemd
   );

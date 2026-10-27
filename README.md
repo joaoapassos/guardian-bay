@@ -99,7 +99,7 @@ Seeder explícito, separado da inicialização: `npm run seeder:products` cria 2
 
 ## Inicialização automática em Ubuntu
 
-Na raiz do checkout, com Node24.19+/npm10+ e sudo em Ubuntu Server24.04 x64/systemd:
+Na raiz do checkout, com Node24.19+/npm10+ e sudo em Ubuntu Server24.04 ou26.04 LTS x64/systemd (inclui26.04.1):
 
 ```text
 npm run system:init
@@ -114,6 +114,8 @@ O comando instala dependências e PostgreSQL18, prepara banco/roles/ambiente, ap
 Dados persistentes em /var/lib/guardian-bay; configuração privada em /etc/guardian-bay; releases em /opt/guardian-bay. Banco, build, migração e web usam identidades distintas. Em falha de ativação, tenta restaurar o symlink/unidade anteriores; migrations já aplicadas são preservadas. Faça backup de banco, mídia e segredos antes de atualizar uma instalação com dados relevantes. Não há testes, seed ou purge no instalador.
 
 Para confiar no HTTPS local, copie **apenas** /etc/guardian-bay/local-ca.crt e instale esse certificado público nos clientes. Não exporte root.key. Em Caddy preexistente compatível, acrescenta um fragmento validado; configurações/unidades personalizadas são preservadas com diagnóstico. Nenhuma porta/firewall público é liberado. Detalhes e limites de validação em [onboarding](docs/onboarding.md#bootstrap-ubuntu-local).
+
+O preflight e a seleção APT cobrem as duas versões: `noble-pgdg` no24.04 e `resolute-pgdg` no26.04, sempre PostgreSQL18. Caddy requer `universe` nas fontes oficiais Ubuntu da própria versão. Instalação completa/reboot ainda exigem validação em VM descartável. Para acessar pelo Windows, veja [VirtualBox: NAT e Host-only](docs/onboarding.md#virtualbox-e-navegador-no-windows); encaminhar443 não muda a identidade do certificado.
 
 ### Limpeza após system:init
 

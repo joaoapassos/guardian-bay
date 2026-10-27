@@ -8,6 +8,11 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
+import {
+  inspectPlatform,
+  supportedPlatform,
+  ubuntuCodename,
+} from "./preflight.mjs";
 import { run } from "./runner.mjs";
 import { atomicPrivateFile, configurationDirectory } from "./state.mjs";
 
@@ -28,10 +33,13 @@ export function postgresKeyFingerprint(armored) {
     .toUpperCase();
 }
 const backupPath = `${configurationDirectory}/package-policy.json`;
-export async function restorePackagePolicy() {
-  if (!existsSync(backupPath)) return;
-  const backup = JSON.parse(await readFile(backupPath, "utf8"));
-  const path = "/etc/postgresql-common/createcluster.conf";
+export async function restorePackagePolicy({
+  journalPath = backupPath,
+  policyPath: path = "/etc/postgresql-common/createcluster.conf",
+  runCommand = run,
+} = {}) {
+  if (!existsSync(journalPath)) return;
+  const backup = JSON.parse(await readFile(journalPath, "utf8"));
   if (backup.existed) {
     await writeFile(path, backup.content);
     await chmod(path, backup.mode);
@@ -41,13 +49,13 @@ export async function restorePackagePolicy() {
       if (error.code !== "ENOENT") throw error;
     });
   if (backup.maskedCaddy) {
-    await run("systemctl", ["unmask", "--runtime", "caddy.service"]);
-    await run("systemctl", ["disable", "caddy"], {
+    await runCommand("systemctl", ["unmask", "--runtime", "caddy.service"]);
+    await runCommand("systemctl", ["disable", "caddy"], {
       allowFailure: true,
       capture: true,
     });
   }
-  await unlink(backupPath);
+  await unlink(journalPath);
 }
 async function repositoryKey() {
   const response = await fetch(
@@ -70,8 +78,24 @@ async function repositoryKey() {
     );
   return key;
 }
+export function postgresAptSource(release) {
+  const codename = ubuntuCodename(release);
+  if (!codename) throw new Error("Fonte PGDG exige Ubuntu 24.04 ou 26.04.");
+  return `Types: deb\nURIs: https://apt.postgresql.org/pub/repos/apt\nSuites: ${codename}-pgdg\nArchitectures: amd64\nComponents: main\nSigned-By: /usr/share/keyrings/guardian-bay-pgdg.asc\n`;
+}
 export async function installPackages() {
+  const platform = inspectPlatform();
+  if (!supportedPlatform(platform))
+    throw new Error(
+      "Pacotes exigem Ubuntu 24.04 ou 26.04 x64/systemd e Node24.19+.",
+    );
+  const sourcePath = "/etc/apt/sources.list.d/guardian-bay-pgdg.sources";
+  const source = postgresAptSource(platform.release);
   await restorePackagePolicy();
+  if (existsSync(sourcePath) && (await readFile(sourcePath, "utf8")) !== source)
+    throw new Error(
+      "Fonte APT guardian-bay-pgdg já existe com conteúdo diferente. Verifique a distribuição e a fonte antes de retomar.",
+    );
   const env = { DEBIAN_FRONTEND: "noninteractive", NEEDRESTART_MODE: "l" };
   console.info(
     "[Pacotes] Índices Ubuntu e dependências de compilação/PostgreSQL.",
@@ -94,13 +118,6 @@ export async function installPackages() {
     mode: 0o644,
   });
   await chmod("/usr/share/keyrings/guardian-bay-pgdg.asc", 0o644);
-  const sourcePath = "/etc/apt/sources.list.d/guardian-bay-pgdg.sources";
-  const source =
-    "Types: deb\nURIs: https://apt.postgresql.org/pub/repos/apt\nSuites: noble-pgdg\nArchitectures: amd64\nComponents: main\nSigned-By: /usr/share/keyrings/guardian-bay-pgdg.asc\n";
-  if (existsSync(sourcePath) && (await readFile(sourcePath, "utf8")) !== source)
-    throw new Error(
-      "Fonte APT guardian-bay-pgdg já existe com conteúdo diferente.",
-    );
   await writeFile(sourcePath, source, { mode: 0o644 });
   const path = "/etc/postgresql-common/createcluster.conf";
   const existed = existsSync(path);

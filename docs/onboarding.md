@@ -27,7 +27,29 @@ Retomada confere git status, revisão, diff e preflights reais. Backups deste se
 
 ## Bootstrap Ubuntu local
 
-`npm run system:init -- --dry-run` lista etapas sem alterar o host. O alvo de provisionamento é Ubuntu Server24.04 x64/systemd, Node24.19+ e npm10+, com sudo. O comando normal prepara pacotes, copia Node/npm existentes para ferramentas privadas da instalação, cria release isolada e executa npm ci com conta de build sem login. Não executa testes, seeds, drizzle push ou Drizzle Studio. PostgreSQL18 vem do PGDG com fingerprint fixado e Caddy do repositório Ubuntu assinado.
+Auditoria do fluxo completo e limites por componente em [compatibilidade Ubuntu](bootstrap-ubuntu-compatibility.md).
+
+O mapa explícito do preflight seleciona `noble-pgdg` no24.04 e `resolute-pgdg` no26.04. Não usa ID_LIKE nem aceita outras versões. A ISO26.04.1 informa `VERSION_ID="26.04"`. Uma fonte gerenciada de outra série é recusada antes de atualizar índices APT; não há migração automática do SO/repositórios. Corrija fontes conflitantes com revisão operacional, sem substituir o conteúdo à força. As fontes Ubuntu devem corresponder ao SO e incluir `universe` para Caddy. Falha de pacote, assinatura ou fingerprint interrompe a instalação; não há fallback de versão PostgreSQL. Acesso à internet é necessário para APT/PGDG, chave oficial, npm e fontes do build.
+
+### VirtualBox e navegador no Windows
+
+Use VM descartável x64 para validar instalação, interrupção/rerun e reboot. Confirme `cat /etc/os-release`, `node --version`, `npm --version` e systemd como PID1. Na raiz do checkout, execute `npm run system:init -- --dry-run` antes da instalação. Escolha o host na primeira instalação; rerun exige os mesmos argumentos.
+
+**Host-only + NAT:** mantenha NAT para downloads e acrescente adaptador Host-only para comunicação privada Windows↔VM. Confira com `ip -4 addr` o IP atribuído ao adaptador (exemplo192.168.56.101). Use `npm run system:init -- --host 192.168.56.101`. O Caddy gerenciado faz bind nesse IP:443, a URL do Windows é `https://192.168.56.101` e o certificado identifica esse IP. O IP do adaptador Windows geralmente termina em.1 e não deve ser passado como host da VM. Reserve o endereço para manter a configuração persistente. Não encaminhe3000 ou5433: permanecem no loopback da VM. Firewall existente pode exigir liberação restrita de443 pela interface Host-only; o bootstrap não altera firewall. Caddy compartilhado conserva seus listeners, exigindo revisão do operador.
+
+**Somente NAT:** encaminhar `127.0.0.1:443` do Windows para `10.0.2.15:443` da VM não torna o certificado de10.0.2.15 válido para `https://localhost`. O Caddy padrão no loopback da VM também não recebe tráfego encaminhado ao IP NAT. Não ignore erros TLS nem remova bind para contornar isso.
+
+Para manter o host padrão `localhost` com NAT, uma opção é túnel SSH. Prepare explicitamente OpenSSH Server na VM e, nas regras NAT do VirtualBox, encaminhe TCP do **IP host127.0.0.1/porta2222** para **IP NAT da VM/porta22**. Não deixe IP host vazio, pois isso pode expor SSH na LAN. Instale com `npm run system:init` na VM. Com SSH autenticado e porta443 livre no Windows, mantenha este comando aberto no PowerShell:
+
+```powershell
+ssh -N -o ExitOnForwardFailure=yes -p 2222 -L localhost:443:127.0.0.1:443 usuario@127.0.0.1
+```
+
+O túnel entrega ao loopback da VM; acesse **https://localhost** no Windows. Bind do proxy, URL e identidade TLS continuam localhost. O túnel precisa estar ativo para acessar. Usar8443 mudaria a origem HTTP; esta receita preserva443. SSH é preparação opcional do operador, não dependência nova do bootstrap. Host-only permite acesso direto sem túnel.
+
+Nos dois modos, transfira somente `/etc/guardian-bay/local-ca.crt` por canal confiável e confira sua origem antes de importar no Windows em Certificados do usuário atual → Autoridades de Certificação Raiz Confiáveis. Reinicie o navegador se necessário. Confiar na CA não corrige divergência entre URL e certificado. Nunca copie a chave privada. O IP NAT10.0.2.15 é exemplo, não URL diretamente acessível do Windows.
+
+`npm run system:init -- --dry-run` lista etapas sem alterar o host. O alvo de provisionamento é Ubuntu Server24.04 ou26.04 LTS x64/systemd (inclui26.04.1), Node24.19+ e npm10+, com sudo. O comando normal prepara pacotes, copia Node/npm existentes para ferramentas privadas da instalação, cria release isolada e executa npm ci com conta de build sem login. Não executa testes, seeds, drizzle push ou Drizzle Studio. PostgreSQL18 vem do PGDG com fingerprint fixado e Caddy do repositório Ubuntu assinado.
 
 Cluster18/guardian-bay em127.0.0.1:5433, banco guardian_bay, credenciais distintas de runtime/migração. Runtime não recebe DDL nem acesso a outros bancos pelo HBA; audit_events e order_items têm somente leitura/inserção. Grants de tabelas novas precisam de revisão explícita no mapa operacional, sem DML automático irrestrito. A conta Linux de migração difere da conta web e de build. Código de migração é selado para leitura antes de receber a credencial operacional.
 

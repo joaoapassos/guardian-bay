@@ -40,7 +40,7 @@ import {
 } from "./system/state.mjs";
 
 export const initializationPhases = [
-  "Preflight Ubuntu24.04/x64, Node24.19+, npm e systemd",
+  "Preflight Ubuntu24.04/26.04 LTS x64, Node24.19+, npm e systemd",
   "Pacotes oficiais e conta de serviço sem login",
   "npm ci em release isolada",
   "Cluster PostgreSQL18 dedicado e segredos persistentes",
@@ -53,7 +53,7 @@ export async function runSystemInit(options) {
   try {
     if (!supportedPlatform(inspectPlatform()))
       throw new Error(
-        "Alvo suportado: Ubuntu Server24.04 x64/systemd com Node24.19+ e npm10+. Nenhum recurso foi provisionado.",
+        "Alvo suportado: Ubuntu Server24.04 ou 26.04 LTS x64/systemd com Node24.19+ e npm10+. Nenhum recurso foi provisionado.",
       );
     if (!hostIsLocal(options.host))
       throw new Error("O IP informado não está atribuído a este servidor.");
