@@ -1,8 +1,8 @@
 # Guardian Bay managed {{INSTALLATION_ID}}
 [Unit]
 Description=Guardian Bay production application
-After=network.target postgresql@18-guardian-bay.service
-Requires=postgresql@18-guardian-bay.service
+After=network.target postgresql@18-guardian_bay.service
+Requires=postgresql@18-guardian_bay.service
 
 [Service]
 Type=simple

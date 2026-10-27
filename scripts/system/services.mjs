@@ -144,7 +144,7 @@ export async function deployApplication(context) {
       "Certificado público da CA: /etc/guardian-bay/local-ca.crt. Instale somente esse certificado nos clientes que acessarão a URL; a chave privada não é exportada.",
     );
     console.info(
-      "Diagnóstico: sudo systemctl status guardian-bay caddy postgresql@18-guardian-bay; sudo journalctl -u guardian-bay -u caddy.",
+      "Diagnóstico: sudo systemctl status guardian-bay caddy postgresql@18-guardian_bay; sudo journalctl -u guardian-bay -u caddy.",
     );
   } catch (error) {
     if (previous) {

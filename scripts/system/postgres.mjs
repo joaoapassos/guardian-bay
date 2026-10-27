@@ -72,7 +72,7 @@ export async function psql(
   );
 }
 export async function preparePostgres(options, state, secrets) {
-  const base = "/etc/postgresql/18/guardian-bay";
+  const base = "/etc/postgresql/18/guardian_bay";
   const marker = `${base}/conf.d/guardian-bay.conf`;
   if (!existsSync(`${base}/postgresql.conf`)) {
     if (await portInUse(options.dbPort))
@@ -83,7 +83,7 @@ export async function preparePostgres(options, state, secrets) {
     await saveInstallation(state);
     await run("pg_createcluster", [
       "18",
-      "guardian-bay",
+      "guardian_bay",
       "--port",
       String(options.dbPort),
       "--start-conf=auto",
@@ -97,7 +97,7 @@ export async function preparePostgres(options, state, secrets) {
         `# installation ${state.installationId}\n`,
       )
     )
-      throw new Error("Cluster guardian-bay pertence a outra instalação.");
+      throw new Error("Cluster guardian_bay pertence a outra instalação.");
   } else if (!state.clusterCreating)
     throw new Error(
       "Cluster preexistente sem identificação; nenhuma alteração será feita.",
@@ -116,14 +116,14 @@ export async function preparePostgres(options, state, secrets) {
   await writeFile(`${base}/pg_hba.conf`, postgresHba(), { mode: 0o640 });
   await chmod(`${base}/pg_hba.conf`, 0o640);
   await chown(`${base}/pg_hba.conf`, Number(postgresId), Number(postgresGroup));
-  await run("systemctl", ["enable", `postgresql@18-guardian-bay.service`]);
-  const status = await run("pg_ctlcluster", ["18", "guardian-bay", "status"], {
+  await run("systemctl", ["enable", `postgresql@18-guardian_bay.service`]);
+  const status = await run("pg_ctlcluster", ["18", "guardian_bay", "status"], {
     capture: true,
     allowFailure: true,
   });
   await run("pg_ctlcluster", [
     "18",
-    "guardian-bay",
+    "guardian_bay",
     status.code === 0 ? "restart" : "start",
   ]);
   const version = (

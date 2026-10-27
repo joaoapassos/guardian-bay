@@ -94,7 +94,7 @@ export async function runSystemInit(options) {
     if (state) assertSameInstallation(state, options);
     else {
       if (
-        existsSync("/etc/postgresql/18/guardian-bay/postgresql.conf") ||
+        existsSync("/etc/postgresql/18/guardian_bay/postgresql.conf") ||
         existsSync(options.installDir)
       )
         throw new Error(
