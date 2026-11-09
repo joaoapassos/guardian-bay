@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { RouteReady } from "@/components/shared/route-ready";
 
 export function AccountShell({
   active,
@@ -19,7 +18,6 @@ export function AccountShell({
       tabIndex={-1}
       className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 font-auth text-ink sm:px-8 lg:py-16"
     >
-      <RouteReady />
       <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
         Minha conta
       </p>

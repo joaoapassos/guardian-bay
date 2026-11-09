@@ -10,6 +10,7 @@ const links = [
   ["/admin/categories", "Categorias"],
   ["/admin/orders", "Pedidos"],
   ["/admin/audit", "Auditoria"],
+  ["/admin/users", "Usuários"],
 ] as const;
 export function AdminNavigation() {
   const pathname = usePathname();

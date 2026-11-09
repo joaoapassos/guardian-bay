@@ -6,16 +6,16 @@ E-commerce acadêmico com identidade, catálogo, carrinho autenticado e pedidos;
 
 - Visitante consulta catálogo/detalhe, cria conta e faz login.
 - Customer mantém conta, nome opcional, senha, sessão e carrinho persistido. O carrinho abre em painel lateral; `/cart` é compatibilidade de navegação. Métodos de pagamento ficam em `/account/payment-methods`; histórico e detalhes em `/account/orders`, com redirecionamentos dos caminhos antigos.
-- Admin com role persistida gerencia catálogo/estoque, consulta pedidos e auditoria selecionada; cada operação revalida acesso.
+- Admin com role persistida gerencia catálogo/estoque, consulta pedidos e auditoria selecionada e administra outras contas; cada operação revalida acesso. A gestão de usuários inclui busca e filtros, detalhes e pedidos, alteração de cargo, suspensão/reativação e revogação de sessões, com eventos administrativos de auditoria. A própria conta não pode ser alterada por essas operações.
 - Checkout recalcula valores/publicação/estoque no servidor, mantém snapshot e idempotência e consome estoque somente para PAID na transação. Carrinho não reserva estoque.
 - Checkout exige nome e CPF matematicamente válido do comprador, além de endereço brasileiro salvo ou avulso. CPF é cifrado com AES-256-GCM e contexto por proprietário/recurso; DTOs retornam somente máscara. Salvar comprador, endereço e identificação de cartão na conta é opcional e atômico com a compra elegível; dados históricos do pedido permanecem independentes. Há até 20 endereços e três métodos salvos. Não há cálculo de frete nem endereço principal; histórico legado não recebe dados inventados.
 - Home apresenta até oito produtos; catálogo mantém pesquisa, categoria, preço, disponibilidade, ordenação e paginação na URL. Novidades permanece adiada até existir um critério de data aprovado. O perfil exibe e-mail e permite alterar senha; não oferece edição de dados sem contrato existente.
 - Cartão é validado por Luhn, faixa de bandeira suportada (Visa/Mastercard/Amex) e validade, sem consulta bancária ou garantia de titularidade. Número completo é transitório; somente bandeira, últimos quatro dígitos e validade são salvos. CVV é validado e descartado apenas no formulário, sem envio ao servidor ou persistência. Cartão, Pix e boleto continuam simulados. Os contratos antigos de fixtures permanecem somente para compatibilidade; não são oferecidos pela nova interface. Consulte o [contrato de pagamentos](docs/architecture/payments.md).
-- Login forçado preserva destino interno validado. Adição ao carrinho interrompida por ausência de sessão usa intenção opaca de dez minutos consumida uma vez no servidor; compra/pagamento não são repetidos automaticamente. Curtain comunica mudança entre Loja/Conta e Admin com prontidão limitada e recuperação; categorias não aparecem em Minha Conta.
+- Login forçado preserva destino interno validado. Adição ao carrinho interrompida por ausência de sessão usa intenção opaca de dez minutos consumida uma vez no servidor; compra/pagamento não são repetidos automaticamente. A navegação entre Loja/Conta e Admin é direta; categorias não aparecem em Minha Conta.
 
 - Admin pode enviar um JPEG/PNG/WebP estático por produto, com prévia privada e associação por revisão. O servidor limita tamanho/dimensões e reencodifica a imagem sem metadados. Produto sem imagem usa placeholder neutro.
 - Edições normalizadas sem mudança informam “Já está atualizado.”; o carrinho consolida intenções de quantidade após500ms, serializa gravações e aguarda a fila antes do checkout. O servidor também limita rajadas independentemente do cliente.
-- CEP usa máscara12345-678 e aceita os oito dígitos em conta e checkout. A cortina global cobre troca de contexto admin/loja, com scroll bloqueado durante a transição e movimento reduzido respeitado.
+- CEP usa máscara12345-678 e aceita os oito dígitos em conta e checkout. A navegação entre admin e loja não depende de animações.
 
 ## Páginas institucionais
 

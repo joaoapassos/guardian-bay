@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { RouteReady } from "@/components/shared/route-ready";
 
 export const metadata: Metadata = {
   title: "Sobre | Guardian Bay",
@@ -115,7 +114,6 @@ export default function AboutPage() {
           Conhecer os fluxos na Central de Ajuda
         </Link>
       </aside>
-      <RouteReady />
     </main>
   );
 }

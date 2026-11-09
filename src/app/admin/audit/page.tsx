@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { RouteReady } from "@/components/shared/route-ready";
 import { readAudit } from "@/features/audit/server/read-audit";
 import { auditEventTypes, auditOutcomes } from "@/lib/audit/events";
 import { AccessState } from "../_components/access-state";
+import { AdminTable } from "../_components/admin-table";
 
 export default async function AuditPage({
   searchParams,
@@ -12,29 +12,24 @@ export default async function AuditPage({
     return <AccessState code={result.code} />;
   if (!result.success)
     return (
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="mx-auto max-w-5xl px-6 py-12"
-      >
+      <main id="main-content" tabIndex={-1} className="admin-page">
         <h1>Auditoria</h1>
         <p role="alert">Filtros inválidos.</p>
-        <RouteReady />
       </main>
     );
   const pageLink = (page: number) =>
     `/admin/audit?${new URLSearchParams({ ...result.query, page: String(page), limit: String(result.query.limit) })}`;
   return (
-    <main
-      id="main-content"
-      tabIndex={-1}
-      className="mx-auto w-full max-w-5xl space-y-6 px-6 py-12"
-    >
-      <h1 className="text-3xl font-semibold">Auditoria</h1>
-      <p>
+    <main id="main-content" tabIndex={-1} className="admin-page">
+      <h1>Auditoria</h1>
+      <p className="text-muted">
         Eventos selecionados. Consulta administrativa sem edição ou exclusão.
       </p>
-      <form action="/admin/audit" method="get" className="flex flex-wrap gap-4">
+      <form
+        action="/admin/audit"
+        method="get"
+        className="admin-panel grid items-end gap-4 sm:grid-cols-2 xl:grid-cols-3"
+      >
         <label>
           Evento{" "}
           <select name="eventType" defaultValue={result.query.eventType}>
@@ -88,42 +83,62 @@ export default async function AuditPage({
             defaultValue={result.query.limit}
           />
         </label>
-        <button type="submit">Filtrar auditoria</button>
+        <div className="flex flex-wrap items-center gap-4">
+          <button type="submit" className="admin-action">
+            Filtrar auditoria
+          </button>
+          <Link href="/admin/audit" className="auth-link">
+            Limpar
+          </Link>
+        </div>
       </form>
       {result.events.length === 0 ? (
-        <p>Nenhum evento nesta página.</p>
+        <p className="admin-panel">Nenhum evento nesta página.</p>
       ) : (
-        <ul className="grid gap-4">
-          {result.events.map((event) => (
-            <li key={event.eventId} className="rounded border p-4">
-              <p>
-                Evento {event.eventId}: {event.eventType} — {event.outcome}
-              </p>
-              <p>
-                <time dateTime={event.occurredAt}>
-                  {new Date(event.occurredAt).toLocaleString("pt-BR", {
-                    timeZone: "UTC",
-                  })}{" "}
-                  UTC
-                </time>
-              </p>
-              <p>Ator: {event.actorUserId ?? "Não identificado"}</p>
-              <p>
-                Recurso: {event.targetType ?? "Sem recurso"} {event.targetId}
-              </p>
-            </li>
-          ))}
-        </ul>
+        <AdminTable
+          caption="Eventos de auditoria"
+          headers={["Evento", "Data", "Resultado", "Ator", "Recurso"]}
+          rows={result.events.map((event) => ({
+            id: event.eventId,
+            cells: [
+              <div key="event" className="min-w-48">
+                <p className="font-semibold">{event.eventType}</p>
+                <p className="break-all text-sm text-muted">{event.eventId}</p>
+              </div>,
+              <time key="date" dateTime={event.occurredAt}>
+                {new Date(event.occurredAt).toLocaleString("pt-BR", {
+                  timeZone: "UTC",
+                })}{" "}
+                UTC
+              </time>,
+              <span
+                key="outcome"
+                className="inline-flex rounded-control border border-line px-3 py-1 text-sm"
+              >
+                {event.outcome}
+              </span>,
+              <span key="actor" className="break-all">
+                {event.actorUserId ?? "Não identificado"}
+              </span>,
+              <span key="target" className="break-all">
+                {event.targetType ?? "Sem recurso"} {event.targetId}
+              </span>,
+            ],
+          }))}
+        />
       )}
       <nav aria-label="Paginação da auditoria" className="flex gap-6">
         {result.query.page > 1 && (
-          <Link href={pageLink(result.query.page - 1)}>Anterior</Link>
+          <Link className="auth-link" href={pageLink(result.query.page - 1)}>
+            Anterior
+          </Link>
         )}
         {result.hasNext && (
-          <Link href={pageLink(result.query.page + 1)}>Próxima</Link>
+          <Link className="auth-link" href={pageLink(result.query.page + 1)}>
+            Próxima
+          </Link>
         )}
       </nav>
-      <RouteReady />
     </main>
   );
 }

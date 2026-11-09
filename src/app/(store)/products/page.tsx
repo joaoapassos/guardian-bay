@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Pagination } from "@/components/shared/pagination";
-import { RouteReady } from "@/components/shared/route-ready";
 import {
   type CatalogCriteria,
   CatalogFilters,
@@ -123,7 +122,6 @@ export default async function ProductsPage({
           )}
         </section>
       </div>
-      <RouteReady />
     </main>
   );
 }

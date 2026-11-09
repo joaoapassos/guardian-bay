@@ -86,6 +86,74 @@ afterAll(async () => {
   await getDb().$client.end();
   vi.unstubAllEnvs();
 });
+it("operações concorrentes preservam administrador ativo", async () => {
+  const { manageAdminUser, changeAdminUserRole } = await import(
+    "@/features/auth/server/admin-users"
+  );
+  await client`UPDATE users SET role='admin', suspended=false WHERE id IN (${userId}, ${otherId})`;
+  const first = await createSession(userId);
+  const second = await createSession(otherId);
+  try {
+    const results = await Promise.all([
+      requestContext.run({ token: first.token }, () =>
+        manageAdminUser({ userId: otherId, operation: "suspend" }),
+      ),
+      requestContext.run({ token: second.token }, () =>
+        manageAdminUser({ userId, operation: "suspend" }),
+      ),
+    ]);
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    const active =
+      await client`SELECT id FROM users WHERE id IN (${userId}, ${otherId}) AND role='admin' AND NOT suspended`;
+    expect(active).toHaveLength(1);
+    await client`UPDATE users SET role='admin', suspended=false WHERE id IN (${userId}, ${otherId})`;
+    const third = await createSession(userId);
+    const fourth = await createSession(otherId);
+    const mixed = await Promise.all([
+      requestContext.run({ token: third.token }, () =>
+        manageAdminUser({ userId: otherId, operation: "suspend" }),
+      ),
+      requestContext.run({ token: fourth.token }, () =>
+        changeAdminUserRole({ userId, role: "customer" }),
+      ),
+    ]);
+    expect(mixed.filter((result) => result.success)).toHaveLength(1);
+    const remaining =
+      await client`SELECT id FROM users WHERE id IN (${userId}, ${otherId}) AND role='admin' AND NOT suspended`;
+    expect(remaining).toHaveLength(1);
+  } finally {
+    await client`UPDATE users SET role='customer', suspended=false WHERE id IN (${userId}, ${otherId})`;
+  }
+});
+
+it("pedidos por usuário exigem admin e retornam somente o alvo", async () => {
+  const { adminUserOrders } = await import("./admin-user-orders");
+  const [own] =
+    await client`INSERT INTO orders(user_id,checkout_key,total_amount) VALUES (${userId},${randomUUID()},100) RETURNING id`;
+  const [other] =
+    await client`INSERT INTO orders(user_id,checkout_key,total_amount) VALUES (${otherId},${randomUUID()},200) RETURNING id`;
+  expect(await adminUserOrders({ userId: otherId })).toMatchObject({
+    success: false,
+    code: "FORBIDDEN",
+  });
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  try {
+    const result = await adminUserOrders({ userId: otherId });
+    expect(result.success && result.orders.map((order) => order.id)).toEqual([
+      other.id,
+    ]);
+    expect(
+      result.success && result.orders.some((order) => order.id === own.id),
+    ).toBe(false);
+    expect(await adminUserOrders({ userId: "invalid" })).toMatchObject({
+      success: false,
+      code: "INVALID_INPUT",
+    });
+  } finally {
+    await client`UPDATE users SET role='customer' WHERE id=${userId}`;
+  }
+});
+
 it("ECMSG-67: defaults, FK, idempotência por dono e constraints comerciais", async () => {
   const key = randomUUID();
   const [order] =

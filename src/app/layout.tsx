@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { Fraunces, Geist, Geist_Mono, IBM_Plex_Sans } from "next/font/google";
-import { CurtainController } from "@/components/shared/curtain-controller";
-import { PageTransition } from "@/components/shared/page-transition";
 import "@/components/shared/navigation-motion.css";
 import { SessionActivity } from "@/features/auth/components/session-activity";
 import { getAuthenticatedIdentity } from "@/features/auth/server/session-cookie";
@@ -49,11 +47,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         >
           Ir para o conteúdo
         </a>
-        <div className="flex flex-1 flex-col">
-          <CurtainController>
-            <PageTransition>{children}</PageTransition>
-          </CurtainController>
-        </div>
+        <div className="flex flex-1 flex-col">{children}</div>
       </body>
     </html>
   );

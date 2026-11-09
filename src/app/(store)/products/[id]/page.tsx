@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { RouteReady } from "@/components/shared/route-ready";
 import { AddToCartButton } from "@/features/cart/components/add-to-cart-button";
 import { catalogReturn } from "@/features/catalog/catalog-return";
 import { ProductImage } from "@/features/catalog/components/product-image";
-import { ProductTransition } from "@/features/catalog/components/product-transition";
 import { readProduct } from "@/features/catalog/server/read-product";
 
 export default async function ProductPage({
@@ -40,11 +38,9 @@ export default async function ProductPage({
         </span>
       </nav>
       <div className="grid items-start gap-8 lg:grid-cols-2 lg:gap-14">
-        <ProductTransition id={product.id}>
-          <div className="flex justify-center overflow-hidden rounded-panel border border-line bg-canvas p-6 sm:p-10">
-            <ProductImage image={product.image} size="detail" />
-          </div>
-        </ProductTransition>
+        <div className="flex justify-center overflow-hidden rounded-panel border border-line bg-canvas p-6 sm:p-10">
+          <ProductImage image={product.image} size="detail" />
+        </div>
         <section aria-labelledby="product-title" className="min-w-0 py-2">
           <p className="mb-3 text-sm font-semibold text-muted">
             {product.category}
@@ -97,7 +93,6 @@ export default async function ProductPage({
       <Link href={returnTo} className="auth-link inline-block">
         Voltar aos produtos
       </Link>
-      <RouteReady />
     </main>
   );
 }

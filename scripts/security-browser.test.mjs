@@ -755,6 +755,8 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   "/admin/categories",
                   "/admin/orders",
                   "/admin/audit",
+                  "/admin/users",
+                  `/admin/users/${randomUUID()}`,
                   `/admin/orders/${randomUUID()}`,
                 ]) {
                   const denied = await fetch(base + path, {
@@ -790,7 +792,85 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   await evaluate(
                     "[...document.querySelectorAll('nav[aria-label=\"Administração\"] a')].filter(a=>a.getAttribute('href')!=='/' && a.textContent!=='GUARDIAN BAYAdministração').map(a=>a.textContent).join('|')",
                   ),
-                  "Dashboard|Produtos|Categorias|Pedidos|Auditoria",
+                  "Dashboard|Produtos|Categorias|Pedidos|Auditoria|Usuários",
+                );
+                await navigate("/admin/users");
+                await waitFor(
+                  "document.querySelector('h1')?.textContent === 'Usuários' && !!document.querySelector('table')",
+                  "admin user list",
+                );
+                assert.equal(
+                  await evaluate(
+                    "!!document.querySelector('input[name=search]') && !!document.querySelector('select[name=status]')",
+                  ),
+                  true,
+                );
+                await waitFor(
+                  "[...document.querySelectorAll('button[aria-label^=\"Ações de\"]')].some(button => button.getClientRects().length > 0)",
+                  "visible user action trigger",
+                );
+                await evaluate(
+                  "[...document.querySelectorAll('button[aria-label^=\"Ações de\"]')].find(button => button.getClientRects().length > 0).focus()",
+                );
+                assert.equal(
+                  await evaluate(
+                    "document.activeElement?.getAttribute('aria-label')?.startsWith('Ações de')",
+                  ),
+                  true,
+                  "user action trigger receives focus",
+                );
+                await call("Input.dispatchKeyEvent", {
+                  type: "keyDown",
+                  key: "Enter",
+                  code: "Enter",
+                  windowsVirtualKeyCode: 13,
+                });
+                await waitFor(
+                  "!!document.querySelector('[role=menu]')",
+                  "user action menu by keyboard",
+                );
+                await call("Input.dispatchKeyEvent", {
+                  type: "keyUp",
+                  key: "Enter",
+                  code: "Enter",
+                  windowsVirtualKeyCode: 13,
+                });
+                await call("Input.dispatchKeyEvent", {
+                  type: "keyDown",
+                  key: "Escape",
+                  code: "Escape",
+                  windowsVirtualKeyCode: 27,
+                });
+                await call("Input.dispatchKeyEvent", {
+                  type: "keyUp",
+                  key: "Escape",
+                  code: "Escape",
+                  windowsVirtualKeyCode: 27,
+                });
+                await waitFor(
+                  "!document.querySelector('[role=menu]')",
+                  "user action menu closes",
+                );
+                for (const width of [390, 700, 1024]) {
+                  await call("Emulation.setDeviceMetricsOverride", {
+                    width,
+                    height: 844,
+                    deviceScaleFactor: 1,
+                    mobile: true,
+                  });
+                  assert.equal(
+                    await evaluate(
+                      "document.documentElement.scrollWidth <= document.documentElement.clientWidth && [...document.querySelectorAll('button[aria-label^=\"Ações de\"]')].some(button => { const box = button.getBoundingClientRect(); return box.width > 0 && box.left >= 0 && box.right <= document.documentElement.clientWidth; })",
+                    ),
+                    true,
+                    `user actions fit viewport ${width}`,
+                  );
+                }
+                await call("Emulation.clearDeviceMetricsOverride");
+                await navigate("/admin");
+                await waitFor(
+                  "document.querySelector('h1')?.textContent === 'Dashboard'",
+                  "admin dashboard after users",
                 );
                 await evaluate(
                   'document.querySelector(\'nav[aria-label="Administração"] a[href="/admin/categories"]\').click()',
@@ -1096,7 +1176,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   `/admin/audit?eventType=admin.product.created&targetId=${catalogProduct.id}`,
                 );
                 await waitFor(
-                  `[...document.querySelectorAll('main li')].some(li=>li.textContent.includes('admin.product.created') && li.textContent.includes("${catalogProduct.id}"))`,
+                  `[...document.querySelectorAll('main tbody tr')].some(row=>row.textContent.includes('admin.product.created') && row.textContent.includes("${catalogProduct.id}"))`,
                   "administrative audit of product creation",
                 );
                 assert.equal(
@@ -1109,7 +1189,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                   `/admin/audit?eventType=order.completed&targetId=${snapshotOrder.id}`,
                 );
                 await waitFor(
-                  `[...document.querySelectorAll('main li')].some(li=>li.textContent.includes('order.completed') && li.textContent.includes('SUCCESS') && li.textContent.includes("${snapshotOrder.id}"))`,
+                  `[...document.querySelectorAll('main tbody tr')].some(row=>row.textContent.includes('order.completed') && row.textContent.includes('SUCCESS') && row.textContent.includes("${snapshotOrder.id}"))`,
                   "commercial audit in real browser",
                 );
                 await client`UPDATE products SET name=${catalogName},amount=1200,is_published=true WHERE id=${catalogProduct.id}`;

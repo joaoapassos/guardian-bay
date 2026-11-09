@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { RouteReady } from "@/components/shared/route-ready";
 
 export function AuthShell({
   title,
@@ -61,7 +60,6 @@ export function AuthShell({
             Conheça os produtos e encontre o que faz sentido para a sua rotina.
           </p>
         </aside>
-        <RouteReady />
       </main>
       <footer className="border-t border-line bg-paper px-5 py-4 font-auth text-sm text-muted sm:px-10">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">

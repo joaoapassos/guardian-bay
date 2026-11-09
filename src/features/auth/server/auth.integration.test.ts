@@ -1335,3 +1335,122 @@ describe("admin persistido e atual (ECMSG-48)", () => {
     }
   });
 });
+
+describe("gestão administrativa de usuários", () => {
+  it("autoriza somente admin, filtra e revoga sessões ao alterar cargo", async () => {
+    const {
+      listAdminUsers,
+      changeAdminUserRole,
+      adminUserDetail,
+      manageAdminUser,
+    } = await import("./admin-users");
+    const adminEmail = `${randomUUID()}@example.test`;
+    const targetEmail = `${randomUUID()}@example.test`;
+    const [admin] =
+      await client`INSERT INTO users(email,password_hash,role,name) VALUES (${adminEmail},${passwordHash},'admin','Admin teste') RETURNING id`;
+    const [target] =
+      await client`INSERT INTO users(email,password_hash,name) VALUES (${targetEmail},${passwordHash},'Pessoa teste') RETURNING id`;
+    try {
+      const adminSession = await createSession(admin.id);
+      const targetSession = await createSession(target.id);
+      request.token = targetSession.token;
+      const { readUserAudit } = await import(
+        "@/features/audit/server/read-user-audit"
+      );
+      expect(await readUserAudit({ userId: target.id })).toMatchObject({
+        success: false,
+        code: "FORBIDDEN",
+      });
+      expect(
+        await manageAdminUser({ userId: admin.id, operation: "suspend" }),
+      ).toMatchObject({ success: false, code: "FORBIDDEN" });
+      expect(await adminUserDetail(target.id)).toMatchObject({
+        success: false,
+        code: "FORBIDDEN",
+      });
+      expect(await listAdminUsers({})).toMatchObject({
+        success: false,
+        code: "FORBIDDEN",
+      });
+      expect(
+        await changeAdminUserRole({ userId: target.id, role: "admin" }),
+      ).toMatchObject({ success: false, code: "FORBIDDEN" });
+      request.token = adminSession.token;
+      expect(await adminUserDetail(target.id)).toMatchObject({
+        success: true,
+        user: { id: target.id, name: "Pessoa teste" },
+      });
+      expect(await adminUserDetail(randomUUID())).toMatchObject({
+        success: false,
+        code: "NOT_FOUND",
+      });
+      const searched = await listAdminUsers({ search: targetEmail });
+      expect(
+        searched.success &&
+          searched.users.some((user) => user.id === target.id),
+      ).toBe(true);
+      const literalSearch = await listAdminUsers({ search: `${targetEmail}%` });
+      expect(
+        literalSearch.success &&
+          literalSearch.users.some((user) => user.id === target.id),
+      ).toBe(false);
+      const list = await listAdminUsers({ role: "customer" });
+      expect(
+        list.success &&
+          list.users.some(
+            (user) => user.id === target.id && user.name === "Pessoa teste",
+          ),
+      ).toBe(true);
+      expect(
+        await changeAdminUserRole({ userId: admin.id, role: "customer" }),
+      ).toMatchObject({ success: false, code: "SELF" });
+      expect(
+        await changeAdminUserRole({ userId: target.id, role: "admin" }),
+      ).toEqual({ success: true });
+      expect(await resolveSession(targetSession.token)).toBeNull();
+      expect(
+        (await client`SELECT role FROM users WHERE id=${target.id}`)[0].role,
+      ).toBe("admin");
+      expect(
+        await changeAdminUserRole({ userId: target.id, role: "customer" }),
+      ).toEqual({ success: true });
+      const targetAgain = await createSession(target.id);
+      expect(
+        await manageAdminUser({ userId: target.id, operation: "suspend" }),
+      ).toEqual({ success: true });
+      expect(await resolveSession(targetAgain.token)).toBeNull();
+      const suspendedUsers = await listAdminUsers({
+        status: "suspended",
+        search: targetEmail,
+      });
+      expect(
+        suspendedUsers.success && suspendedUsers.users.map((user) => user.id),
+      ).toEqual([target.id]);
+      expect(await authenticate({ email: targetEmail, password })).toBeNull();
+      await expect(createSession(target.id)).rejects.toThrow();
+      expect(
+        await manageAdminUser({ userId: target.id, operation: "reactivate" }),
+      ).toEqual({ success: true });
+      const activeSession = await createSession(target.id);
+      expect(
+        await manageAdminUser({ userId: target.id, operation: "revoke" }),
+      ).toEqual({ success: true });
+      expect(await resolveSession(activeSession.token)).toBeNull();
+      const history = await readUserAudit({ userId: target.id });
+      expect(history.success && history.events).toHaveLength(5);
+      const auditRows =
+        await client`SELECT event_type FROM audit_events WHERE actor_user_id=${admin.id} AND target_id=${target.id} ORDER BY occurred_at`;
+      expect(auditRows.map((row) => row.event_type)).toEqual([
+        "admin.user.promoted",
+        "admin.user.demoted",
+        "admin.user.suspended",
+        "admin.user.reactivated",
+        "admin.user.sessions_revoked",
+      ]);
+    } finally {
+      request.token = undefined;
+      await client`DELETE FROM audit_events WHERE actor_user_id=${admin.id}`;
+      await client`DELETE FROM users WHERE id IN (${admin.id}, ${target.id})`;
+    }
+  });
+});

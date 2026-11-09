@@ -14,9 +14,9 @@ import {
   Store,
   Tags,
   UserRound,
+  UsersRound,
 } from "lucide-react";
 import Link from "next/link";
-import { ContextLink } from "@/components/shared/context-link";
 import { useLogout } from "./use-logout";
 
 const itemClass =
@@ -28,6 +28,7 @@ const adminLinks = [
   { href: "/admin/categories", label: "Categorias", icon: Tags },
   { href: "/admin/orders", label: "Pedidos", icon: ClipboardList },
   { href: "/admin/audit", label: "Auditoria", icon: ScrollText },
+  { href: "/admin/users", label: "Usuários", icon: UsersRound },
 ];
 
 export function UserMenu({
@@ -81,10 +82,10 @@ export function UserMenu({
             <DropdownMenu.Separator className="my-1 h-px bg-line" />
           )}
           <DropdownMenu.Item asChild disabled={pending}>
-            <ContextLink href="/account" className={itemClass}>
+            <Link href="/account" className={itemClass}>
               <UserRound size={18} aria-hidden="true" />
               Meu perfil
-            </ContextLink>
+            </Link>
           </DropdownMenu.Item>
           {context === "store" && (
             <DropdownMenu.Item asChild disabled={pending}>
@@ -112,18 +113,18 @@ export function UserMenu({
           )}
           {canAccessAdmin && context === "store" && (
             <DropdownMenu.Item asChild disabled={pending}>
-              <ContextLink href="/admin" className={itemClass}>
+              <Link href="/admin" className={itemClass}>
                 <ShieldCheck size={18} aria-hidden="true" />
                 Administração
-              </ContextLink>
+              </Link>
             </DropdownMenu.Item>
           )}
           {context === "admin" && (
             <DropdownMenu.Item asChild disabled={pending}>
-              <ContextLink href="/" className={itemClass}>
+              <Link href="/" className={itemClass}>
                 <Store size={18} aria-hidden="true" />
                 Voltar à loja
-              </ContextLink>
+              </Link>
             </DropdownMenu.Item>
           )}
           <DropdownMenu.Separator className="my-1 h-px bg-line" />

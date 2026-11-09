@@ -33,7 +33,7 @@ export async function withAuthenticatedTransaction<T>(
       const [user] = await tx
         .select({ id: users.id })
         .from(users)
-        .where(eq(users.id, candidate.userId))
+        .where(and(eq(users.id, candidate.userId), eq(users.suspended, false)))
         .for("update");
       if (!user) return denied;
       const valid = and(

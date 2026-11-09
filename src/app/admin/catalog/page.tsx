@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { RouteReady } from "@/components/shared/route-ready";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
 import { ProductImage } from "@/features/catalog/components/product-image";
 import { readAdminCatalog } from "@/features/catalog/server/read-admin-catalog";
 import { moneyDto } from "@/lib/money/price";
 import { AccessState } from "../_components/access-state";
+import { AdminTable } from "../_components/admin-table";
 export default async function AdminCatalogPage({
   searchParams,
 }: PageProps<"/admin/catalog">) {
@@ -21,7 +21,6 @@ export default async function AdminCatalogPage({
         <Link href="/admin/catalog" className="auth-link">
           Limpar filtros
         </Link>
-        <RouteReady />
       </main>
     );
   }
@@ -85,46 +84,49 @@ export default async function AdminCatalogPage({
         </div>
       </form>
       {result.products.length ? (
-        <ul className="space-y-4">
-          {result.products.map((product) => (
-            <li
-              key={product.id}
-              className="admin-panel grid items-center gap-5 sm:grid-cols-[96px_minmax(0,1fr)_auto]"
-            >
-              <ProductImage image={product.image} />
-              <div className="min-w-0 space-y-2">
-                <h2 className="break-words text-xl font-semibold">
-                  {product.name}
-                </h2>
-                <p className="text-sm text-muted">
-                  {result.categories.find(
-                    (category) => category.id === product.categoryId,
-                  )?.name ?? "Categoria cadastrada"}
-                </p>
-                <p className="font-semibold text-coast">
-                  {moneyDto(product.amount).formatted}
-                </p>
-                <div className="flex flex-wrap gap-3 text-sm">
-                  <span className="rounded border border-line px-2 py-1">
-                    {product.isPublished ? "Publicado" : "Rascunho"}
-                  </span>
-                  <span className="py-1">
-                    {product.availableQuantity === null
-                      ? "Estoque indisponível"
-                      : `${product.availableQuantity} em estoque`}
-                  </span>
+        <AdminTable
+          caption="Produtos cadastrados"
+          headers={[
+            "Produto",
+            "Categoria",
+            "Preço",
+            "Publicação",
+            "Estoque",
+            "Ações",
+          ]}
+          rows={result.products.map((product) => ({
+            id: product.id,
+            cells: [
+              <div key="product" className="flex min-w-48 items-center gap-4">
+                <div className="w-16 shrink-0">
+                  <ProductImage image={product.image} size="thumbnail" />
                 </div>
-              </div>
+                <span className="font-semibold">{product.name}</span>
+              </div>,
+              result.categories.find(
+                (category) => category.id === product.categoryId,
+              )?.name ?? "Categoria cadastrada",
+              moneyDto(product.amount).formatted,
+              <span
+                key="publication"
+                className="inline-flex rounded-control border border-line px-3 py-1 text-sm"
+              >
+                {product.isPublished ? "Publicado" : "Rascunho"}
+              </span>,
+              product.availableQuantity === null
+                ? "Estoque indisponível"
+                : `${product.availableQuantity} em estoque`,
               <Link
+                key="edit"
                 href={`/admin/catalog/${product.id}${returnQuery}`}
                 className="auth-link"
                 aria-label={`Editar ${product.name}`}
               >
                 Editar produto
-              </Link>
-            </li>
-          ))}
-        </ul>
+              </Link>,
+            ],
+          }))}
+        />
       ) : (
         <section className="admin-panel space-y-3 py-12">
           <h2 className="font-editorial text-2xl text-coast">
@@ -154,7 +156,6 @@ export default async function AdminCatalogPage({
           </Link>
         )}
       </nav>
-      <RouteReady />
     </main>
   );
 }

@@ -162,6 +162,13 @@
       "when": 1793052127175,
       "tag": "0022_high_captain_universe",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794183996931,
+      "tag": "0023_gigantic_gwen_stacy",
+      "breakpoints": true
     }
   ]
 }

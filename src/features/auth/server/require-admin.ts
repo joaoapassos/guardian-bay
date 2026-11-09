@@ -26,11 +26,11 @@ export async function requireAuthenticatedAdmin(tx?: Transaction) {
       return { success: false as const, code: "UNAUTHENTICATED" as const };
     // Same lock order as credential changes: identity, then session.
     const [user] = await tx
-      .select({ id: users.id, role: users.role })
+      .select({ id: users.id, role: users.role, suspended: users.suspended })
       .from(users)
       .where(eq(users.id, candidate.userId))
       .for("update");
-    if (!user || user.role !== "admin")
+    if (!user || user.role !== "admin" || user.suspended)
       return { success: false as const, code: "FORBIDDEN" as const };
     const [session] = await tx
       .select({ userId: sessions.userId })
@@ -52,7 +52,13 @@ export async function requireAuthenticatedAdmin(tx?: Transaction) {
     .select({ id: users.id, role: users.role })
     .from(users)
     .innerJoin(sessions, eq(sessions.userId, users.id))
-    .where(and(eq(sessions.tokenHash, hash), sessionValidity()))
+    .where(
+      and(
+        eq(sessions.tokenHash, hash),
+        eq(users.suspended, false),
+        sessionValidity(),
+      ),
+    )
     .limit(1);
   if (!identity)
     return { success: false as const, code: "UNAUTHENTICATED" as const };

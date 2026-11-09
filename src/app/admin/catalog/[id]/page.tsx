@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { RouteReady } from "@/components/shared/route-ready";
 import { ProductForm } from "@/features/catalog/components/product-form";
 import { ProductImage } from "@/features/catalog/components/product-image";
 import { readAdminCategories } from "@/features/catalog/server/read-admin-categories";
@@ -57,7 +56,6 @@ export default async function EditProductPage({
           )}
         </aside>
       </div>
-      <RouteReady />
     </main>
   );
 }

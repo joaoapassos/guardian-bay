@@ -1,7 +1,7 @@
-import { RouteReady } from "@/components/shared/route-ready";
 import { CategoryDialog } from "@/features/catalog/components/category-dialog";
 import { readAdminCategories } from "@/features/catalog/server/read-admin-categories";
 import { AccessState } from "../_components/access-state";
+import { AdminTable } from "../_components/admin-table";
 export default async function CategoriesPage() {
   const result = await readAdminCategories();
   if (!result.success) return <AccessState code={result.code} />;
@@ -15,21 +15,23 @@ export default async function CategoriesPage() {
       <p className="text-muted">
         Nomes simples para ajudar a encontrar o que importa.
       </p>
-      <section className="admin-panel" aria-label="Categorias cadastradas">
+      <section aria-label="Categorias cadastradas">
         {result.categories.length ? (
-          <ul className="divide-y divide-line">
-            {result.categories.map((category) => (
-              <li
-                key={category.id}
-                className="flex flex-wrap items-center justify-between gap-4 py-5"
-              >
-                <h2 className="font-semibold">{category.name}</h2>
-                <CategoryDialog category={category} />
-              </li>
-            ))}
-          </ul>
+          <AdminTable
+            caption="Categorias cadastradas"
+            headers={["Categoria", "Ações"]}
+            rows={result.categories.map((category) => ({
+              id: category.id,
+              cells: [
+                <span key="name" className="font-semibold">
+                  {category.name}
+                </span>,
+                <CategoryDialog key="edit" category={category} />,
+              ],
+            }))}
+          />
         ) : (
-          <div className="space-y-4 py-8">
+          <div className="admin-panel space-y-4 py-8">
             <h2 className="text-xl font-semibold">
               Tudo começa com uma categoria.
             </h2>
@@ -46,7 +48,6 @@ export default async function CategoriesPage() {
           </output>
         )}
       </section>
-      <RouteReady />
     </main>
   );
 }

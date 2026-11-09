@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
-import { RouteReady } from "@/components/shared/route-ready";
 import { HomeProducts } from "./_components/home-products";
 export default function Home() {
   return (
@@ -50,7 +49,6 @@ export default function Home() {
       >
         <HomeProducts />
       </Suspense>
-      <RouteReady />
     </main>
   );
 }

@@ -17,7 +17,11 @@ export async function authenticate(
   if (!parsed.success) return null;
   try {
     const [user] = await (database ?? getDb())
-      .select({ id: users.id, passwordHash: users.passwordHash })
+      .select({
+        id: users.id,
+        passwordHash: users.passwordHash,
+        suspended: users.suspended,
+      })
       .from(users)
       .where(eq(users.email, parsed.data.email))
       .limit(1);
@@ -25,7 +29,7 @@ export async function authenticate(
       parsed.data.password,
       user?.passwordHash ?? dummyHash,
     );
-    return user && valid ? user : null;
+    return user && valid && !user.suspended ? user : null;
   } catch {
     throw new Error("Não foi possível processar a autenticação.");
   }

@@ -57,12 +57,16 @@ export async function createSession(
     const session = await getDb().transaction(async (tx) => {
       // Serialize with password changes; a stale verification cannot log in.
       const [user] = await tx
-        .select({ passwordHash: users.passwordHash })
+        .select({
+          passwordHash: users.passwordHash,
+          suspended: users.suspended,
+        })
         .from(users)
         .where(eq(users.id, userId))
         .for("update");
       if (
         !user ||
+        user.suspended ||
         (expectedCredentialHash && user.passwordHash !== expectedCredentialHash)
       )
         throw new Error();
@@ -103,7 +107,13 @@ export async function resolveSession(token: unknown) {
       .select({ id: users.id, email: users.email, name: users.name })
       .from(sessions)
       .innerJoin(users, eq(sessions.userId, users.id))
-      .where(and(eq(sessions.tokenHash, hash), sessionValidity()))
+      .where(
+        and(
+          eq(sessions.tokenHash, hash),
+          eq(users.suspended, false),
+          sessionValidity(),
+        ),
+      )
       .limit(1);
     return identity
       ? {

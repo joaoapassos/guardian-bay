@@ -949,72 +949,25 @@ test(
       };
       adminNavigationDelay = 900;
       await openUserMenu();
-      const curtainStarted = Date.now();
-      const requestsBeforeCurtain = adminRequests;
-      const overflowBeforeCurtain = await evaluate(
-        "document.documentElement.style.overflow",
-      );
-      const curtainOrigin = await evaluate("location.pathname");
-      await evaluate(
-        `window.__curtainPhases=[]; new MutationObserver(()=>{const p=document.querySelector('.gb-curtain')?.dataset.phase??'none'; if(window.__curtainPhases.at(-1)?.phase!==p)window.__curtainPhases.push({phase:p,time:performance.now()})}).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['data-phase']})`,
-      );
+      const requestsBeforeNavigation = adminRequests;
       await evaluate(
         "document.querySelector('[role=menu] a[href=\"/admin\"]').click()",
       );
       await pause(200);
-      assert.equal(
-        await evaluate("location.pathname"),
-        curtainOrigin,
-        "pending network has not committed the destination",
-      );
-      assert.equal(
-        await evaluate("document.querySelector('.gb-curtain')?.dataset.phase"),
-        "entering",
-        "source stays mounted during curtain entry",
-      );
       assert.ok(
-        adminRequests > requestsBeforeCurtain,
-        "navigation starts during curtain entry without waiting for animation",
-      );
-      assert.equal(
-        await evaluate("document.documentElement.style.overflow"),
-        "hidden",
-        "scrollbar hidden before curtain entry",
+        adminRequests > requestsBeforeNavigation,
+        "navigation begins immediately",
       );
       assert.equal(
         await evaluate(
-          `(()=>{const curtain=document.querySelector('.gb-curtain');const box=curtain.getBoundingClientRect();const surface=getComputedStyle(curtain);const matrix=new DOMMatrix(surface.transform);return box.left===0 && box.width===innerWidth && matrix.a===1 && matrix.d===1 && surface.borderBottomLeftRadius==='0px' && surface.borderBottomRightRadius==='0px' && getComputedStyle(curtain.firstElementChild).transform==='none' && document.documentElement.scrollWidth<=innerWidth})()`,
+          "!document.querySelector('.gb-curtain') && !document.querySelector('[inert]')",
         ),
         true,
-        "curtain translates without deformation, preserving viewport width and text",
-      );
-      await send("Page.captureScreenshot", { format: "png" }).then((result) =>
-        writeFileSync(
-          resolve(directory, "curtain-translation.png"),
-          Buffer.from(result.data, "base64"),
-        ),
+        "pending navigation does not block the page",
       );
       await wait(
-        "document.querySelector('.gb-curtain')?.dataset.phase==='covered'",
-        "curtain covers while real route GET is pending",
-      );
-      assert.equal(
-        await evaluate("!!document.querySelector('[inert] main')"),
-        true,
-        "covered route is not interactive",
-      );
-      await wait(
-        "location.pathname==='/admin' && document.querySelector('h1')?.textContent==='Dashboard' && !document.querySelector('.gb-curtain') && !document.querySelector('[inert]')",
-        "resolved dashboard readiness releases the curtain",
-      );
-      assert.ok(
-        Date.now() - curtainStarted >= 900,
-        "curtain covers the pending navigation",
-      );
-      assert.equal(
-        await evaluate("document.documentElement.style.overflow"),
-        overflowBeforeCurtain,
-        "scrollbar restored after destination reveal",
+        "location.pathname==='/admin' && document.querySelector('h1')?.textContent==='Dashboard'",
+        "slow navigation reaches the dashboard",
       );
       adminNavigationDelay = 0;
       await openUserMenu();
@@ -1022,35 +975,9 @@ test(
         "document.querySelector('[role=menu] a[href=\"/\"]').click()",
       );
       await wait(
-        "location.pathname==='/' && !!document.querySelector('#home-products-title') && !document.querySelector('.gb-curtain')",
-        "admin returns to resolved shop content",
+        "location.pathname==='/' && !!document.querySelector('#home-products-title')",
+        "admin returns to the shop",
       );
-
-      await navigate("/products");
-      await hydrated();
-      adminNavigationDelay = 6200;
-      await openUserMenu();
-      await evaluate(
-        "document.querySelector('[role=menu] a[href=\"/admin\"]').click()",
-      );
-      await wait(
-        "!!document.querySelector('.gb-curtain')",
-        "slow context navigation starts a curtain",
-      );
-      await wait(
-        "!document.querySelector('.gb-curtain') && !document.querySelector('[inert]')",
-        "watchdog reveals accessible fallback before an unresolved navigation",
-      );
-      assert.notEqual(
-        await evaluate("document.querySelector('h1')?.textContent"),
-        "Dashboard",
-        "watchdog does not pretend pending content is ready",
-      );
-      await wait(
-        "location.pathname==='/admin' && document.querySelector('h1')?.textContent==='Dashboard'",
-        "original slow navigation completes without being repeated",
-      );
-      adminNavigationDelay = 0;
 
       // A request-time access change is a redirect, never a reason to keep masking.
       await navigate("/products");

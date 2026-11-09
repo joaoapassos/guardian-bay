@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   pgTable,
   text,
@@ -19,6 +20,7 @@ export const users = pgTable(
     cpfLast2: varchar("cpf_last2", { length: 2 }),
     passwordHash: text("password_hash").notNull(),
     role: varchar("role", { length: 8 }).default("customer").notNull(),
+    suspended: boolean("suspended").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

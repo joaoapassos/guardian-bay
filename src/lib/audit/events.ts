@@ -10,6 +10,11 @@ export const auditEventTypes = [
   "admin.product.published",
   "admin.product.unpublished",
   "admin.inventory.updated",
+  "admin.user.promoted",
+  "admin.user.demoted",
+  "admin.user.sessions_revoked",
+  "admin.user.suspended",
+  "admin.user.reactivated",
   "order.completed",
 ] as const;
 export const auditOutcomes = [

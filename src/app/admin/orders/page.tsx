@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { RouteReady } from "@/components/shared/route-ready";
 import {
   orderStatusLabel,
   paymentMethodLabel,
 } from "@/features/orders/order-status";
 import { adminOrderList } from "@/features/orders/server/admin-order-list";
 import { AccessState } from "../_components/access-state";
+import { AdminTable } from "../_components/admin-table";
 export default async function AdminOrdersPage({
   searchParams,
 }: PageProps<"/admin/orders">) {
@@ -20,7 +20,6 @@ export default async function AdminOrdersPage({
         <Link href="/admin/orders" className="auth-link">
           Limpar filtros
         </Link>
-        <RouteReady />
       </main>
     );
   const pageLink = (page: number) =>
@@ -93,36 +92,36 @@ export default async function AdminOrdersPage({
           </p>
         </section>
       ) : (
-        <ul className="grid gap-4">
-          {result.orders.map((order) => (
-            <li
-              key={order.orderId}
-              className="admin-panel grid gap-3 md:grid-cols-2"
-            >
+        <AdminTable
+          caption="Pedidos administrativos"
+          headers={["Pedido", "Data", "Status", "Pagamento", "Total"]}
+          rows={result.orders.map((order) => ({
+            id: order.orderId,
+            cells: [
               <Link
+                key="order"
                 className="auth-link break-all"
                 href={`/admin/orders/${order.orderId}`}
               >
                 Pedido {order.orderId}
-              </Link>
-              <p>
-                <time dateTime={order.createdAt}>
-                  {new Date(order.createdAt).toLocaleString("pt-BR", {
-                    timeZone: "UTC",
-                  })}{" "}
-                  UTC
-                </time>
-              </p>
-              <p>
-                <span className="inline-flex rounded-control border border-line bg-paper px-3 py-1 text-sm font-semibold">
-                  {orderStatusLabel(order.status)}
-                </span>
-              </p>
-              <p>{paymentMethodLabel(order.paymentMethod)}</p>
-              <p>Total: {order.total.formatted}</p>
-            </li>
-          ))}
-        </ul>
+              </Link>,
+              <time key="date" dateTime={order.createdAt}>
+                {new Date(order.createdAt).toLocaleString("pt-BR", {
+                  timeZone: "UTC",
+                })}{" "}
+                UTC
+              </time>,
+              <span
+                key="status"
+                className="inline-flex rounded-control border border-line px-3 py-1 text-sm font-semibold"
+              >
+                {orderStatusLabel(order.status)}
+              </span>,
+              paymentMethodLabel(order.paymentMethod),
+              order.total.formatted,
+            ],
+          }))}
+        />
       )}
       <nav
         aria-label="Paginação de pedidos administrativos"
@@ -139,7 +138,6 @@ export default async function AdminOrdersPage({
           </Link>
         )}
       </nav>
-      <RouteReady />
     </main>
   );
 }

@@ -57,7 +57,7 @@ Indicador preto visível com offset existente; preservar teclado, portais, foco 
 
 ## Movimento
 
-Preservar Curtain, Shared Element, tempos, curvas, transições locais e alternativa de movimento reduzido. Somente as cores de Curtain mudam para preto/âmbar.
+Preservar as transições locais existentes e a alternativa de movimento reduzido. A navegação entre páginas é direta.
 
 ## Registro de propostas novas
 

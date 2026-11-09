@@ -33,6 +33,8 @@ export const auditInputSchema = z
       return event.targetType === "category";
     if (event.eventType.startsWith("admin.product."))
       return event.targetType === "product";
+    if (event.eventType.startsWith("admin.user."))
+      return event.targetType === "user";
     return event.targetType === "inventory";
   });
 export type AuditInput = z.infer<typeof auditInputSchema>;

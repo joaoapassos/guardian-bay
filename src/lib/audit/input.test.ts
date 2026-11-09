@@ -56,3 +56,28 @@ it("ECMSG-116: nomes plausíveis fora da allowlist também são rejeitados", () 
       }).success,
     ).toBe(false);
 });
+
+it("eventos de administração de usuário exigem ator, alvo e resultado válidos", () => {
+  for (const eventType of [
+    "admin.user.promoted",
+    "admin.user.demoted",
+    "admin.user.suspended",
+    "admin.user.reactivated",
+    "admin.user.sessions_revoked",
+  ]) {
+    const event = {
+      eventType,
+      outcome: "SUCCESS",
+      actorUserId: actor,
+      targetType: "user",
+      targetId: randomUUID(),
+    };
+    expect(auditInputSchema.safeParse(event).success).toBe(true);
+    expect(
+      auditInputSchema.safeParse({ ...event, outcome: "FAILED" }).success,
+    ).toBe(false);
+    expect(
+      auditInputSchema.safeParse({ ...event, targetType: "order" }).success,
+    ).toBe(false);
+  }
+});

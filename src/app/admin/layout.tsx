@@ -21,7 +21,7 @@ export default async function AdminLayout({
   }
   const identity = await getAuthenticatedIdentity();
   return (
-    <div className="admin-shell grid flex-1 font-auth lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="admin-shell grid min-w-0 flex-1 grid-cols-1 font-auth lg:grid-cols-[260px_minmax(0,1fr)]">
       <AdminNavigation />
       <div className="min-w-0">
         <header className="flex flex-wrap items-center justify-end gap-3 border-b border-line bg-surface px-5 py-4 sm:px-8 lg:px-10">

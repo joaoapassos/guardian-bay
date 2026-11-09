@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { RouteReady } from "@/components/shared/route-ready";
 import { readCheckoutAddresses } from "@/features/addresses/server/read-addresses";
 import { loginHref } from "@/features/auth/safe-return";
 import { readBuyerProfile } from "@/features/buyers/server/buyer-profile";
@@ -95,7 +94,6 @@ export default async function CheckoutPage() {
       <Link href="/cart" className="auth-link mt-6 inline-block">
         Voltar ao carrinho
       </Link>
-      <RouteReady />
     </main>
   );
 }
