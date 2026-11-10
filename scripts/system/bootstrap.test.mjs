@@ -120,6 +120,10 @@ test("PG bootstrap restricts roles, HBA and grants to own database", () => {
     /all guardian_bay_app,guardian_bay_migrator 0\.0\.0\.0\/0 reject/,
   );
   assert.match(runtimeGrantsSql(), /GRANT SELECT, INSERT, UPDATE, DELETE/);
+  assert.match(
+    runtimeGrantsSql(),
+    /GRANT UPDATE\(name,cpf_encrypted,cpf_last2,password_hash,role,suspended\) ON users TO guardian_bay_app/,
+  );
   assert.ok(!runtimeGrantsSql().includes("GRANT CREATE"));
   assert.equal(options.dbPort, 5433);
 });

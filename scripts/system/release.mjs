@@ -92,9 +92,14 @@ export async function prepareRelease(options, identity) {
     await chmod(directory, 0o755);
   }
   const nodePath = join(base, "tools/bin/node");
-  await copyFile(process.execPath, `${nodePath}.next`);
-  await chmod(`${nodePath}.next`, 0o755);
-  await rename(`${nodePath}.next`, nodePath);
+  if (options.preserveRuntimeTools) {
+    if (!existsSync(nodePath))
+      throw new Error("Node da instalação não encontrado.");
+  } else {
+    await copyFile(process.execPath, `${nodePath}.next`);
+    await chmod(`${nodePath}.next`, 0o755);
+    await rename(`${nodePath}.next`, nodePath);
+  }
   const npmRoot = dirname(dirname(options.npmCli));
   const npm = JSON.parse(await readFile(join(npmRoot, "package.json"), "utf8"));
   if (npm.name !== "npm" || !/^\d+\.\d+\.\d+(?:[-\w.]*)$/.test(npm.version))

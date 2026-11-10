@@ -25,7 +25,7 @@ export function renderService({ installationId, installDir, appPort }) {
     .replaceAll("{{INSTALL_DIR}}", installDir)
     .replaceAll("{{APP_PORT}}", String(appPort));
 }
-function httpProbe(port) {
+export function httpProbe(port) {
   return new Promise((done) => {
     const req = request(
       { hostname: "127.0.0.1", port, path: "/login", timeout: 2000 },
@@ -39,7 +39,7 @@ function httpProbe(port) {
     req.end();
   });
 }
-async function pointCurrent(base, target) {
+export async function pointCurrent(base, target) {
   const link = join(base, "current");
   const temporary = join(base, "current.next");
   await unlink(temporary).catch((error) => {
@@ -48,8 +48,8 @@ async function pointCurrent(base, target) {
   await symlink(target, temporary);
   await rename(temporary, link);
 }
-export async function deployApplication(context) {
-  const { options, state, release, identity, env } = context;
+export async function buildApplication(context) {
+  const { release, identity, env } = context;
   console.info("[Build] Build de produção como conta de build; sem testes.");
   await run("chown", [
     "-R",
@@ -81,6 +81,10 @@ export async function deployApplication(context) {
   const cache = join(release.directory, ".next/cache");
   await mkdir(cache, { recursive: true });
   await run("chown", ["-R", `${identity.uid}:${identity.gid}`, cache]);
+}
+export async function deployApplication(context) {
+  await buildApplication(context);
+  const { options, state, release } = context;
   const link = join(options.installDir, "current");
   let previous;
   if (existsSync(link)) {

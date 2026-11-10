@@ -35,7 +35,8 @@
     "media:cleanup": "node scripts/media-cleanup.mjs",
     "seeder:products": "node scripts/seeder-products.mjs",
     "test:scripts": "node --test scripts/seeder/*.test.mjs scripts/system/*.test.mjs",
-    "system:init": "node scripts/system-init.mjs"
+    "system:init": "node scripts/system-init.mjs",
+    "system:update": "node scripts/system-update.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.1.24",
