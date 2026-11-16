@@ -22,6 +22,10 @@ type ListedUser = {
 };
 const userListCache = createAdminUserCache<ListedUser[]>();
 
+export function clearAdminUserListCache() {
+  userListCache.clear();
+}
+
 export async function adminUserDetail(input: unknown) {
   const id = z.uuid().safeParse(input);
   if (!id.success)

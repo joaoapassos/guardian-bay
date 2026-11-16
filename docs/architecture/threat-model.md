@@ -1,5 +1,9 @@
 # Threat model e trust boundaries
 
+## Gestão administrativa de credenciais
+
+Administradores podem criar contas comuns e editar nome, e-mail e senha de outras contas. Essas operações verificam origem e autorização atual no servidor, rejeitam campos de autoridade enviados pelo cliente, aplicam a política de credenciais existente e registram a operação na auditoria da mesma transação. Alterar e-mail ou redefinir senha revoga as sessões da conta alvo; a própria conta não pode ser editada por esse fluxo. A capacidade de redefinir credenciais permite ao administrador assumir outras contas e depende da proteção operacional de contas administrativas. Não há entrega segura de senha inicial nem verificação de e-mail implementada por esse fluxo.
+
 Guardian Bay é um e-commerce de simulação. Este modelo inclui a Epic 11 e aplica as [decisões arquiteturais aprovadas](README.md#decisões-arquiteturais-essenciais).
 
 ## Pagamentos simulados — Epic 11

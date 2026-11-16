@@ -1337,6 +1337,81 @@ describe("admin persistido e atual (ECMSG-48)", () => {
 });
 
 describe("gestão administrativa de usuários", () => {
+  it("cria e edita outra conta com auditoria, revogação e autorização", async () => {
+    const { createAdminUser } = await import("./create-admin-user");
+    const { editAdminUser } = await import("./edit-admin-user");
+    const adminEmail = `${randomUUID()}@example.test`;
+    const email = `${randomUUID()}@example.test`;
+    const nextEmail = `${randomUUID()}@example.test`;
+    const [admin] =
+      await client`INSERT INTO users(email,password_hash,role) VALUES (${adminEmail},${passwordHash},'admin') RETURNING id`;
+    let targetId: string | undefined;
+    try {
+      request.token = undefined;
+      expect(
+        await createAdminUser({ name: "Pessoa teste", email, password }),
+      ).toMatchObject({ success: false, code: "UNAUTHENTICATED" });
+      request.token = (await createSession(admin.id)).token;
+      const created = await createAdminUser({
+        name: "Pessoa teste",
+        email,
+        password,
+      });
+      expect(created.success).toBe(true);
+      if (!created.success) throw new Error("Fixture não criada");
+      targetId = created.id;
+      const [target] =
+        await client`SELECT role, password_hash FROM users WHERE id=${targetId}`;
+      expect(target.role).toBe("customer");
+      expect(await verifyPassword(password, target.password_hash)).toBe(true);
+      expect(
+        await editAdminUser({
+          userId: admin.id,
+          name: "Admin",
+          email: adminEmail,
+          password: "",
+        }),
+      ).toMatchObject({ success: false, code: "SELF" });
+      const targetSession = await createSession(targetId);
+      const replacement = "Outra senha Segura 24!";
+      expect(
+        await editAdminUser({
+          userId: targetId,
+          name: "Nome novo",
+          email: nextEmail,
+          password: replacement,
+        }),
+      ).toEqual({ success: true });
+      expect(await resolveSession(targetSession.token)).toBeNull();
+      const [updated] =
+        await client`SELECT name, email, password_hash FROM users WHERE id=${targetId}`;
+      expect(updated).toMatchObject({ name: "Nome novo", email: nextEmail });
+      expect(await verifyPassword(replacement, updated.password_hash)).toBe(
+        true,
+      );
+      const events =
+        await client`SELECT event_type FROM audit_events WHERE actor_user_id=${admin.id} AND target_id=${targetId} ORDER BY occurred_at`;
+      expect(events.map((event) => event.event_type)).toEqual([
+        "admin.user.created",
+        "admin.user.updated",
+        "admin.user.password_reset",
+      ]);
+      request.token = (await createSession(targetId)).token;
+      expect(
+        await editAdminUser({
+          userId: admin.id,
+          name: "Admin",
+          email: adminEmail,
+          password: "",
+        }),
+      ).toMatchObject({ success: false, code: "FORBIDDEN" });
+    } finally {
+      request.token = undefined;
+      await client`DELETE FROM audit_events WHERE actor_user_id=${admin.id}`;
+      if (targetId) await client`DELETE FROM users WHERE id=${targetId}`;
+      await client`DELETE FROM users WHERE id=${admin.id}`;
+    }
+  });
   it("autoriza somente admin, filtra e revoga sessões ao alterar cargo", async () => {
     const {
       listAdminUsers,

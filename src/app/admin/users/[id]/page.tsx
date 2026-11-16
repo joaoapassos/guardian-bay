@@ -119,6 +119,9 @@ export default async function AdminUserPage({
                 {(
                   {
                     "admin.user.promoted": "Promovido a administrador",
+                    "admin.user.created": "Usuário criado",
+                    "admin.user.updated": "Dados atualizados",
+                    "admin.user.password_reset": "Senha redefinida",
                     "admin.user.demoted": "Alterado para usuário comum",
                     "admin.user.suspended": "Conta suspensa",
                     "admin.user.reactivated": "Conta reativada",

@@ -48,6 +48,16 @@ export function UserActions({
                 Ver detalhes
               </Link>
             </DropdownMenu.Item>
+            {!self && (
+              <DropdownMenu.Item asChild>
+                <Link
+                  className="block rounded-control px-3 py-2 outline-none data-highlighted:bg-surface"
+                  href={`/admin/users/${id}/edit`}
+                >
+                  Editar usuário
+                </Link>
+              </DropdownMenu.Item>
+            )}
             <DropdownMenu.Item asChild>
               <Link
                 className="block rounded-control px-3 py-2 outline-none data-highlighted:bg-surface"

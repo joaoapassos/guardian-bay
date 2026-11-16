@@ -25,7 +25,12 @@ export default async function AdminUsersPage({
   return (
     <main id="main-content" tabIndex={-1} className="admin-page">
       <p className="admin-eyebrow">Administração</p>
-      <h1>Usuários</h1>
+      <div className="flex flex-wrap items-center justify-between gap-5">
+        <h1>Usuários</h1>
+        <Link href="/admin/users/new" className="admin-action">
+          Cadastrar usuário
+        </Link>
+      </div>
       <p className="text-muted">
         Consulte usuários e altere seus cargos. A alteração encerra as sessões
         da conta.
