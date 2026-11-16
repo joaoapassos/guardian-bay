@@ -5,6 +5,8 @@ import { AdminTable } from "../_components/admin-table";
 export default async function CategoriesPage() {
   const result = await readAdminCategories();
   if (!result.success) return <AccessState code={result.code} />;
+  const counts = await countAdminRecords(["categories"]);
+  if (!counts.success) return <AccessState code={counts.code} />;
   return (
     <main id="main-content" tabIndex={-1} className="admin-page">
       <p className="admin-eyebrow">Organização do catálogo</p>
@@ -14,6 +16,10 @@ export default async function CategoriesPage() {
       </div>
       <p className="text-muted">
         Nomes simples para ajudar a encontrar o que importa.
+      </p>
+      <p className="font-semibold">
+        Total de categorias cadastradas:{" "}
+        {counts.totals.categories.toLocaleString("pt-BR")}
       </p>
       <section aria-label="Categorias cadastradas">
         {result.categories.length ? (
@@ -51,3 +57,5 @@ export default async function CategoriesPage() {
     </main>
   );
 }
+
+import { countAdminRecords } from "@/features/admin/server/count-records";

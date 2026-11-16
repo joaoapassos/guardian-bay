@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { countAdminRecords } from "@/features/admin/server/count-records";
 import { listAdminUsers } from "@/features/auth/server/admin-users";
 import { AccessState } from "../_components/access-state";
 import { UsersTable } from "./users-table";
@@ -17,6 +18,8 @@ export default async function AdminUsersPage({
         <Link href="/admin/users">Limpar filtros</Link>
       </main>
     );
+  const counts = await countAdminRecords(["users"]);
+  if (!counts.success) return <AccessState code={counts.code} />;
   const pageLink = (page: number) =>
     `/admin/users?${new URLSearchParams({ role: result.query.role, search: result.query.search, sort: result.query.sort, status: result.query.status, page: String(page) })}`;
   return (
@@ -26,6 +29,10 @@ export default async function AdminUsersPage({
       <p className="text-muted">
         Consulte usuários e altere seus cargos. A alteração encerra as sessões
         da conta.
+      </p>
+      <p className="font-semibold">
+        Total de usuários cadastrados:{" "}
+        {counts.totals.users.toLocaleString("pt-BR")}
       </p>
       <form
         action="/admin/users"

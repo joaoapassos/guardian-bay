@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { countAdminRecords } from "@/features/admin/server/count-records";
 import {
   orderStatusLabel,
   paymentMethodLabel,
@@ -22,6 +23,8 @@ export default async function AdminOrdersPage({
         </Link>
       </main>
     );
+  const counts = await countAdminRecords(["orders"]);
+  if (!counts.success) return <AccessState code={counts.code} />;
   const pageLink = (page: number) =>
     `/admin/orders?${new URLSearchParams({ page: String(page), limit: String(result.query.limit), sort: result.query.sort, status: result.query.status, orderId: result.query.orderId })}`;
   return (
@@ -31,6 +34,10 @@ export default async function AdminOrdersPage({
       <p className="text-muted">
         Consulte os itens e o estado de cada pedido. Pagamentos são simulações
         acadêmicas.
+      </p>
+      <p className="font-semibold">
+        Total de pedidos cadastrados:{" "}
+        {counts.totals.orders.toLocaleString("pt-BR")}
       </p>
       <form
         action="/admin/orders"

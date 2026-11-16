@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { countAdminRecords } from "@/features/admin/server/count-records";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
 import { ProductImage } from "@/features/catalog/components/product-image";
 import { readAdminCatalog } from "@/features/catalog/server/read-admin-catalog";
@@ -24,6 +25,8 @@ export default async function AdminCatalogPage({
       </main>
     );
   }
+  const counts = await countAdminRecords(["products"]);
+  if (!counts.success) return <AccessState code={counts.code} />;
   const pageLink = (page: number) =>
     `/admin/catalog?${new URLSearchParams({ page: String(page), query: result.query.query, category: result.query.category ?? "", publication: result.query.publication })}`;
   const returnQuery = `?returnTo=${encodeURIComponent(pageLink(result.page))}`;
@@ -41,6 +44,10 @@ export default async function AdminCatalogPage({
       </div>
       <p className="text-muted">
         Cuide dos produtos que acompanham seus clientes no dia a dia.
+      </p>
+      <p className="font-semibold">
+        Total de produtos cadastrados:{" "}
+        {counts.totals.products.toLocaleString("pt-BR")}
       </p>
       <form
         action="/admin/catalog"
