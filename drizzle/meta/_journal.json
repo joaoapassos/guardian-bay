@@ -176,6 +176,13 @@
       "when": 1794871119180,
       "tag": "0024_brave_gorilla_man",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794872375620,
+      "tag": "0025_bitter_tempest",
+      "breakpoints": true
     }
   ]
 }

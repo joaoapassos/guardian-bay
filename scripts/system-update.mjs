@@ -21,6 +21,7 @@ import {
   httpProbe,
   pointCurrent,
 } from "./system/services.mjs";
+import { installSimulationService } from "./system/simulation-service.mjs";
 import { loadInstallation, saveInstallation } from "./system/state.mjs";
 import {
   checkMigrationHistory,
@@ -59,6 +60,16 @@ export async function activate(
   const save = dependencies.saveInstallation ?? saveInstallation;
   const delay =
     dependencies.delay ?? (() => new Promise((done) => setTimeout(done, 1000)));
+  const simulationWasActive = dependencies.simulationActive
+    ? await dependencies.simulationActive()
+    : existsSync("/etc/systemd/system/guardian-bay-simulation.service") &&
+      (
+        await execute(
+          "systemctl",
+          ["is-active", "--quiet", "guardian-bay-simulation"],
+          { allowFailure: true },
+        )
+      ).code === 0;
   await point(options.installDir, release.directory);
   try {
     await execute("systemctl", ["restart", "guardian-bay"]);
@@ -76,12 +87,24 @@ export async function activate(
       await delay();
     }
     if (!healthy) throw new Error("Serviço ou resposta HTTP inválidos.");
+    if (simulationWasActive) {
+      await execute("systemctl", ["restart", "guardian-bay-simulation"]);
+      const running = await execute(
+        "systemctl",
+        ["is-active", "--quiet", "guardian-bay-simulation"],
+        { allowFailure: true },
+      );
+      if (running.code !== 0)
+        throw new Error("Simulação não iniciou na nova release.");
+    }
     state.activeRelease = release.directory;
     await save(state);
   } catch (error) {
     try {
       await point(options.installDir, previous);
       await execute("systemctl", ["restart", "guardian-bay"]);
+      if (simulationWasActive)
+        await execute("systemctl", ["restart", "guardian-bay-simulation"]);
       console.error(
         "Release anterior restaurada; verifique sua saúde e a compatibilidade com o banco.",
       );
@@ -257,7 +280,10 @@ async function main() {
           ),
         },
       }),
-    activate: async () => activate(options, state, release, previous),
+    activate: async () => {
+      await installSimulationService(options, state);
+      await activate(options, state, release, previous);
+    },
   });
   console.info(
     "Atualização concluída; serviço ativo e resposta HTTP validada.",

@@ -95,6 +95,14 @@ Upload de um arquivo por produto está no admin. Configure PRODUCT_MEDIA_DIR abs
 
 Seeder explícito, separado da inicialização: `npm run seeder:products` cria 200 produtos; `npm run seeder:products -- 250` escolhe a quantidade inteira de 1 a 1000. Estoque aleatório de 0 a 1000. Os produtos são criados **sem imagem**, com placeholder neutro; imagens próprias podem ser adicionadas pelo upload no admin. Não há API externa, chave de fotos ou download de imagens.
 
+### Simulação contínua
+
+Em uma instalação Guardian Bay no Ubuntu com systemd, `npm run system:simulation` pergunta se deve iniciar ou parar a simulação. Para controle direto, use `npm run system:simulation -- --start`, `--stop` ou `--status`. A unidade é preparada pelo instalador, começa desativada e mantém a escolha após reinicializações. A atualização reinicia a simulação quando ela já estava ativa. A parada aguarda a operação em andamento, sujeita ao timeout de 60 segundos do systemd.
+
+A simulação altera persistentemente o banco da instalação e deve ser usada somente onde dados fictícios são autorizados. Cada ciclo distribui a criação de 1 a 5 usuários, categorias, produtos e pedidos por tipo, em intervalos de cinco minutos; falhas e limite de capacidade podem impedir essa frequência. Os registros são identificados em `simulation_records`. Criações administrativas são auditadas em nome do administrador inicial configurado na instalação; cada pedido é auditado em nome de seu comprador simulado. Não há pagamento real, chamadas externas ou notificações; os produtos e pedidos simulados aparecem na aplicação. Os usuários simulados recebem senhas aleatórias não disponibilizadas.
+
+O limite padrão é 10.000 registros por tipo. Para alterá-lo no servidor, use `sudo systemctl edit guardian-bay-simulation.service` e configure `Environment=SIMULATION_MAX_PER_TYPE=VALOR` em `[Service]` (inteiro de 1 a 1.000.000); reinicie o serviço após alterar. Ao atingir o limite, o worker registra `SIMULATION_LIMIT` e para. O comando `--status` mostra o estado real, tempo ativo e eventos recentes do journal. Um erro de banco é registrado sem dados pessoais e tentado novamente com intervalo progressivo; uma queda da conexão encerra o worker para reinicialização pelo systemd, limitada para evitar loop.
+
 `--dry-run` valida opções sem rede/banco. Configure DATABASE_URL loopback para guardian_bay/guardian_bay_demo e GUARDIAN_LOCAL_DEMO=1; TEST_DATABASE_URL nunca é fallback. O comando imprime a contagem real e permite `npm run seeder:products -- --resume UUID`. Mantenha o checkpoint em var/seeds (ou SEED_STATE_DIR). Lotes atômicos de até 100, nomes normalizados únicos, lock exclusivo e contagem por seedRunId evitam duplicação na retomada. O bootstrap configura os checkpoints do operador no próprio checkout.
 
 ## Inicialização automática em Ubuntu

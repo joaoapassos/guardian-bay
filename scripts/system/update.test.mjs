@@ -64,6 +64,35 @@ test("activation failure restores previous release and never saves the new state
   assert.equal(state.activeRelease, "old");
 });
 
+test("update reinicia a simulação apenas quando já estava ativa", async () => {
+  for (const active of [true, false]) {
+    const calls = [];
+    await activate(
+      { installDir: "/opt/test", appPort: 3000 },
+      { activeRelease: "old" },
+      { directory: "new" },
+      "old",
+      {
+        simulationActive: async () => active,
+        pointCurrent: async () => {},
+        run: async (_command, args) => {
+          calls.push(args);
+          return { code: 0 };
+        },
+        httpProbe: async () => true,
+        saveInstallation: async () => {},
+      },
+    );
+    assert.equal(
+      calls.some(
+        (args) =>
+          args[0] === "restart" && args[1] === "guardian-bay-simulation",
+      ),
+      active,
+    );
+  }
+});
+
 test("healthy activation saves the new release without changing existing configuration", async () => {
   const config = { host: "localhost", appPort: 3456, dbPort: 5433 };
   const state = { activeRelease: "old", config };

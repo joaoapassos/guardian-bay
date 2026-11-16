@@ -31,6 +31,7 @@ import {
 } from "./system/release.mjs";
 import { run } from "./system/runner.mjs";
 import { deployApplication } from "./system/services.mjs";
+import { installSimulationService } from "./system/simulation-service.mjs";
 import {
   assertSameInstallation,
   configurationDirectory,
@@ -200,6 +201,8 @@ export async function runSystemInit(options) {
     await prepareAdmin(context);
     phase = "deploy";
     await deployApplication(context);
+    phase = "simulation";
+    await installSimulationService(options, state);
     console.info(
       "Inicialização concluída. Nenhum teste, seed ou DNS/hosts foi executado.",
     );

@@ -5,6 +5,8 @@ import { join } from "node:path";
 // Review each new migration before adding its exact SHA-256 here.
 const reviewed = new Set([
   "a1d5ec46ecac145f3e7cce090647900f8769ac32053cecc755285a0d13295a4c",
+  "b8eee734d62e6668ade24b18e0b1a3067c334853df643b86258064693451c3be",
+  "15733bd779d13addb9c89276eecda6a2fbc42dd2b3de89a3a5650f15645397a7",
 ]);
 
 export async function readUpdateMigrations(directory) {

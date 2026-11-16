@@ -43,7 +43,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON sessions,login_rate_limits,cart_items,ca
 GRANT SELECT, INSERT, UPDATE ON categories,products,inventory,abuse_budgets,orders,order_payments TO ${app};
 GRANT SELECT, INSERT ON users TO ${app};
 GRANT UPDATE(name,cpf_encrypted,cpf_last2,password_hash,role,suspended) ON users TO ${app};
-GRANT SELECT, INSERT ON audit_events,order_items TO ${app};
+GRANT SELECT, INSERT ON audit_events,order_items,simulation_records TO ${app};
 `;
 }
 export async function psql(
