@@ -42,7 +42,9 @@ async function adminOperation(context, input) {
     throw new Error(
       data.code === "EXISTS"
         ? "E-mail já cadastrado; não houve promoção ou troca de senha."
-        : "Provisionamento administrativo falhou. Senha deve ter1–128 caracteres Unicode válidos; não há regra de força no bootstrap.",
+        : data.code === "NOT_FOUND"
+          ? "Conta administrativa inicial não corresponde ao ID e e-mail registrados."
+          : "Provisionamento administrativo falhou. Senha deve ter1–128 caracteres Unicode válidos; não há regra de força no bootstrap.",
     );
   return data;
 }
@@ -54,7 +56,10 @@ export async function prepareAdmin(context) {
   });
   const expected = state.adminId ?? state.adminPlannedId;
   if (inspection.user) {
-    if (inspection.user.id !== expected || inspection.user.role !== "admin")
+    if (
+      inspection.user.id !== expected ||
+      inspection.user.role !== "superadmin"
+    )
       throw new Error(
         "E-mail já existe e não corresponde ao admin inicial ativo. Não será promovido, redefinido ou adotado.",
       );
@@ -88,4 +93,14 @@ export async function prepareAdmin(context) {
   } finally {
     password = "";
   }
+}
+
+export async function restoreInitialSuperadmin(context) {
+  const { options, state } = context;
+  if (!state.adminId) throw new Error("ID do administrador inicial ausente.");
+  await adminOperation(context, {
+    mode: "restore",
+    email: options.adminEmail,
+    id: state.adminId,
+  });
 }

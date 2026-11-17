@@ -59,6 +59,7 @@ export default async function AdminUsersPage({
             <option value="">Todos</option>
             <option value="customer">Usuários comuns</option>
             <option value="admin">Administradores</option>
+            <option value="superadmin">Superadministradores</option>
           </select>
         </label>
         <label>
@@ -88,7 +89,11 @@ export default async function AdminUsersPage({
       {result.users.length === 0 ? (
         <p className="admin-panel">Nenhum usuário encontrado.</p>
       ) : (
-        <UsersTable users={result.users} actorId={result.actorId} />
+        <UsersTable
+          users={result.users}
+          actorId={result.actorId}
+          actorRole={result.actorRole}
+        />
       )}
       <nav aria-label="Paginação de usuários" className="flex gap-6">
         {result.query.page > 1 && (

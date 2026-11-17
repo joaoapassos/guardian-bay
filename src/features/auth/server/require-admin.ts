@@ -30,7 +30,7 @@ export async function requireAuthenticatedAdmin(tx?: Transaction) {
       .from(users)
       .where(eq(users.id, candidate.userId))
       .for("update");
-    if (!user || user.role !== "admin" || user.suspended)
+    if (!user || !["admin", "superadmin"].includes(user.role) || user.suspended)
       return { success: false as const, code: "FORBIDDEN" as const };
     const [session] = await tx
       .select({ userId: sessions.userId })
@@ -45,7 +45,7 @@ export async function requireAuthenticatedAdmin(tx?: Transaction) {
       )
       .for("update");
     return session
-      ? { success: true as const, identity: { id: user.id } }
+      ? { success: true as const, identity: { id: user.id, role: user.role } }
       : { success: false as const, code: "UNAUTHENTICATED" as const };
   }
   const [identity] = await getDb()
@@ -62,7 +62,10 @@ export async function requireAuthenticatedAdmin(tx?: Transaction) {
     .limit(1);
   if (!identity)
     return { success: false as const, code: "UNAUTHENTICATED" as const };
-  return identity.role === "admin"
-    ? { success: true as const, identity: { id: identity.id } }
+  return ["admin", "superadmin"].includes(identity.role)
+    ? {
+        success: true as const,
+        identity: { id: identity.id, role: identity.role },
+      }
     : { success: false as const, code: "FORBIDDEN" as const };
 }

@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { lstat, readFile, realpath } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { restoreInitialSuperadmin } from "./system/admin.mjs";
 import { databaseUrl, installationSecrets } from "./system/environment.mjs";
 import {
   psql,
@@ -265,6 +266,7 @@ async function main() {
         database: "guardian_bay",
       });
       await verifyDatabaseRoles(options, secrets);
+      await restoreInitialSuperadmin({ options, state, secrets, release });
     },
     build: async () =>
       buildApplication({

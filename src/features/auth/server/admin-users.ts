@@ -9,6 +9,7 @@ import {
   adminUserChangeSchema,
   adminUserQuerySchema,
 } from "../schemas/admin-users.schema";
+import { canManageUser } from "./admin-role-policy";
 import { createAdminUserCache } from "./admin-user-cache";
 import { requireAuthenticatedAdmin } from "./require-admin";
 
@@ -53,6 +54,7 @@ export async function adminUserDetail(input: unknown) {
         success: true as const,
         user: { ...user, createdAt: user.createdAt.toISOString() },
         actorId: auth.identity.id,
+        actorRole: auth.identity.role,
       };
     });
   } catch {
@@ -115,6 +117,7 @@ export async function listAdminUsers(input: unknown) {
         hasNext: rows.length > 20 && query.data.page < 1000,
         query: query.data,
         actorId: auth.identity.id,
+        actorRole: auth.identity.role,
       };
     });
   } catch {
@@ -141,12 +144,22 @@ export async function changeAdminUserRole(input: unknown) {
         .for("update");
       if (!target)
         return { success: false as const, code: "NOT_FOUND" as const };
+      if (!canManageUser(auth.identity.role, target.role))
+        return { success: false as const, code: "FORBIDDEN" as const };
       if (target.role === parsed.data.role) return { success: true as const };
-      if (target.role === "admin" && parsed.data.role === "customer") {
+      if (
+        (target.role === "admin" || target.role === "superadmin") &&
+        parsed.data.role === "customer"
+      ) {
         const admins = await tx
           .select({ id: users.id })
           .from(users)
-          .where(and(eq(users.role, "admin"), eq(users.suspended, false)))
+          .where(
+            and(
+              or(eq(users.role, "admin"), eq(users.role, "superadmin")),
+              eq(users.suspended, false),
+            ),
+          )
           .limit(2);
         if (admins.length < 2)
           return { success: false as const, code: "LAST_ADMIN" as const };
@@ -200,15 +213,22 @@ export async function manageAdminUser(input: unknown) {
         .for("update");
       if (!target)
         return { success: false as const, code: "NOT_FOUND" as const };
+      if (!canManageUser(auth.identity.role, target.role))
+        return { success: false as const, code: "FORBIDDEN" as const };
       if (
         parsed.data.operation === "suspend" &&
         !target.suspended &&
-        target.role === "admin"
+        (target.role === "admin" || target.role === "superadmin")
       ) {
         const admins = await tx
           .select({ id: users.id })
           .from(users)
-          .where(and(eq(users.role, "admin"), eq(users.suspended, false)))
+          .where(
+            and(
+              or(eq(users.role, "admin"), eq(users.role, "superadmin")),
+              eq(users.suspended, false),
+            ),
+          )
           .limit(2);
         if (admins.length < 2)
           return { success: false as const, code: "LAST_ADMIN" as const };

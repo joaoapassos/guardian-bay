@@ -183,6 +183,13 @@
       "when": 1794872375620,
       "tag": "0025_bitter_tempest",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794873819363,
+      "tag": "0026_short_ikaris",
+      "breakpoints": true
     }
   ]
 }

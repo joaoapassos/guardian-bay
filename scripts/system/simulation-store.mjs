@@ -71,7 +71,7 @@ export function createSimulationStore({ db, adminEmail, maxPerType }) {
         let actor;
         if (kind !== "order") {
           [actor] = await tx.execute(
-            sql`SELECT id FROM users WHERE email = ${admin.data} AND role = 'admin' AND NOT suspended FOR SHARE`,
+            sql`SELECT id FROM users WHERE email = ${admin.data} AND role IN ('admin', 'superadmin') AND NOT suspended FOR SHARE`,
           );
           if (!actor) throw new Error("ADMIN_UNAVAILABLE");
         }

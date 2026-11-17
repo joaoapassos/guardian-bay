@@ -20,9 +20,11 @@ type User = {
 export function UsersTable({
   users,
   actorId,
+  actorRole,
 }: {
   users: User[];
   actorId: string;
+  actorRole: string;
 }) {
   const columns: ColumnDef<User>[] = [
     {
@@ -64,7 +66,11 @@ export function UsersTable({
       header: "Cargo",
       cell: ({ row }) => (
         <span className="inline-flex rounded-control border border-line px-3 py-1 text-sm">
-          {row.original.role === "admin" ? "Administrador" : "Usuário comum"}
+          {row.original.role === "superadmin"
+            ? "Superadministrador"
+            : row.original.role === "admin"
+              ? "Administrador"
+              : "Usuário comum"}
         </span>
       ),
     },
@@ -80,6 +86,7 @@ export function UsersTable({
         <UserActions
           id={row.original.id}
           role={row.original.role}
+          actorRole={actorRole}
           self={row.original.id === actorId}
           suspended={row.original.suspended}
           label={row.original.name || row.original.email}
@@ -114,6 +121,7 @@ export function UsersTable({
                 <UserActions
                   id={user.id}
                   role={user.role}
+                  actorRole={actorRole}
                   self={user.id === actorId}
                   suspended={user.suspended}
                   label={user.name || user.email}
@@ -134,7 +142,11 @@ export function UsersTable({
               <div>
                 <dt className="text-muted">Cargo</dt>
                 <dd className="mt-1">
-                  {user.role === "admin" ? "Administrador" : "Usuário comum"}
+                  {user.role === "superadmin"
+                    ? "Superadministrador"
+                    : user.role === "admin"
+                      ? "Administrador"
+                      : "Usuário comum"}
                 </dd>
               </div>
               <div>

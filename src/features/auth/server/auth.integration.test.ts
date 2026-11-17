@@ -1308,7 +1308,7 @@ describe("admin persistido e atual (ECMSG-48)", () => {
       await client`UPDATE users SET role='admin' WHERE id=${user.id}`;
       expect(await requireAuthenticatedAdmin()).toEqual({
         success: true,
-        identity: { id: user.id },
+        identity: { id: user.id, role: "admin" },
       });
       await client`UPDATE users SET role='customer' WHERE id=${user.id}`;
       expect(await requireAuthenticatedAdmin()).toEqual({
@@ -1422,7 +1422,7 @@ describe("gestão administrativa de usuários", () => {
     const adminEmail = `${randomUUID()}@example.test`;
     const targetEmail = `${randomUUID()}@example.test`;
     const [admin] =
-      await client`INSERT INTO users(email,password_hash,role,name) VALUES (${adminEmail},${passwordHash},'admin','Admin teste') RETURNING id`;
+      await client`INSERT INTO users(email,password_hash,role,name) VALUES (${adminEmail},${passwordHash},'superadmin','Admin teste') RETURNING id`;
     const [target] =
       await client`INSERT INTO users(email,password_hash,name) VALUES (${targetEmail},${passwordHash},'Pessoa teste') RETURNING id`;
     try {
@@ -1528,4 +1528,56 @@ describe("gestão administrativa de usuários", () => {
       await client`DELETE FROM users WHERE id IN (${admin.id}, ${target.id})`;
     }
   });
+});
+
+it("SUPERADMIN manages administrators; administrators cannot edit or revoke another administrator", async () => {
+  const { editAdminUser } = await import("./edit-admin-user");
+  const { manageAdminUser, changeAdminUserRole } = await import(
+    "./admin-users"
+  );
+  const addresses = Array.from(
+    { length: 3 },
+    () => `${randomUUID()}@roles.example.test`,
+  );
+  const created =
+    await client`INSERT INTO users(email,password_hash,role) VALUES (${addresses[0]},${passwordHash},'superadmin'), (${addresses[1]},${passwordHash},'admin'), (${addresses[2]},${passwordHash},'admin') RETURNING id,email,role`;
+  const superuser = created.find((user) => user.role === "superadmin");
+  const admins = created.filter((user) => user.role === "admin");
+  if (!superuser || admins.length !== 2)
+    throw new Error("Invalid role fixtures");
+  try {
+    const targetSession = await createSession(admins[1].id);
+    request.token = (await createSession(admins[0].id)).token;
+    const edit = {
+      userId: admins[1].id,
+      name: "Alterado",
+      email: admins[1].email,
+      password: "",
+    };
+    expect(await editAdminUser(edit)).toMatchObject({
+      success: false,
+      code: "FORBIDDEN",
+    });
+    expect(
+      await manageAdminUser({ userId: admins[1].id, operation: "revoke" }),
+    ).toMatchObject({ success: false, code: "FORBIDDEN" });
+    expect(
+      await manageAdminUser({ userId: superuser.id, operation: "suspend" }),
+    ).toMatchObject({ success: false, code: "FORBIDDEN" });
+    expect(
+      await changeAdminUserRole({ userId: admins[1].id, role: "customer" }),
+    ).toMatchObject({ success: false, code: "FORBIDDEN" });
+    expect(await resolveSession(targetSession.token)).not.toBeNull();
+    request.token = (await createSession(superuser.id)).token;
+    expect(await editAdminUser(edit)).toEqual({ success: true });
+    expect(
+      await manageAdminUser({ userId: admins[1].id, operation: "revoke" }),
+    ).toEqual({ success: true });
+    expect(await resolveSession(targetSession.token)).toBeNull();
+  } finally {
+    request.token = undefined;
+    const ids = created.map((user) => user.id);
+    await client`DELETE FROM audit_events WHERE actor_user_id IN ${client(ids)}`;
+    await client`DELETE FROM users WHERE id IN ${client(ids)}`;
+  }
 });

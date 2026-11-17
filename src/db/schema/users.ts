@@ -19,14 +19,17 @@ export const users = pgTable(
     cpfEncrypted: text("cpf_encrypted"),
     cpfLast2: varchar("cpf_last2", { length: 2 }),
     passwordHash: text("password_hash").notNull(),
-    role: varchar("role", { length: 8 }).default("customer").notNull(),
+    role: varchar("role", { length: 10 }).default("customer").notNull(),
     suspended: boolean("suspended").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
   (table) => [
-    check("users_role", sql`${table.role} IN ('customer', 'admin')`),
+    check(
+      "users_role",
+      sql`${table.role} IN ('customer', 'admin', 'superadmin')`,
+    ),
     check(
       "users_email_canonical",
       sql`${table.email} = lower(${table.email}) AND ${table.email} COLLATE "C" ~ '^[!-~]+$' AND ${table.email} ~ '^[^@]+@[^@]+$'`,

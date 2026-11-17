@@ -30,7 +30,7 @@ test("initial admin accepts exact technical password; existing email never chang
     );
     const [before] =
       await sql`SELECT password_hash,role FROM users WHERE id=${id}`;
-    assert.equal(before.role, "admin");
+    assert.equal(before.role, "superadmin");
     assert.equal(await verify(before.password_hash, " x "), true);
     assert.equal(await verify(before.password_hash, "x"), false);
     assert.deepEqual(
@@ -57,6 +57,22 @@ test("initial admin accepts exact technical password; existing email never chang
     assert.equal(
       (await sql`SELECT role FROM users WHERE id=${id}`)[0].role,
       "customer",
+    );
+    assert.deepEqual(
+      await provisionInitialAdmin(sql, { mode: "restore", id, email }),
+      { success: true, id },
+    );
+    const [restored] =
+      await sql`SELECT role,password_hash FROM users WHERE id=${id}`;
+    assert.equal(restored.role, "superadmin");
+    assert.equal(restored.password_hash, before.password_hash);
+    assert.deepEqual(
+      await provisionInitialAdmin(sql, {
+        mode: "restore",
+        id: randomUUID(),
+        email,
+      }),
+      { success: false, code: "NOT_FOUND" },
     );
     await assert.rejects(
       provisionInitialAdmin(sql, {

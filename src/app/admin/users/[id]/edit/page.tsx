@@ -13,7 +13,11 @@ export default async function EditUserPage({
     if (result.code === "NOT_FOUND") notFound();
     return <AccessState code={result.code} />;
   }
-  if (result.actorId === id) return <AccessState code="FORBIDDEN" />;
+  if (
+    result.actorId === id ||
+    (result.actorRole !== "superadmin" && result.user.role !== "customer")
+  )
+    return <AccessState code="FORBIDDEN" />;
   return (
     <main id="main-content" tabIndex={-1} className="admin-page">
       <Link href={`/admin/users/${id}`} className="auth-link">

@@ -9,12 +9,14 @@ import { ManageUserForm } from "./manage-user-form";
 export function UserActions({
   id,
   role,
+  actorRole,
   self,
   suspended,
   label,
 }: {
   id: string;
   role: string;
+  actorRole: string;
   self: boolean;
   suspended: boolean;
   label: string;
@@ -26,6 +28,10 @@ export function UserActions({
   const [operation, setOperation] = useState<
     "suspend" | "reactivate" | "revoke" | null
   >(null);
+  const canManage =
+    !self &&
+    (actorRole === "superadmin" ||
+      (actorRole === "admin" && role === "customer"));
   return (
     <>
       <DropdownMenu.Root>
@@ -48,7 +54,7 @@ export function UserActions({
                 Ver detalhes
               </Link>
             </DropdownMenu.Item>
-            {!self && (
+            {canManage && (
               <DropdownMenu.Item asChild>
                 <Link
                   className="block rounded-control px-3 py-2 outline-none data-highlighted:bg-surface"
@@ -74,25 +80,25 @@ export function UserActions({
                 Consultar auditoria
               </Link>
             </DropdownMenu.Item>
-            {!self && (
+            {canManage && (
               <DropdownMenu.Item
                 className="cursor-pointer rounded-control px-3 py-2 outline-none data-highlighted:bg-surface"
                 disabled={pending}
                 onSelect={() => {
                   const form = new FormData();
                   form.set("userId", id);
-                  form.set("role", role === "admin" ? "customer" : "admin");
+                  form.set("role", role === "customer" ? "admin" : "customer");
                   startTransition(() => changeRole(form));
                 }}
               >
                 {pending
                   ? "Alterando cargo…"
-                  : role === "admin"
+                  : role !== "customer"
                     ? "Remover administrador"
                     : "Tornar administrador"}
               </DropdownMenu.Item>
             )}
-            {!self && (
+            {canManage && (
               <>
                 <DropdownMenu.Item
                   className="cursor-pointer rounded-control px-3 py-2 outline-none data-highlighted:bg-surface"

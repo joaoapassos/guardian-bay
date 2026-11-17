@@ -55,11 +55,16 @@ export default async function AdminUserPage({
         </p>
         <p>
           Cargo:{" "}
-          {detail.user.role === "admin" ? "Administrador" : "Usuário comum"}
+          {detail.user.role === "superadmin"
+            ? "Superadministrador"
+            : detail.user.role === "admin"
+              ? "Administrador"
+              : "Usuário comum"}
         </p>
         <UserActions
           id={id}
           role={detail.user.role}
+          actorRole={detail.actorRole}
           self={detail.actorId === id}
           suspended={detail.user.suspended}
           label={detail.user.name || detail.user.email}

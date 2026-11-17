@@ -14,6 +14,25 @@ export async function provisionInitialAdmin(sql, input) {
     const [user] = await sql`SELECT id,role FROM users WHERE email=${email}`;
     return { success: true, user: user ?? null };
   }
+  if (input.mode === "restore") {
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+        input.id ?? "",
+      )
+    )
+      throw new Error("INVALID_INPUT");
+    return sql.begin(async (tx) => {
+      await tx`SELECT pg_advisory_xact_lock(1195521365, 1)`;
+      const [user] =
+        await tx`SELECT id, role FROM users WHERE id=${input.id} AND email=${email} FOR UPDATE`;
+      if (!user) return { success: false, code: "NOT_FOUND" };
+      if (user.role !== "superadmin") {
+        await tx`UPDATE users SET role='superadmin' WHERE id=${input.id}`;
+        await tx`DELETE FROM sessions WHERE user_id=${input.id}`;
+      }
+      return { success: true, id: user.id };
+    });
+  }
   if (
     input.mode !== "create" ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
@@ -30,7 +49,7 @@ export async function provisionInitialAdmin(sql, input) {
       await tx`SELECT id FROM users WHERE email=${email} FOR UPDATE`;
     if (existing) return { success: false, code: "EXISTS" };
     const [user] =
-      await tx`INSERT INTO users(id,email,password_hash,role) VALUES (${input.id},${email},${passwordHash},'admin') RETURNING id`;
+      await tx`INSERT INTO users(id,email,password_hash,role) VALUES (${input.id},${email},${passwordHash},'superadmin') RETURNING id`;
     return { success: true, id: user.id };
   });
 }

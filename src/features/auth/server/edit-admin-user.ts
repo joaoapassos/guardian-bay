@@ -4,6 +4,7 @@ import { sessions } from "@/db/schema/sessions";
 import { users } from "@/db/schema/users";
 import { writeAuditEvent } from "@/lib/audit/server";
 import { adminUserEditSchema } from "../schemas/admin-user-edit.schema";
+import { canManageUser } from "./admin-role-policy";
 import { clearAdminUserListCache } from "./admin-users";
 import { reserveLoginAttempt, withLoginHashSlot } from "./login-rate-limit";
 import { hashPassword } from "./password";
@@ -26,11 +27,18 @@ export async function editAdminUser(input: unknown) {
     if (auth.identity.id === parsed.data.userId)
       return { success: false as const, code: "SELF" as const };
     const [target] = await tx
-      .select({ id: users.id, email: users.email, name: users.name })
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        role: users.role,
+      })
       .from(users)
       .where(eq(users.id, parsed.data.userId))
       .for("update");
     if (!target) return { success: false as const, code: "NOT_FOUND" as const };
+    if (!canManageUser(auth.identity.role, target.role))
+      return { success: false as const, code: "FORBIDDEN" as const };
     const [duplicate] = await tx
       .select({ id: users.id })
       .from(users)
