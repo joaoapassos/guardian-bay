@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { SystemState } from "@/components/shared/system-state";
+import { forbidden, redirect } from "next/navigation";
 import { countAdminRecords } from "@/features/admin/server/count-records";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
 import { DashboardAreas } from "./_components/dashboard-areas";
@@ -8,7 +7,7 @@ export default async function AdminPage() {
   const access = await requireAuthenticatedAdmin();
   if (!access.success) {
     if (access.code === "UNAUTHENTICATED") redirect("/login");
-    return <SystemState kind="access-denied" />;
+    forbidden();
   }
   const counts = await countAdminRecords([
     "products",
@@ -18,7 +17,7 @@ export default async function AdminPage() {
   ]);
   if (!counts.success) {
     if (counts.code === "UNAUTHENTICATED") redirect("/login");
-    return <SystemState kind="access-denied" />;
+    forbidden();
   }
   return (
     <main id="main-content" tabIndex={-1} className="admin-page">

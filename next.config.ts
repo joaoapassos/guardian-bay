@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   images: {},
   experimental: {
+    authInterrupts: true,
     serverActions: { bodySizeLimit: "16kb" },
   },
   headers() {

@@ -23,8 +23,9 @@ export async function GET(
       },
     });
   } catch {
+    console.error("Falha ao consultar mídia de produto.");
     return new Response(null, {
-      status: 404,
+      status: 503,
       headers: { "Cache-Control": "private, no-store" },
     });
   }

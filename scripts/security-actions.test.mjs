@@ -285,6 +285,7 @@ export default async function Probe() {
               "http://127.0.0.1:3108",
             ])
               assert.equal((await upload({ origin })).status, 403);
+            assert.equal((await upload({ cookie: "" })).status, 401);
             assert.equal((await upload()).status, 403);
             await client`UPDATE users SET role='admin' WHERE id=${user.id}`;
             const response = await upload();
@@ -1205,6 +1206,7 @@ export default async function Probe() {
             "/admin/orders",
           ]) {
             const response = await fetch(base + path, { headers: { cookie } });
+            assert.equal(response.status, 403);
             assert.match(
               await response.text(),
               /Esta área precisa de permissão/,
@@ -1314,9 +1316,11 @@ export default async function Probe() {
               "/admin/audit",
               `/admin/orders/${order.id}`,
             ]) {
-              const body = await (
-                await fetch(base + path, { headers: { cookie } })
-              ).text();
+              const response = await fetch(base + path, {
+                headers: { cookie },
+              });
+              assert.equal(response.status, 403);
+              const body = await response.text();
               assert.match(body, /Esta área precisa de permissão/);
               assert.ok(!body.includes("HTTP immutable snapshot"));
             }
@@ -1454,6 +1458,7 @@ export default async function Probe() {
             const deniedAudit = await fetch(`${base}/admin/audit`, {
               headers: { cookie },
             });
+            assert.equal(deniedAudit.status, 403);
             assert.match(
               await deniedAudit.text(),
               /Esta área precisa de permissão/,

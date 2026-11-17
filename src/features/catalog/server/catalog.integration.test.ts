@@ -752,7 +752,7 @@ it("upload revalidates admin/origin, rejects spoofed content and enforces budget
   request.token = undefined;
   expect(await uploadFixture()).toMatchObject({
     success: false,
-    code: "FORBIDDEN",
+    code: "UNAUTHENTICATED",
   });
   request.token = (await createSession(userId)).token;
   await client`UPDATE users SET role='customer' WHERE id=${userId}`;
@@ -826,6 +826,15 @@ it("private upload draft becomes public only after authorized association", asyn
   const files = await readdir(mediaDirectory);
   expect(files.some((file) => file === `${result.mediaId}.webp`)).toBe(true);
   expect(files.some((file) => file.includes("untrusted"))).toBe(false);
+});
+it("treats a missing media file as absent", async () => {
+  await client`UPDATE users SET role='admin' WHERE id=${userId}`;
+  request.token = (await createSession(userId)).token;
+  const uploaded = await uploadFixture();
+  expect(uploaded.success).toBe(true);
+  if (!uploaded.success) throw new Error("Fixture de mídia não criada.");
+  await rm(resolve(mediaDirectory, `${uploaded.mediaId}.webp`));
+  expect(await readProductImage(uploaded.mediaId)).toBeNull();
 });
 it("draft ownership, expiry and stale revision prevent unauthorized attachment", async () => {
   await client`UPDATE users SET role='admin' WHERE id=${userId}`;

@@ -23,8 +23,7 @@ export async function uploadProductImage(request: Request) {
   try {
     const access = await getDb().transaction(async (tx) => {
       const auth = await requireAuthenticatedAdmin(tx);
-      if (!auth.success)
-        return { success: false as const, code: "FORBIDDEN" as const };
+      if (!auth.success) return auth;
       if (!(await reserveAbuseBudget(tx, auth.identity.id, "admin.media")))
         return { success: false as const, code: "RATE_LIMITED" as const };
       return auth;
@@ -55,7 +54,8 @@ export async function uploadProductImage(request: Request) {
     const key = `${id}.webp`;
     const result = await getDb().transaction(async (tx) => {
       const fresh = await requireAuthenticatedAdmin(tx);
-      if (!fresh.success || fresh.identity.id !== access.identity.id)
+      if (!fresh.success) return fresh;
+      if (fresh.identity.id !== access.identity.id)
         return { success: false as const, code: "FORBIDDEN" as const };
       await storeMedia(key, image.bytes);
       stored = key;

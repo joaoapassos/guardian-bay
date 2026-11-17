@@ -764,7 +764,7 @@ test("production HTTP, browser policies and identity workflows", async (t) => {
                       cookie: `__Host-guardian-session=${customerCookie.value}`,
                     },
                   });
-                  assert.equal(denied.status, 200);
+                  assert.equal(denied.status, 403);
                   assert.match(
                     await denied.text(),
                     /Esta área precisa de permissão/,

@@ -1,6 +1,5 @@
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { SystemState } from "@/components/shared/system-state";
+import { forbidden, redirect } from "next/navigation";
 import { UserMenu } from "@/features/auth/components/user-menu";
 import { loginHref } from "@/features/auth/safe-return";
 import { requireAuthenticatedAdmin } from "@/features/auth/server/require-admin";
@@ -17,7 +16,7 @@ export default async function AdminLayout({
       redirect(
         loginHref((await headers()).get("x-guardian-return-to") ?? "/admin"),
       );
-    return <SystemState kind="access-denied" />;
+    forbidden();
   }
   const identity = await getAuthenticatedIdentity();
   return (

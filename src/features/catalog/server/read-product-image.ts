@@ -35,7 +35,14 @@ export async function readProductImage(input: unknown) {
     )
       return null;
   }
-  const bytes = await loadMedia(media.key);
+  let bytes: Buffer;
+  try {
+    bytes = await loadMedia(media.key);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return null;
+    throw error;
+  }
   if (!published && !(await requireAuthenticatedAdmin()).success) return null;
   return { bytes, public: Boolean(published) };
 }
