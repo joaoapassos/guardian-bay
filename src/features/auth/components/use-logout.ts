@@ -14,9 +14,11 @@ export function useLogout() {
     inFlight.current = true;
     setPending(true);
     setMessage("");
+    let completed = false;
     try {
       const result = await logoutAction();
       if (result.success) {
+        completed = true;
         window.dispatchEvent(new Event("guardian:logout"));
         router.replace("/");
         router.refresh();
@@ -24,8 +26,10 @@ export function useLogout() {
     } catch {
       setMessage("Não foi possível sair agora. Tente novamente.");
     } finally {
-      inFlight.current = false;
-      setPending(false);
+      if (!completed) {
+        inFlight.current = false;
+        setPending(false);
+      }
     }
   }
   return { logout, pending, message };

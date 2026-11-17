@@ -18,6 +18,7 @@ export function PaymentMethodForm({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const prefix = useId();
   const heading = useRef<HTMLHeadingElement>(null);
+  const inFlight = useRef(false);
   const [message, setMessage] = useState("");
   const {
     register,
@@ -36,6 +37,7 @@ export function PaymentMethodForm({ onClose }: { onClose: () => void }) {
       noValidate
       className="space-y-5 rounded-panel border border-line bg-surface p-5 sm:p-7"
       onSubmit={handleSubmit(async (values) => {
+        if (inFlight.current) return;
         setMessage("");
         const parsed = cardFormSchema.safeParse(values);
         if (!parsed.success) {
@@ -53,6 +55,7 @@ export function PaymentMethodForm({ onClose }: { onClose: () => void }) {
           }
           return;
         }
+        inFlight.current = true;
         try {
           const result = await savePaymentMethodAction(parsed.data);
           if (result.success) {
@@ -75,6 +78,7 @@ export function PaymentMethodForm({ onClose }: { onClose: () => void }) {
             "Não foi possível confirmar o cadastro. Atualize a página antes de tentar novamente.",
           );
         } finally {
+          inFlight.current = false;
           resetField("cvv", { defaultValue: "" });
         }
       })}

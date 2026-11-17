@@ -5,9 +5,11 @@ export function createActivityReporter(
 ) {
   let lastAttempt: number | null = null;
   let pending = false;
-  return async () => {
+  let stopped = false;
+  const report = async () => {
     const { now, visible } = readState();
     if (
+      stopped ||
       pending ||
       !visible ||
       !Number.isFinite(now) ||
@@ -24,4 +26,12 @@ export function createActivityReporter(
       pending = false;
     }
   };
+  report.stop = () => {
+    stopped = true;
+  };
+  report.resume = () => {
+    stopped = false;
+    lastAttempt = null;
+  };
+  return report;
 }

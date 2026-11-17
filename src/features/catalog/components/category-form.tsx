@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { manageCatalogAction } from "../actions/manage-catalog.action";
 
 export function CategoryForm({
@@ -12,6 +12,7 @@ export function CategoryForm({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
   const [message, setMessage] = useState("");
   return (
     <form
@@ -22,7 +23,7 @@ export function CategoryForm({
       className="space-y-4"
       onSubmit={async (event) => {
         event.preventDefault();
-        if (busy) return;
+        if (inFlight.current) return;
         const name = new FormData(event.currentTarget).get("name");
         if (
           category &&
@@ -32,6 +33,7 @@ export function CategoryForm({
           setMessage("Já está atualizado.");
           return;
         }
+        inFlight.current = true;
         setBusy(true);
         setMessage("");
         try {
@@ -73,6 +75,7 @@ export function CategoryForm({
         } catch {
           setMessage("Não foi possível concluir agora.");
         } finally {
+          inFlight.current = false;
           setBusy(false);
         }
       }}

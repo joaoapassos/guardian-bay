@@ -46,9 +46,12 @@ export function ProductForm({
   > | null>(null);
   const submitRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const inFlight = useRef(false);
   async function save(
     fields: Record<string, FormDataEntryValue | number | boolean | null>,
   ) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setMessage("");
     try {
@@ -87,6 +90,7 @@ export function ProductForm({
     } catch {
       setMessage("Não foi possível concluir agora.");
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }

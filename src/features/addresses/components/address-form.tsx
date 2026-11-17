@@ -36,6 +36,7 @@ export function AddressForm({
   const router = useRouter();
   const [message, setMessage] = useState("");
   const heading = useRef<HTMLHeadingElement>(null);
+  const inFlight = useRef(false);
   useEffect(() => {
     heading.current?.focus();
   }, []);
@@ -65,6 +66,7 @@ export function AddressForm({
       aria-busy={isSubmitting}
       className="space-y-6 rounded-panel border border-line bg-surface p-5 sm:p-7"
       onSubmit={handleSubmit(async (values) => {
+        if (inFlight.current) return;
         setMessage("");
         // RHF stores only the intended fields; identifiers stay outside the form payload.
         const parsed = addressSnapshotSchema.safeParse(values);
@@ -82,6 +84,7 @@ export function AddressForm({
           setMessage("Já está atualizado.");
           return;
         }
+        inFlight.current = true;
         try {
           const result = address
             ? await updateAddressAction({
@@ -109,6 +112,8 @@ export function AddressForm({
             );
         } catch {
           setMessage("Não foi possível salvar agora. Tente novamente.");
+        } finally {
+          inFlight.current = false;
         }
       })}
     >

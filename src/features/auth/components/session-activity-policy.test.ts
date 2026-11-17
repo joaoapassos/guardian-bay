@@ -63,3 +63,15 @@ it("network failures do not trigger retries or a background timer", async () => 
   await report();
   expect(send).toHaveBeenCalledTimes(2);
 });
+
+it("stops activity after logout and resumes only after identity changes", async () => {
+  const state = { now: 0, visible: true };
+  const send = vi.fn(async () => ({ success: true }));
+  const report = createActivityReporter(send, () => state);
+  report.stop();
+  await report();
+  expect(send).not.toHaveBeenCalled();
+  report.resume();
+  await report();
+  expect(send).toHaveBeenCalledTimes(1);
+});

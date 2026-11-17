@@ -12,10 +12,19 @@ export function SessionActivity() {
     const onActivity = () => {
       void report();
     };
+    const onLogout = () => report.stop();
+    const onIdentityChanged = () => report.resume();
+    window.addEventListener("guardian:logout", onLogout);
+    window.addEventListener("guardian:identity-changed", onIdentityChanged);
     const events = ["pointerdown", "keydown", "wheel", "popstate"] as const;
     for (const event of events)
       window.addEventListener(event, onActivity, { passive: true });
     return () => {
+      window.removeEventListener("guardian:logout", onLogout);
+      window.removeEventListener(
+        "guardian:identity-changed",
+        onIdentityChanged,
+      );
       for (const event of events) window.removeEventListener(event, onActivity);
     };
   }, []);
